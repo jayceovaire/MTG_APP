@@ -9,7 +9,7 @@ import Roast from "../views/Roast.vue";
 
 const routes = [
     { path: "/", component: HomeView },
-    { path: "/deck-editor", component: DeckEditor },
+    { path: "/deck-editor/:deckId", component: DeckEditor, props: true },
     { path: "/deck-library", component: DeckLibrary },
     {path: "/power-calculator", component: PowerCalculator},
     {path: "/collection", component: Collection},

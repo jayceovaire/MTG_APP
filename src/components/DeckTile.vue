@@ -19,14 +19,68 @@ const pendingName = ref("");
 const isRenaming = ref(false);
 
 const deckName = computed(() => props.deck?.name || "Untitled");
-const commanderName = computed(() => "No Commander");
+const commanderName = computed(() => {
+  const commander = props.deck?.commander;
+  if (!commander || commander === "None") {
+    return "No Commander";
+  }
+
+  if (commander.Single?.name) {
+    return commander.Single.name;
+  }
+
+  if (Array.isArray(commander.Partner) && commander.Partner.length === 2) {
+    return commander.Partner
+      .map((card) => card?.name)
+      .filter(Boolean)
+      .join(" / ");
+  }
+
+  return "No Commander";
+});
 const cardCount = computed(() => Array.isArray(props.deck?.cards) ? props.deck.cards.length : 0);
-const colorProfile = computed(() => "WUBRG");
-const powerLevel = computed(() => "8.5");
+const colorProfile = computed(() => {
+  const cards = Array.isArray(props.deck?.cards) ? props.deck.cards : [];
+  const commander = props.deck?.commander;
+  const colorOrder = ["W", "U", "B", "R", "G"];
+  const colors = new Set();
+
+  function addColorsFromCard(card) {
+    const manaCost = typeof card?.mana_cost === "string" ? card.mana_cost : "";
+    for (const color of colorOrder) {
+      if (manaCost.includes(`{${color}}`)) {
+        colors.add(color);
+      }
+    }
+  }
+
+  for (const card of cards) {
+    addColorsFromCard(card);
+  }
+
+  if (commander?.Single) {
+    addColorsFromCard(commander.Single);
+  } else if (Array.isArray(commander?.Partner)) {
+    for (const card of commander.Partner) {
+      addColorsFromCard(card);
+    }
+  }
+
+  return colorOrder.filter((color) => colors.has(color)).join("") || "Colorless";
+});
+const averageManaValue = computed(() => {
+  const cards = Array.isArray(props.deck?.cards) ? props.deck.cards : [];
+  if (cards.length === 0) {
+    return "0.00";
+  }
+
+  const totalManaValue = cards.reduce((sum, card) => sum + (Number(card?.mana_value) || 0), 0);
+  return (totalManaValue / cards.length).toFixed(2);
+});
 const bracket = computed(() => "4");
 
 function goToDeckEditor() {
-  router.push("/deck-editor");
+  router.push(`/deck-editor/${props.deck.id}`);
 }
 
 // RENAME DECK
@@ -122,8 +176,8 @@ async function submitDelete(){
           <span class="stat-value">{{ colorProfile }}</span>
         </div>
         <div class="stat-row">
-          <span class="stat-label">Power</span>
-          <span class="stat-value">{{ powerLevel }}</span>
+          <span class="stat-label">Avg MV</span>
+          <span class="stat-value">{{ averageManaValue }}</span>
         </div>
         <div class="stat-row">
           <span class="stat-label">Bracket</span>

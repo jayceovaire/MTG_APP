@@ -100,7 +100,7 @@ fn parse_sub_types(type_line: &str) -> Vec<String> {
     }
 }
 
-fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, String> {
+pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, String> {
     let connection = Connection::open(scryfall_db_path())
         .map_err(|e| format!("Failed to open scryfall.db: {e}"))?;
     ensure_lookup_indexes(&connection)?;

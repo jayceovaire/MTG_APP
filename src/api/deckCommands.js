@@ -55,3 +55,63 @@ export async function getDecksCommand() {
     throw e;
   }
 }
+
+/** @returns {Promise<Deck>} */
+export async function getDeckCommand(deckId) {
+  try {
+    return await invoke("get_deck", { deckId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Deck>} */
+export async function addCardToDeckCommand(deckId, name) {
+  try {
+    return await invoke("add_card_to_deck", { deckId, name });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Deck>} */
+export async function removeCardFromDeckCommand(deckId, cardId) {
+  try {
+    return await invoke("remove_card_from_deck", { deckId, cardId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Deck>} */
+export async function setDeckCommanderCommand(deckId, cardId) {
+  try {
+    return await invoke("set_deck_commander", { deckId, cardId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Deck>} */
+export async function removeDeckCommanderCommand(deckId) {
+  try {
+    return await invoke("remove_deck_commander", { deckId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Deck>} */
+export async function deleteDeckCommanderCommand(deckId) {
+  try {
+    return await invoke("delete_deck_commander", { deckId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}

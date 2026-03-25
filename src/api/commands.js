@@ -8,6 +8,12 @@ export {
   deleteDeckCommand,
   duplicateDeckCommand,
   getDecksCommand,
+  getDeckCommand,
+  addCardToDeckCommand,
+  removeCardFromDeckCommand,
+  setDeckCommanderCommand,
+  removeDeckCommanderCommand,
+  deleteDeckCommanderCommand,
 } from "./deckCommands.js";
 
 export {

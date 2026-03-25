@@ -26,9 +26,15 @@ pub fn run() {
             commands::collection_commands::get_collection,
             commands::deck_commands::create_deck,
             commands::deck_commands::get_decks,
+            commands::deck_commands::get_deck,
             commands::deck_commands::rename_deck,
             commands::deck_commands::delete_deck,
             commands::deck_commands::duplicate_deck,
+            commands::deck_commands::add_card_to_deck,
+            commands::deck_commands::remove_card_from_deck,
+            commands::deck_commands::set_deck_commander,
+            commands::deck_commands::remove_deck_commander,
+            commands::deck_commands::delete_deck_commander,
             commands::deck_commands::test_command,
         ])
         .manage(app_state)

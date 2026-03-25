@@ -98,6 +98,60 @@ impl Deck {
         &self.commander
     }
 
+    pub fn set_single_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {
+        let card_index = self
+            .cards
+            .iter()
+            .position(|card| card.id() == card_id)
+            .ok_or_else(|| format!("Card with id {} not found in deck", card_id))?;
+
+        let selected_card = self.cards.remove(card_index);
+        if !selected_card.can_be_commander() {
+            self.cards.insert(card_index, selected_card);
+            return Err("Selected card cannot be a commander".to_string());
+        }
+
+        let previous_commander = std::mem::replace(&mut self.commander, CommanderSelection::None);
+        match previous_commander {
+            CommanderSelection::None => {}
+            CommanderSelection::Single(card) => self.cards.push(card),
+            CommanderSelection::Partner(first, second) => {
+                self.cards.push(first);
+                self.cards.push(second);
+            }
+        }
+
+        self.commander = CommanderSelection::Single(selected_card);
+        Ok(())
+    }
+
+    pub fn clear_commander_to_deck(&mut self) -> Result<(), String> {
+        let previous_commander = std::mem::replace(&mut self.commander, CommanderSelection::None);
+
+        match previous_commander {
+            CommanderSelection::None => Err("Deck does not have a commander".to_string()),
+            CommanderSelection::Single(card) => {
+                self.cards.push(card);
+                Ok(())
+            }
+            CommanderSelection::Partner(first, second) => {
+                self.cards.push(first);
+                self.cards.push(second);
+                Ok(())
+            }
+        }
+    }
+
+    pub fn remove_commander(&mut self) -> Result<(), String> {
+        let previous_commander = std::mem::replace(&mut self.commander, CommanderSelection::None);
+
+        match previous_commander {
+            CommanderSelection::None => Err("Deck does not have a commander".to_string()),
+            CommanderSelection::Single(_) => Ok(()),
+            CommanderSelection::Partner(_, _) => Ok(()),
+        }
+    }
+
 }
 
 #[cfg(test)]
