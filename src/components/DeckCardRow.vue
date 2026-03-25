@@ -1,5 +1,5 @@
 <script setup>
-import { mdiCloseCircleOutline, mdiCrownOutline, mdiDotsHorizontal } from "@mdi/js";
+import { mdiAccountMultiplePlusOutline, mdiCloseCircleOutline, mdiCrownOutline, mdiDotsHorizontal } from "@mdi/js";
 import ManaText from "./ManaText.vue";
 
 const props = defineProps({
@@ -19,13 +19,21 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  canSetPartner: {
+    type: Boolean,
+    default: false,
+  },
+  canRemovePartner: {
+    type: Boolean,
+    default: false,
+  },
   canRemoveCommander: {
     type: Boolean,
     default: false,
   },
 });
 
-const emit = defineEmits(["add-copy", "remove-copy", "set-commander", "remove-commander"]);
+const emit = defineEmits(["add-copy", "remove-copy", "set-commander", "set-partner", "remove-commander", "remove-partner"]);
 
 function buildTypeLine(card) {
   const superType = Array.isArray(card.super_type) ? card.super_type.join(" ") : "";
@@ -64,6 +72,24 @@ function buildTypeLine(card) {
                 >
                   <template #prepend>
                     <v-icon :icon="mdiCrownOutline" size="16"></v-icon>
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  :disabled="!canSetPartner"
+                  title="Set as Partner"
+                  @click.stop="$emit('set-partner')"
+                >
+                  <template #prepend>
+                    <v-icon :icon="mdiAccountMultiplePlusOutline" size="16"></v-icon>
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  :disabled="!canRemovePartner"
+                  title="Remove as Partner"
+                  @click.stop="$emit('remove-partner')"
+                >
+                  <template #prepend>
+                    <v-icon :icon="mdiCloseCircleOutline" size="16"></v-icon>
                   </template>
                 </v-list-item>
                 <v-list-item

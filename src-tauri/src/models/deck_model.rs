@@ -125,6 +125,65 @@ impl Deck {
         Ok(())
     }
 
+    pub fn set_partner_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {
+        let existing_commander = match &self.commander {
+            CommanderSelection::Single(card) => card.clone(),
+            CommanderSelection::None => return Err("Deck must already have a commander before adding a partner".to_string()),
+            CommanderSelection::Partner(_, _) => return Err("Deck already has two commanders".to_string()),
+        };
+
+        if !existing_commander.can_be_commander() || !existing_commander.has_partner_mechanic() {
+            return Err("Current commander cannot have a partner".to_string());
+        }
+
+        let card_index = self
+            .cards
+            .iter()
+            .position(|card| card.id() == card_id)
+            .ok_or_else(|| format!("Card with id {} not found in deck", card_id))?;
+
+        let selected_card = self.cards.remove(card_index);
+        if !selected_card.can_be_commander() {
+            self.cards.insert(card_index, selected_card);
+            return Err("Selected card cannot be a commander".to_string());
+        }
+
+        if !selected_card.has_partner_mechanic() {
+            self.cards.insert(card_index, selected_card);
+            return Err("Selected card does not have partner".to_string());
+        }
+
+        self.commander = CommanderSelection::Partner(existing_commander, selected_card);
+        Ok(())
+    }
+
+    pub fn remove_partner_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {
+        let previous_commander = std::mem::replace(&mut self.commander, CommanderSelection::None);
+
+        match previous_commander {
+            CommanderSelection::Partner(first, second) => {
+                if first.id() == card_id {
+                    self.cards.push(first);
+                    self.commander = CommanderSelection::Single(second);
+                    Ok(())
+                } else if second.id() == card_id {
+                    self.cards.push(second);
+                    self.commander = CommanderSelection::Single(first);
+                    Ok(())
+                } else {
+                    self.commander = CommanderSelection::Partner(first,second);
+                    Err(format!("Card with id {} is not a partner commander", card_id))
+                }
+            }
+            other => {
+                self.commander = other;
+                Err("Deck does not have partner commanders".to_string())
+            }
+        }
+    }
+
+
+
     pub fn clear_commander_to_deck(&mut self) -> Result<(), String> {
         let previous_commander = std::mem::replace(&mut self.commander, CommanderSelection::None);
 

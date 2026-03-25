@@ -177,6 +177,47 @@ pub fn set_deck_commander(state: State<'_, AppState>, deck_id: u64, card_id: u64
 }
 
 #[tauri::command]
+pub fn set_deck_partner(state: State<'_, AppState>, deck_id: u64, card_id: u64) -> Result<Deck, String> {
+    let mut decks = state
+        .decks
+        .write()
+        .map_err(|_| "Failed to acquire deck lock".to_string())?;
+
+    let deck = decks
+        .iter_mut()
+        .find(|deck| deck.id() == deck_id)
+        .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
+
+    deck.set_partner_commander_from_deck(card_id)?;
+    let updated = deck.clone();
+    drop(decks);
+
+    state.save_deck(&updated)?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn remove_deck_partner(state: State<'_, AppState>,deck_id: u64, card_id: u64) -> Result<Deck, String> {
+    let mut decks = state
+        .decks
+        .write()
+        .map_err(|_| "Failed to acquire deck lock".to_string())?;
+
+    let deck = decks
+    .iter_mut()
+        .find(|deck| deck.id() == deck_id)
+        .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
+
+    deck.remove_partner_commander_from_deck(card_id)?;
+    let updated = deck.clone();
+    drop(decks);
+    state.save_deck(&updated)?;
+    Ok(updated)
+}
+
+
+
+#[tauri::command]
 pub fn remove_deck_commander(state: State<'_, AppState>, deck_id: u64) -> Result<Deck, String> {
     let mut decks = state
         .decks

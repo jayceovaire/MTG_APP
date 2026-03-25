@@ -9,8 +9,11 @@ export {
   getDecksCommand,
   getDeckCommand,
   addCardToDeckCommand,
+  searchCardSuggestionsCommand,
   removeCardFromDeckCommand,
   setDeckCommanderCommand,
+  setDeckPartnerCommand,
+  removeDeckPartnerCommand,
   removeDeckCommanderCommand,
   deleteDeckCommanderCommand,
 } from "./deckCommands.js";

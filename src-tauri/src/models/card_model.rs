@@ -101,6 +101,18 @@ impl Card {
     pub fn is_planeswalker(&self) -> bool {
         self.card_type.contains(&CardType::Planeswalker)
     }
+
+    pub fn has_partner_mechanic(&self) -> bool {
+        self.oracle_text
+            .as_deref()
+            .map(|text| {
+                text.lines().any(|line| {
+                    line.trim().to_ascii_lowercase().starts_with("partner")
+                })
+            })
+            .unwrap_or(false)
+    }
+
     pub fn can_be_commander(&self) -> bool {
         (self.is_legendary() && self.is_creature()) || (self.is_legendary() && self.is_vehicle())
     }

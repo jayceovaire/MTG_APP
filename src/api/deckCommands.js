@@ -76,6 +76,16 @@ export async function addCardToDeckCommand(deckId, name) {
   }
 }
 
+/** @returns {Promise<import('./types.js').CardSearchSuggestion[]>} */
+export async function searchCardSuggestionsCommand(query) {
+  try {
+    return await invoke("search_card_suggestions", { query });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
 /** @returns {Promise<Deck>} */
 export async function removeCardFromDeckCommand(deckId, cardId) {
   try {
@@ -95,6 +105,28 @@ export async function setDeckCommanderCommand(deckId, cardId) {
     throw e;
   }
 }
+
+/** @returns {Promise<Deck>} */
+export async function setDeckPartnerCommand(deckId, cardId) {
+  try {
+    return await invoke("set_deck_partner", { deckId, cardId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/**@returns {Promise<Deck>} */
+export async function removeDeckPartnerCommand(deckId, cardId){
+  try {
+    return await invoke("remove_deck_partner", { deckId, cardId });
+  } catch (e){
+    console.error(e);
+    throw e;
+  }
+}
+
+
 
 /** @returns {Promise<Deck>} */
 export async function removeDeckCommanderCommand(deckId) {

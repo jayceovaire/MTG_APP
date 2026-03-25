@@ -29,4 +29,13 @@
  * @property {string | null} oracle_text
  */
 
+/**
+ * Lightweight search suggestion returned from Rust card lookup.
+ *
+ * @typedef {Object} CardSearchSuggestion
+ * @property {string} name
+ * @property {string | null} mana_cost
+ * @property {string} type_line
+ */
+
 export {};

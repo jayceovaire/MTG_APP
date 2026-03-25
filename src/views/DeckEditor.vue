@@ -7,7 +7,10 @@ import {
   getDeckCommand,
   removeDeckCommanderCommand,
   removeCardFromDeckCommand,
+  searchCardSuggestionsCommand,
   setDeckCommanderCommand,
+  setDeckPartnerCommand,
+  removeDeckPartnerCommand,
 } from "../api/deckCommands.js";
 import DeckCardRow from "../components/DeckCardRow.vue";
 import ManaText from "../components/ManaText.vue";
@@ -24,10 +27,16 @@ const isLoading = ref(false);
 const isUpdatingDeck = ref(false);
 const loadError = ref("");
 const searchName = ref("");
+const cardSuggestions = ref([]);
+const isSearchingCards = ref(false);
+const isSearchFocused = ref(false);
+const activeSuggestionIndex = ref(-1);
 const isAddingCard = ref(false);
 const snackbarVisible = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("success");
+let suggestionSearchTimeout = null;
+let searchBlurTimeout = null;
 
 const typeDisplayOrder = [
   "Creature",
@@ -81,6 +90,61 @@ function showError(message) {
   snackbarVisible.value = true;
 }
 
+function clearSuggestions() {
+  cardSuggestions.value = [];
+  activeSuggestionIndex.value = -1;
+}
+
+function hideSuggestions() {
+  isSearchFocused.value = false;
+  clearSuggestions();
+}
+
+function handleSearchFocus() {
+  if (searchBlurTimeout) {
+    clearTimeout(searchBlurTimeout);
+    searchBlurTimeout = null;
+  }
+  isSearchFocused.value = true;
+}
+
+function handleSearchBlur() {
+  searchBlurTimeout = setTimeout(() => {
+    hideSuggestions();
+  }, 120);
+}
+
+function selectSuggestion(suggestion) {
+  searchName.value = suggestion.name;
+  isSearchFocused.value = false;
+  clearSuggestions();
+}
+
+function moveSuggestion(direction) {
+  if (cardSuggestions.value.length === 0) {
+    return;
+  }
+
+  const nextIndex = activeSuggestionIndex.value + direction;
+  if (nextIndex < 0) {
+    activeSuggestionIndex.value = cardSuggestions.value.length - 1;
+    return;
+  }
+  if (nextIndex >= cardSuggestions.value.length) {
+    activeSuggestionIndex.value = 0;
+    return;
+  }
+  activeSuggestionIndex.value = nextIndex;
+}
+
+async function handleSearchEnter() {
+  if (cardSuggestions.value.length > 0 && activeSuggestionIndex.value >= 0) {
+    selectSuggestion(cardSuggestions.value[activeSuggestionIndex.value]);
+  }
+
+  await handleAddCard();
+}
+
 function commanderCards(commander) {
   if (!commander) {
     return [];
@@ -116,6 +180,38 @@ function canSetCommander(card) {
   return isLegendary && (isCreature || isVehicle);
 }
 
+function hasPartnerMechanic(card) {
+  const oracleText = typeof card?.oracle_text === "string" ? card.oracle_text : "";
+  return oracleText
+    .split("\n")
+    .map((line) => line.trim().toLowerCase())
+    .some((line) => line.startsWith("partner"));
+}
+
+function canSetPartner(card) {
+  if (!canSetCommander(card) || !hasPartnerMechanic(card)) {
+    return false;
+  }
+
+  const commander = deck.value?.commander;
+  if (!commander || commander === "None" || !commander.Single) {
+    return false;
+  }
+
+  return hasPartnerMechanic(commander.Single) && canSetCommander(commander.Single);
+}
+
+function canRemovePartner(card){
+  const commander = deck.value?.commander;
+  return Boolean(
+      commander &&
+      commander !== "None" &&
+      Array.isArray(commander.Partner) &&
+      commander.Partner.some((partnerCard) => partnerCard.id === card.id)
+  );
+}
+
+
 function collapseCardCopies(cards) {
   const grouped = new Map();
 
@@ -140,6 +236,11 @@ function collapseCardCopies(cards) {
 }
 
 const commanderSection = computed(() => collapseCardCopies(commanderCards(deck.value?.commander)));
+const showCardSuggestions = computed(() => (
+  isSearchFocused.value &&
+  cardSuggestions.value.length > 0 &&
+  searchName.value.trim().length >= 2
+));
 const allDeckCards = computed(() => {
   const mainboardCards = Array.isArray(deck.value?.cards) ? deck.value.cards : [];
   return [...mainboardCards, ...commanderCards(deck.value?.commander)];
@@ -211,6 +312,7 @@ async function handleAddCard() {
     isAddingCard.value = true;
     deck.value = await addCardToDeckCommand(normalizedDeckId, trimmed);
     searchName.value = "";
+    clearSuggestions();
     showSuccess(`Added "${trimmed}" to ${deck.value.name}`);
   } catch (e) {
     showError(`Failed to add card: ${String(e)}`);
@@ -276,6 +378,45 @@ async function handleSetCommander(cardId, cardName) {
   }
 }
 
+async function handleSetPartner(cardId, cardName) {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
+  try {
+    isUpdatingDeck.value = true;
+    deck.value = await setDeckPartnerCommand(normalizedDeckId, cardId);
+    showSuccess(`Set "${cardName}" as partner commander`);
+  } catch (e) {
+    showError(`Failed to set partner: ${String(e)}`);
+    console.error(e);
+  } finally {
+    isUpdatingDeck.value = false;
+  }
+}
+
+async function handleRemovePartner(cardId, cardName){
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null){
+    showError("Invalid deck id.");
+    return;
+  }
+  try {
+    isUpdatingDeck.value = true;
+    deck.value = await removeDeckPartnerCommand(normalizedDeckId,cardId);
+    showSuccess(`Removed "${cardName}" as partner commander`);
+  } catch (e){
+    showError(`Failed to remove partner: ${String(e)}`);
+    console.error(e)
+  } finally {
+    isUpdatingDeck.value = false;
+  }
+
+}
+
+
 async function handleRemoveCommander(cardName) {
   const normalizedDeckId = normalizeDeckId(props.deckId);
   if (normalizedDeckId === null) {
@@ -315,6 +456,32 @@ async function handleDeleteCommander(cardName) {
 }
 
 watch(() => props.deckId, loadDeck);
+watch(searchName, (value) => {
+  if (suggestionSearchTimeout) {
+    clearTimeout(suggestionSearchTimeout);
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length < 2) {
+    isSearchingCards.value = false;
+    clearSuggestions();
+    return;
+  }
+
+  suggestionSearchTimeout = setTimeout(async () => {
+    try {
+      isSearchingCards.value = true;
+      const suggestions = await searchCardSuggestionsCommand(trimmed);
+      cardSuggestions.value = suggestions;
+      activeSuggestionIndex.value = suggestions.length > 0 ? 0 : -1;
+    } catch (e) {
+      console.error(e);
+      clearSuggestions();
+    } finally {
+      isSearchingCards.value = false;
+    }
+  }, 180);
+});
 onMounted(loadDeck);
 </script>
 
@@ -324,14 +491,43 @@ onMounted(loadDeck);
       <div class="hero-content">
         <h1>{{ deck?.name || "Deck" }}</h1>
         <div class="hero-actions">
-          <v-text-field
-            v-model="searchName"
-            class="deck-search"
-            label="Search and add a card"
-            density="comfortable"
-            hide-details
-            @keyup.enter="handleAddCard"
-          />
+          <div class="deck-search-wrap">
+            <v-text-field
+              v-model="searchName"
+              class="deck-search"
+              label="Search and add a card"
+              density="comfortable"
+              hide-details
+              :loading="isSearchingCards"
+              @focus="handleSearchFocus"
+              @blur="handleSearchBlur"
+              @keydown.enter.prevent="handleSearchEnter"
+              @keydown.down.prevent="moveSuggestion(1)"
+              @keydown.up.prevent="moveSuggestion(-1)"
+              @keydown.esc="hideSuggestions"
+            />
+
+            <div v-if="showCardSuggestions" class="deck-search-suggestions">
+              <button
+                v-for="(suggestion, index) in cardSuggestions"
+                :key="`${suggestion.name}-${index}`"
+                type="button"
+                class="deck-search-suggestion"
+                :class="{ 'deck-search-suggestion--active': index === activeSuggestionIndex }"
+                @mousedown.prevent="selectSuggestion(suggestion)"
+              >
+                <div class="deck-search-suggestion__top">
+                  <span>{{ suggestion.name }}</span>
+                  <ManaText
+                    v-if="suggestion.mana_cost"
+                    :text="suggestion.mana_cost"
+                    :cost="true"
+                  />
+                </div>
+                <span class="deck-search-suggestion__type">{{ suggestion.type_line }}</span>
+              </button>
+            </div>
+          </div>
           <v-btn
             class="add-card-btn"
             :prepend-icon="mdiPlus"
@@ -404,9 +600,11 @@ onMounted(loadDeck);
                 :card="entry.card"
                 :quantity="entry.quantity"
                 :editable="true"
+                :can-remove-partner="canRemovePartner(entry.card)"
                 :can-remove-commander="true"
                 @add-copy="handleAddCopy(entry.card.name)"
                 @remove-copy="handleDeleteCommander(entry.card.name)"
+                @remove-partner="handleRemovePartner(entry.card.id, entry.card.name)"
                 @remove-commander="handleRemoveCommander(entry.card.name)"
               />
             </div>
@@ -438,9 +636,11 @@ onMounted(loadDeck);
                     :card="entry.card"
                     :quantity="entry.quantity"
                     :can-set-commander="canSetCommander(entry.card)"
+                    :can-set-partner="canSetPartner(entry.card)"
                     @add-copy="handleAddCopy(entry.card.name)"
                     @remove-copy="handleRemoveCopy(entry.card.id, entry.card.name)"
                     @set-commander="handleSetCommander(entry.card.id, entry.card.name)"
+                    @set-partner="handleSetPartner(entry.card.id, entry.card.name)"
                   />
                 </div>
               </section>
@@ -500,8 +700,60 @@ onMounted(loadDeck);
 }
 
 .deck-search {
+  min-width: 0;
+}
+
+.deck-search-wrap {
+  position: relative;
   min-width: 320px;
   max-width: 520px;
+  width: 100%;
+}
+
+.deck-search-suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.98) 100%);
+  border: 1px solid rgba(27, 42, 63, 0.08);
+  box-shadow: 0 22px 40px rgba(20, 31, 48, 0.12);
+}
+
+.deck-search-suggestion {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(239, 244, 252, 0.88);
+  color: #132032;
+  text-align: left;
+  cursor: pointer;
+}
+
+.deck-search-suggestion--active,
+.deck-search-suggestion:hover {
+  background: rgba(217, 229, 246, 0.96);
+}
+
+.deck-search-suggestion__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.deck-search-suggestion__type {
+  color: #607089;
+  font-size: 0.85rem;
 }
 
 .refresh-btn {
@@ -674,6 +926,9 @@ onMounted(loadDeck);
 
   .deck-search {
     width: 100%;
+  }
+
+  .deck-search-wrap {
     min-width: 0;
   }
 
