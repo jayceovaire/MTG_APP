@@ -3,6 +3,7 @@ import {computed, ref} from "vue";
 import {useRouter} from "vue-router";
 import {mdiContentCopy, mdiDotsHorizontal, mdiPencil, mdiTrashCan} from "@mdi/js";
 import {deleteDeckCommand, duplicateDeckCommand, setDeckNameCommand} from "../api/deckCommands.js";
+import ManaText from "./ManaText.vue";
 
 const router = useRouter();
 const props = defineProps({
@@ -17,6 +18,18 @@ const renameDialogOpen = ref(false);
 const actionsMenuOpen = ref(false);
 const pendingName = ref("");
 const isRenaming = ref(false);
+
+function commanderCards(commander) {
+  if (!commander || commander === "None") {
+    return [];
+  }
+
+  if (commander.Single) {
+    return [commander.Single];
+  }
+
+  return Array.isArray(commander.Partner) ? commander.Partner : [];
+}
 
 const deckName = computed(() => props.deck?.name || "Untitled");
 const commanderName = computed(() => {
@@ -38,10 +51,13 @@ const commanderName = computed(() => {
 
   return "No Commander";
 });
-const cardCount = computed(() => Array.isArray(props.deck?.cards) ? props.deck.cards.length : 0);
-const colorProfile = computed(() => {
+const allDeckCards = computed(() => {
   const cards = Array.isArray(props.deck?.cards) ? props.deck.cards : [];
-  const commander = props.deck?.commander;
+  return [...cards, ...commanderCards(props.deck?.commander)];
+});
+const cardCount = computed(() => allDeckCards.value.length);
+const colorProfile = computed(() => {
+  const cards = allDeckCards.value;
   const colorOrder = ["W", "U", "B", "R", "G"];
   const colors = new Set();
 
@@ -58,18 +74,17 @@ const colorProfile = computed(() => {
     addColorsFromCard(card);
   }
 
-  if (commander?.Single) {
-    addColorsFromCard(commander.Single);
-  } else if (Array.isArray(commander?.Partner)) {
-    for (const card of commander.Partner) {
-      addColorsFromCard(card);
-    }
-  }
-
   return colorOrder.filter((color) => colors.has(color)).join("") || "Colorless";
 });
+const colorProfileSymbols = computed(() => {
+  if (colorProfile.value === "Colorless") {
+    return "";
+  }
+
+  return [...colorProfile.value].map((color) => `{${color}}`).join("");
+});
 const averageManaValue = computed(() => {
-  const cards = Array.isArray(props.deck?.cards) ? props.deck.cards : [];
+  const cards = allDeckCards.value;
   if (cards.length === 0) {
     return "0.00";
   }
@@ -137,7 +152,14 @@ async function submitDelete(){
 
 <template>
   <v-container>
-    <v-card @click="goToDeckEditor" class="deck-tile" width="250" height="250" max-height="500" max-width="500">
+    <v-card
+      @click="goToDeckEditor"
+      class="deck-tile"
+      width="250"
+      height="250"
+      max-height="500"
+      max-width="500"
+    >
       <div class="tile-header">
         <h3 class="tile-item">{{ deckName }}</h3>
         <v-menu v-model="actionsMenuOpen" location="bottom">
@@ -173,7 +195,12 @@ async function submitDelete(){
         </div>
         <div class="stat-row">
           <span class="stat-label">Color</span>
-          <span class="stat-value">{{ colorProfile }}</span>
+          <ManaText
+            class="stat-value stat-value--colors"
+            :text="colorProfileSymbols"
+            :empty-text="colorProfile"
+            :cost="true"
+          />
         </div>
         <div class="stat-row">
           <span class="stat-label">Avg MV</span>
@@ -213,6 +240,55 @@ async function submitDelete(){
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(187, 214, 255, 0.5), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(247, 250, 255, 0.88) 100%);
+  border: 1px solid rgba(27, 42, 63, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2),
+    0 20px 40px rgba(20, 31, 48, 0.08);
+  backdrop-filter: blur(14px) saturate(120%);
+  isolation: isolate;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.deck-tile:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.24),
+    0 28px 46px rgba(20, 31, 48, 0.14);
+  border-color: rgba(27, 42, 63, 0.12);
+}
+
+.deck-tile::before,
+.deck-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.deck-tile::before {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 22%, rgba(255, 255, 255, 0.02) 46%),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 34%);
+  opacity: 0.9;
+}
+
+.deck-tile::after {
+  inset: auto 10px 10px 10px;
+  height: 44%;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.03) 100%);
+  opacity: 0.7;
 }
 
 .tile-header {
@@ -220,10 +296,13 @@ async function submitDelete(){
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  position: relative;
+  z-index: 1;
 }
 
 .tile-item {
   margin: 0;
+  color: #132032;
 }
 
 .tile-button {
@@ -231,10 +310,15 @@ async function submitDelete(){
   width: 24px;
   height: 24px;
   padding: 0;
+  background: rgba(255, 255, 255, 0.8);
+  color: #132032;
 }
 
 .commander-name {
   margin-top: 8px;
+  color: #5f6f86;
+  position: relative;
+  z-index: 1;
 }
 
 .tile-footer {
@@ -243,6 +327,8 @@ async function submitDelete(){
   padding-top: 12px;
   display: grid;
   gap: 6px;
+  position: relative;
+  z-index: 1;
 }
 
 .stat-row {
@@ -253,10 +339,18 @@ async function submitDelete(){
 }
 
 .stat-label {
-  opacity: 0.75;
+  color: #687892;
 }
 
 .stat-value {
   font-weight: 600;
+  color: #132032;
+}
+
+.stat-value--colors {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
 }
 </style>

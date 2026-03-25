@@ -12,9 +12,9 @@ const isRail = ref(true);
 const primaryItems = [
   { title: "Home", to: "/", icon: mdiHomeOutline },
   { title: "Decks", to: "/deck-library", icon: mdiCardsOutline },
-  { title: "Collection",to:"collection", icon: mdiViewGridOutline },
-  { title: "Power Calculator",to:"power-calculator", icon: mdiCalculatorVariantOutline },
-  { title: "Roast", to: "roast", icon: mdiFire },
+  { title: "Collection", to: "/collection", icon: mdiViewGridOutline },
+  { title: "Power Calculator", to: "/power-calculator", icon: mdiCalculatorVariantOutline },
+  { title: "Roast", to: "/roast", icon: mdiFire },
 
 ];
 

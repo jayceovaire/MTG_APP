@@ -1,6 +1,7 @@
 <script setup>
 import { mdiDotsHorizontal, mdiHeart, mdiHeartOutline, mdiPlus, mdiTrashCan } from "@mdi/js";
 import { computed, ref } from "vue";
+import ManaText from "./ManaText.vue";
 
 const props = defineProps({
   name: {
@@ -88,7 +89,7 @@ function handleFavoriteCard() {
 
     <header class="card-row card-title-row">
       <span class="card-name">{{ displayName }}</span>
-      <span class="card-mana">{{ manaCost || "-" }}</span>
+      <ManaText class="card-mana" :text="manaCost" empty-text="-" :cost="true" />
     </header>
 
     <section class="card-art">
@@ -101,7 +102,9 @@ function handleFavoriteCard() {
     </section>
 
     <section class="card-text-box">
-      <p>{{ oracleText || "No rules text." }}</p>
+      <p>
+        <ManaText :text="oracleText" empty-text="No rules text." :multiline="true" />
+      </p>
     </section>
 
     <footer class="card-footer">

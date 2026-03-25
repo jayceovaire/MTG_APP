@@ -10,6 +10,7 @@ import {
   setDeckCommanderCommand,
 } from "../api/deckCommands.js";
 import DeckCardRow from "../components/DeckCardRow.vue";
+import ManaText from "../components/ManaText.vue";
 
 const props = defineProps({
   deckId: {
@@ -42,15 +43,23 @@ const typeDisplayOrder = [
 
 function normalizeDeckId(value) {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 async function loadDeck() {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+
+  if (normalizedDeckId === null) {
+    deck.value = null;
+    loadError.value = "Invalid deck id.";
+    return;
+  }
+
   isLoading.value = true;
   loadError.value = "";
 
   try {
-    deck.value = await getDeckCommand(normalizeDeckId(props.deckId));
+    deck.value = await getDeckCommand(normalizedDeckId);
   } catch (e) {
     deck.value = null;
     loadError.value = `Failed to load deck: ${String(e)}`;
@@ -131,6 +140,10 @@ function collapseCardCopies(cards) {
 }
 
 const commanderSection = computed(() => collapseCardCopies(commanderCards(deck.value?.commander)));
+const allDeckCards = computed(() => {
+  const mainboardCards = Array.isArray(deck.value?.cards) ? deck.value.cards : [];
+  return [...mainboardCards, ...commanderCards(deck.value?.commander)];
+});
 
 const mainDeckSections = computed(() => {
   const cards = Array.isArray(deck.value?.cards) ? deck.value.cards : [];
@@ -151,9 +164,9 @@ const mainDeckSections = computed(() => {
     .filter((section) => section.entries.length > 0);
 });
 
-const deckCardTotal = computed(() => Array.isArray(deck.value?.cards) ? deck.value.cards.length : 0);
+const deckCardTotal = computed(() => allDeckCards.value.length);
 const manaCurve = computed(() => {
-  const cards = Array.isArray(deck.value?.cards) ? deck.value.cards : [];
+  const cards = allDeckCards.value;
   if (cards.length === 0) {
     return 0;
   }
@@ -163,7 +176,7 @@ const manaCurve = computed(() => {
 });
 
 const pipCounts = computed(() => {
-  const cards = Array.isArray(deck.value?.cards) ? deck.value.cards : [];
+  const cards = allDeckCards.value;
   const totals = { W: 0, U: 0, B: 0, R: 0, G: 0 };
 
   for (const card of cards) {
@@ -182,6 +195,12 @@ async function handleAddCard() {
     return;
   }
 
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
   const trimmed = searchName.value.trim();
   if (!trimmed) {
     showError("Enter a card name first.");
@@ -190,7 +209,7 @@ async function handleAddCard() {
 
   try {
     isAddingCard.value = true;
-    deck.value = await addCardToDeckCommand(normalizeDeckId(props.deckId), trimmed);
+    deck.value = await addCardToDeckCommand(normalizedDeckId, trimmed);
     searchName.value = "";
     showSuccess(`Added "${trimmed}" to ${deck.value.name}`);
   } catch (e) {
@@ -202,9 +221,15 @@ async function handleAddCard() {
 }
 
 async function handleAddCopy(cardName) {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
   try {
     isUpdatingDeck.value = true;
-    deck.value = await addCardToDeckCommand(normalizeDeckId(props.deckId), cardName);
+    deck.value = await addCardToDeckCommand(normalizedDeckId, cardName);
   } catch (e) {
     showError(`Failed to add card: ${String(e)}`);
     console.error(e);
@@ -214,9 +239,15 @@ async function handleAddCopy(cardName) {
 }
 
 async function handleRemoveCopy(cardId, cardName) {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
   try {
     isUpdatingDeck.value = true;
-    deck.value = await removeCardFromDeckCommand(normalizeDeckId(props.deckId), cardId);
+    deck.value = await removeCardFromDeckCommand(normalizedDeckId, cardId);
     showSuccess(`Removed one "${cardName}"`);
   } catch (e) {
     showError(`Failed to remove card: ${String(e)}`);
@@ -227,9 +258,15 @@ async function handleRemoveCopy(cardId, cardName) {
 }
 
 async function handleSetCommander(cardId, cardName) {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
   try {
     isUpdatingDeck.value = true;
-    deck.value = await setDeckCommanderCommand(normalizeDeckId(props.deckId), cardId);
+    deck.value = await setDeckCommanderCommand(normalizedDeckId, cardId);
     showSuccess(`Set "${cardName}" as commander`);
   } catch (e) {
     showError(`Failed to set commander: ${String(e)}`);
@@ -240,9 +277,15 @@ async function handleSetCommander(cardId, cardName) {
 }
 
 async function handleRemoveCommander(cardName) {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
   try {
     isUpdatingDeck.value = true;
-    deck.value = await removeDeckCommanderCommand(normalizeDeckId(props.deckId));
+    deck.value = await removeDeckCommanderCommand(normalizedDeckId);
     showSuccess(`Removed "${cardName}" as commander`);
   } catch (e) {
     showError(`Failed to remove commander: ${String(e)}`);
@@ -253,9 +296,15 @@ async function handleRemoveCommander(cardName) {
 }
 
 async function handleDeleteCommander(cardName) {
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
   try {
     isUpdatingDeck.value = true;
-    deck.value = await deleteDeckCommanderCommand(normalizeDeckId(props.deckId));
+    deck.value = await deleteDeckCommanderCommand(normalizedDeckId);
     showSuccess(`Removed "${cardName}" from the deck`);
   } catch (e) {
     showError(`Failed to remove commander card: ${String(e)}`);
@@ -320,23 +369,23 @@ onMounted(loadDeck);
           <strong>{{ manaCurve }}</strong>
         </article>
         <article class="metric-card">
-          <span class="metric-label">White Pips</span>
+          <ManaText class="metric-label metric-label--symbol" text="{W}" :cost="true" />
           <strong>{{ pipCounts.W }}</strong>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Blue Pips</span>
+          <ManaText class="metric-label metric-label--symbol" text="{U}" :cost="true" />
           <strong>{{ pipCounts.U }}</strong>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Black Pips</span>
+          <ManaText class="metric-label metric-label--symbol" text="{B}" :cost="true" />
           <strong>{{ pipCounts.B }}</strong>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Red Pips</span>
+          <ManaText class="metric-label metric-label--symbol" text="{R}" :cost="true" />
           <strong>{{ pipCounts.R }}</strong>
         </article>
         <article class="metric-card">
-          <span class="metric-label">Green Pips</span>
+          <ManaText class="metric-label metric-label--symbol" text="{G}" :cost="true" />
           <strong>{{ pipCounts.G }}</strong>
         </article>
       </section>
@@ -490,11 +539,14 @@ onMounted(loadDeck);
   background: #fff;
   border: 1px solid rgba(27, 42, 63, 0.08);
   box-shadow: 0 16px 30px rgba(24, 37, 58, 0.05);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
 }
 
 .metric-label {
   display: block;
-  margin-bottom: 10px;
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -503,6 +555,24 @@ onMounted(loadDeck);
 
 .metric-card strong {
   font-size: 1.8rem;
+  justify-self: center;
+  width: 100%;
+  text-align: center;
+}
+
+.metric-label--symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.3rem;
+}
+
+.metric-label--symbol :deep(.ms-cost) {
+  width: 2.3rem;
+  height: 2.3rem;
+  line-height: 2.3rem;
+  font-size: 1.4rem;
 }
 
 .deck-layout {
