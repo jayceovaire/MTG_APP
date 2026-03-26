@@ -2,6 +2,7 @@ use std::sync::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use crate::models::card_model::Card;
 use crate::models::deck_model::Deck;
+use crate::models::package_model::Package;
 use rusqlite::{Connection, params};
 use std::fs;
 use std::path::PathBuf;
@@ -13,8 +14,11 @@ use tauri::Manager;
 pub struct AppState {
     pub decks: RwLock<Vec<Deck>>,
     pub collection: RwLock<Vec<Card>>,
+    pub favorites: RwLock<Vec<u64>>,
+    pub packages: RwLock<Vec<Package>>,
     next_deck_id: AtomicU64,
     next_card_id: AtomicU64,
+    next_package_id: AtomicU64,
     user_db_path: OnceLock<PathBuf>,
 }
 
@@ -40,6 +44,16 @@ impl AppState {
                     card_json TEXT NOT NULL
                  );
 
+                 CREATE TABLE IF NOT EXISTS favorites (
+                    card_id INTEGER PRIMARY KEY
+                 );
+
+                 CREATE TABLE IF NOT EXISTS packages (
+                    package_id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    package_json TEXT NOT NULL
+                 );
+
                  CREATE TABLE IF NOT EXISTS decks (
                     deck_id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -62,6 +76,33 @@ impl AppState {
             loaded_cards.push(card);
         }
 
+        let mut loaded_favorites = Vec::new();
+        let mut favorite_stmt = connection
+            .prepare("SELECT card_id FROM favorites ORDER BY card_id")
+            .map_err(|e| format!("Failed to prepare favorites load query: {e}"))?;
+        let favorite_rows = favorite_stmt
+            .query_map([], |row| row.get::<_, u64>(0))
+            .map_err(|e| format!("Failed to read favorite rows: {e}"))?;
+        for row in favorite_rows {
+            loaded_favorites.push(
+                row.map_err(|e| format!("Failed to parse favorite row: {e}"))?,
+            );
+        }
+
+        let mut loaded_packages = Vec::new();
+        let mut package_stmt = connection
+            .prepare("SELECT package_json FROM packages ORDER BY package_id")
+            .map_err(|e| format!("Failed to prepare package load query: {e}"))?;
+        let package_rows = package_stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Failed to read package rows: {e}"))?;
+        for row in package_rows {
+            let package_json = row.map_err(|e| format!("Failed to parse package row: {e}"))?;
+            let package: Package = serde_json::from_str(&package_json)
+                .map_err(|e| format!("Failed to deserialize package: {e}"))?;
+            loaded_packages.push(package);
+        }
+
         let mut loaded_decks = Vec::new();
         let mut deck_stmt = connection
             .prepare("SELECT deck_json FROM decks ORDER BY deck_id")
@@ -78,6 +119,7 @@ impl AppState {
 
         let max_card_id = loaded_cards.iter().map(Card::id).max().unwrap_or(0);
         let max_deck_id = loaded_decks.iter().map(Deck::id).max().unwrap_or(0);
+        let max_package_id = loaded_packages.iter().map(Package::id).max().unwrap_or(0);
 
         {
             let mut collection = self
@@ -93,9 +135,24 @@ impl AppState {
                 .map_err(|_| "Failed to lock decks during initialization".to_string())?;
             *decks = loaded_decks;
         }
+        {
+            let mut favorites = self
+                .favorites
+                .write()
+                .map_err(|_| "Failed to lock favorites during initialization".to_string())?;
+            *favorites = loaded_favorites;
+        }
+        {
+            let mut packages = self
+                .packages
+                .write()
+                .map_err(|_| "Failed to lock packages during initialization".to_string())?;
+            *packages = loaded_packages;
+        }
 
         self.next_card_id.store(max_card_id, Ordering::Relaxed);
         self.next_deck_id.store(max_deck_id, Ordering::Relaxed);
+        self.next_package_id.store(max_package_id, Ordering::Relaxed);
         Ok(())
     }
 
@@ -105,6 +162,10 @@ impl AppState {
 
     pub fn next_card_id(&self) -> u64 {
         self.next_card_id.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    pub fn next_package_id(&self) -> u64 {
+        self.next_package_id.fetch_add(1, Ordering::Relaxed) + 1
     }
 
     fn open_user_connection(&self) -> Result<Connection, String> {
@@ -135,6 +196,28 @@ impl AppState {
         connection
             .execute("DELETE FROM collection_cards WHERE card_id = ?1", params![card_id])
             .map_err(|e| format!("Failed to delete collection card: {e}"))?;
+        connection
+            .execute("DELETE FROM favorites WHERE card_id = ?1", params![card_id])
+            .map_err(|e| format!("Failed to delete collection favorite: {e}"))?;
+        Ok(())
+    }
+
+    pub fn save_favorite(&self, card_id: u64) -> Result<(), String> {
+        let connection = self.open_user_connection()?;
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO favorites (card_id) VALUES (?1)",
+                params![card_id],
+            )
+            .map_err(|e| format!("Failed to persist favorite: {e}"))?;
+        Ok(())
+    }
+
+    pub fn delete_favorite(&self, card_id: u64) -> Result<(), String> {
+        let connection = self.open_user_connection()?;
+        connection
+            .execute("DELETE FROM favorites WHERE card_id = ?1", params![card_id])
+            .map_err(|e| format!("Failed to delete favorite: {e}"))?;
         Ok(())
     }
 
@@ -159,6 +242,30 @@ impl AppState {
         connection
             .execute("DELETE FROM decks WHERE deck_id = ?1", params![deck_id])
             .map_err(|e| format!("Failed to delete deck: {e}"))?;
+        Ok(())
+    }
+
+    pub fn save_package(&self, package: &Package) -> Result<(), String> {
+        let connection = self.open_user_connection()?;
+        let package_json = serde_json::to_string(package)
+            .map_err(|e| format!("Failed to serialize package: {e}"))?;
+        connection
+            .execute(
+                "INSERT INTO packages (package_id, name, package_json)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT(package_id) DO UPDATE
+                 SET name = excluded.name, package_json = excluded.package_json",
+                params![package.id(), package.get_name(), package_json],
+            )
+            .map_err(|e| format!("Failed to persist package: {e}"))?;
+        Ok(())
+    }
+
+    pub fn delete_package(&self, package_id: u64) -> Result<(), String> {
+        let connection = self.open_user_connection()?;
+        connection
+            .execute("DELETE FROM packages WHERE package_id = ?1", params![package_id])
+            .map_err(|e| format!("Failed to delete package: {e}"))?;
         Ok(())
     }
 }

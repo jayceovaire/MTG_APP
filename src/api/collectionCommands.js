@@ -40,3 +40,13 @@ export async function getCollectionCommand() {
     throw e;
   }
 }
+
+/** @returns {Promise<Card>} */
+export async function setCollectionCardFavoriteCommand(cardId, favorite) {
+  try {
+    return await invoke("set_collection_card_favorite", { cardId, favorite });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}

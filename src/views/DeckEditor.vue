@@ -1,10 +1,20 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { mdiAlertCircleOutline, mdiCardsOutline, mdiCrownOutline, mdiPlus, mdiRefresh } from "@mdi/js";
+import {
+  mdiAlertCircleOutline,
+  mdiCardsOutline,
+  mdiCrownOutline,
+  mdiPackageVariantClosedPlus,
+  mdiPlus,
+} from "@mdi/js";
 import {
   addCardToDeckCommand,
+  addCardToPackageCommand,
+  addPackageToDeckCommand,
+  createPackageCommand,
   deleteDeckCommanderCommand,
   getDeckCommand,
+  getPackagesCommand,
   removeDeckCommanderCommand,
   removeCardFromDeckCommand,
   searchCardSuggestionsCommand,
@@ -35,6 +45,15 @@ const isAddingCard = ref(false);
 const snackbarVisible = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("success");
+const packages = ref([]);
+const isLoadingPackages = ref(false);
+const packageDialogVisible = ref(false);
+const packageDialogMode = ref("card");
+const selectedPackageId = ref(null);
+const newPackageName = ref("");
+const pendingPackageCardName = ref("");
+const isSubmittingPackageAction = ref(false);
+const isCreatingPackage = ref(false);
 let suggestionSearchTimeout = null;
 let searchBlurTimeout = null;
 
@@ -78,6 +97,19 @@ async function loadDeck() {
   }
 }
 
+async function loadPackages() {
+  isLoadingPackages.value = true;
+
+  try {
+    packages.value = await getPackagesCommand();
+  } catch (e) {
+    showError(`Failed to load packages: ${String(e)}`);
+    console.error(e);
+  } finally {
+    isLoadingPackages.value = false;
+  }
+}
+
 function showSuccess(message) {
   snackbarMessage.value = message;
   snackbarColor.value = "success";
@@ -88,6 +120,31 @@ function showError(message) {
   snackbarMessage.value = message;
   snackbarColor.value = "error";
   snackbarVisible.value = true;
+}
+
+function closePackageDialog() {
+  packageDialogVisible.value = false;
+  selectedPackageId.value = null;
+  newPackageName.value = "";
+  pendingPackageCardName.value = "";
+  isSubmittingPackageAction.value = false;
+  isCreatingPackage.value = false;
+}
+
+function openAddCardToPackageDialog(cardName) {
+  packageDialogMode.value = "card";
+  pendingPackageCardName.value = cardName;
+  selectedPackageId.value = packages.value[0]?.id ?? null;
+  newPackageName.value = "";
+  packageDialogVisible.value = true;
+}
+
+function openAddPackageToDeckDialog() {
+  packageDialogMode.value = "deck";
+  pendingPackageCardName.value = "";
+  selectedPackageId.value = packages.value[0]?.id ?? null;
+  newPackageName.value = "";
+  packageDialogVisible.value = true;
 }
 
 function clearSuggestions() {
@@ -455,6 +512,75 @@ async function handleDeleteCommander(cardName) {
   }
 }
 
+async function handleCreatePackage() {
+  const trimmed = newPackageName.value.trim();
+  if (!trimmed) {
+    showError("Enter a package name first.");
+    return;
+  }
+
+  try {
+    isCreatingPackage.value = true;
+    const newPackage = await createPackageCommand(trimmed);
+    packages.value.push(newPackage);
+    selectedPackageId.value = newPackage.id;
+    newPackageName.value = "";
+    showSuccess(`Created package "${newPackage.name}"`);
+  } catch (e) {
+    showError(`Failed to create package: ${String(e)}`);
+    console.error(e);
+  } finally {
+    isCreatingPackage.value = false;
+  }
+}
+
+async function handleSubmitPackageDialog() {
+  if (isSubmittingPackageAction.value) {
+    return;
+  }
+
+  const packageId = Number(selectedPackageId.value);
+  if (!Number.isInteger(packageId) || packageId <= 0) {
+    showError("Select a package first.");
+    return;
+  }
+
+  try {
+    isSubmittingPackageAction.value = true;
+
+    if (packageDialogMode.value === "card") {
+      const updatedPackage = await addCardToPackageCommand(packageId, pendingPackageCardName.value);
+      const index = packages.value.findIndex((entry) => entry.id === updatedPackage.id);
+      if (index >= 0) {
+        packages.value[index] = updatedPackage;
+      } else {
+        packages.value.push(updatedPackage);
+      }
+      showSuccess(`Added "${pendingPackageCardName.value}" to ${updatedPackage.name}`);
+    } else {
+      const normalizedDeckId = normalizeDeckId(props.deckId);
+      if (normalizedDeckId === null) {
+        showError("Invalid deck id.");
+        return;
+      }
+      const selectedPackage = packages.value.find((entry) => entry.id === packageId);
+      deck.value = await addPackageToDeckCommand(normalizedDeckId, packageId);
+      showSuccess(`Added package "${selectedPackage?.name || "Package"}" to ${deck.value.name}`);
+    }
+
+    closePackageDialog();
+  } catch (e) {
+    showError(`Failed to apply package action: ${String(e)}`);
+    console.error(e);
+  } finally {
+    isSubmittingPackageAction.value = false;
+  }
+}
+
+function handleAddToPackage(cardName) {
+  openAddCardToPackageDialog(cardName);
+}
+
 watch(() => props.deckId, loadDeck);
 watch(searchName, (value) => {
   if (suggestionSearchTimeout) {
@@ -482,7 +608,9 @@ watch(searchName, (value) => {
     }
   }, 180);
 });
-onMounted(loadDeck);
+onMounted(async () => {
+  await Promise.all([loadDeck(), loadPackages()]);
+});
 </script>
 
 <template>
@@ -537,13 +665,13 @@ onMounted(loadDeck);
             Add Card
           </v-btn>
           <v-btn
-            class="refresh-btn"
+            class="package-btn"
             variant="outlined"
-            :prepend-icon="mdiRefresh"
-            :loading="isLoading"
-            @click="loadDeck"
+            :prepend-icon="mdiPackageVariantClosedPlus"
+            :loading="isLoadingPackages"
+            @click="openAddPackageToDeckDialog"
           >
-            Refresh
+            Add Package
           </v-btn>
         </div>
       </div>
@@ -602,10 +730,12 @@ onMounted(loadDeck);
                 :editable="true"
                 :can-remove-partner="canRemovePartner(entry.card)"
                 :can-remove-commander="true"
+                :show-add-to-package-action="true"
                 @add-copy="handleAddCopy(entry.card.name)"
                 @remove-copy="handleDeleteCommander(entry.card.name)"
                 @remove-partner="handleRemovePartner(entry.card.id, entry.card.name)"
                 @remove-commander="handleRemoveCommander(entry.card.name)"
+                @add-to-package="handleAddToPackage(entry.card.name)"
               />
             </div>
             <p v-else class="empty-copy">No commander selected yet.</p>
@@ -637,10 +767,12 @@ onMounted(loadDeck);
                     :quantity="entry.quantity"
                     :can-set-commander="canSetCommander(entry.card)"
                     :can-set-partner="canSetPartner(entry.card)"
+                    :show-add-to-package-action="true"
                     @add-copy="handleAddCopy(entry.card.name)"
                     @remove-copy="handleRemoveCopy(entry.card.id, entry.card.name)"
                     @set-commander="handleSetCommander(entry.card.id, entry.card.name)"
                     @set-partner="handleSetPartner(entry.card.id, entry.card.name)"
+                    @add-to-package="handleAddToPackage(entry.card.name)"
                   />
                 </div>
               </section>
@@ -654,6 +786,64 @@ onMounted(loadDeck);
         </main>
       </section>
     </template>
+
+    <v-dialog v-model="packageDialogVisible" max-width="560">
+      <v-card class="package-dialog">
+        <v-card-title>
+          {{ packageDialogMode === "card" ? "Add Card to Package" : "Add Package to Deck" }}
+        </v-card-title>
+        <v-card-text class="package-dialog__content">
+          <p v-if="packageDialogMode === 'card'" class="package-dialog__copy">
+            Choose a package for "{{ pendingPackageCardName }}".
+          </p>
+          <p v-else class="package-dialog__copy">
+            Choose a package to add its cards to this deck.
+          </p>
+
+          <v-select
+            v-model="selectedPackageId"
+            :items="packages"
+            item-title="name"
+            item-value="id"
+            label="Package"
+            density="comfortable"
+            hide-details="auto"
+            :loading="isLoadingPackages"
+            :disabled="isLoadingPackages"
+          />
+
+          <div class="package-dialog__create">
+            <v-text-field
+              v-model="newPackageName"
+              label="New package name"
+              density="comfortable"
+              hide-details="auto"
+              @keydown.enter.prevent="handleCreatePackage"
+            />
+            <v-btn
+              variant="outlined"
+              :loading="isCreatingPackage"
+              @click="handleCreatePackage"
+            >
+              Create Package
+            </v-btn>
+          </div>
+        </v-card-text>
+        <v-card-actions class="package-dialog__actions">
+          <v-spacer />
+          <v-btn variant="text" @click="closePackageDialog">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            :loading="isSubmittingPackageAction"
+            :disabled="packages.length === 0 && !selectedPackageId"
+            @click="handleSubmitPackageDialog"
+          >
+            {{ packageDialogMode === "card" ? "Add to Package" : "Add Package" }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-snackbar
       v-model="snackbarVisible"
       :color="snackbarColor"
@@ -756,11 +946,11 @@ onMounted(loadDeck);
   font-size: 0.85rem;
 }
 
-.refresh-btn {
+.add-card-btn {
   flex: 0 0 auto;
 }
 
-.add-card-btn {
+.package-btn {
   flex: 0 0 auto;
 }
 
@@ -900,6 +1090,27 @@ onMounted(loadDeck);
   margin: 0 0 8px;
 }
 
+.package-dialog__content {
+  display: grid;
+  gap: 16px;
+}
+
+.package-dialog__copy {
+  margin: 0;
+  color: #5f6f86;
+}
+
+.package-dialog__create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.package-dialog__actions {
+  padding: 0 24px 20px;
+}
+
 @media (max-width: 1080px) {
   .deck-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -934,6 +1145,10 @@ onMounted(loadDeck);
 
   .deck-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .package-dialog__create {
+    grid-template-columns: 1fr;
   }
 }
 </style>

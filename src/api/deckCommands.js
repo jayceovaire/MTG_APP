@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 /** @typedef {import('./types.js').Deck} Deck */
+/** @typedef {import('./types.js').Package} Package */
 
 /** @returns {Promise<Deck>} */
 export async function createDeckCommand(name) {
@@ -70,6 +71,46 @@ export async function getDeckCommand(deckId) {
 export async function addCardToDeckCommand(deckId, name) {
   try {
     return await invoke("add_card_to_deck", { deckId, name });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package[]>} */
+export async function getPackagesCommand() {
+  try {
+    return await invoke("get_packages");
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package>} */
+export async function createPackageCommand(name) {
+  try {
+    return await invoke("create_package", { name });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package>} */
+export async function addCardToPackageCommand(packageId, cardName) {
+  try {
+    return await invoke("add_card_to_package", { packageId, cardName });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Deck>} */
+export async function addPackageToDeckCommand(deckId, packageId) {
+  try {
+    return await invoke("add_package_to_deck", { deckId, packageId });
   } catch (e) {
     console.error(e);
     throw e;

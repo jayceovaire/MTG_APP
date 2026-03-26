@@ -27,6 +27,7 @@
  * @property {string[]} super_type
  * @property {string[]} sub_type
  * @property {string | null} oracle_text
+ * @property {boolean} favorite
  */
 
 /**
@@ -36,6 +37,13 @@
  * @property {string} name
  * @property {string | null} mana_cost
  * @property {string} type_line
+ */
+
+/**
+ * @typedef {Object} Package
+ * @property {number} id
+ * @property {string} name
+ * @property {Card[]} cards
  */
 
 export {};

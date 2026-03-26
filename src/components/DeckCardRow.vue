@@ -1,5 +1,14 @@
 <script setup>
-import { mdiAccountMultiplePlusOutline, mdiCloseCircleOutline, mdiCrownOutline, mdiDotsHorizontal } from "@mdi/js";
+import {
+  mdiAccountMultiplePlusOutline,
+  mdiCloseCircleOutline,
+  mdiCrownOutline,
+  mdiDotsHorizontal,
+  mdiHeart,
+  mdiHeartOutline,
+  mdiPackageVariantClosedPlus,
+} from "@mdi/js";
+import { computed } from "vue";
 import ManaText from "./ManaText.vue";
 
 const props = defineProps({
@@ -31,9 +40,42 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  favorited: {
+    type: Boolean,
+    default: false,
+  },
+  showFavoriteIndicator: {
+    type: Boolean,
+    default: false,
+  },
+  showFavoriteAction: {
+    type: Boolean,
+    default: false,
+  },
+  showAddToPackageAction: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-const emit = defineEmits(["add-copy", "remove-copy", "set-commander", "set-partner", "remove-commander", "remove-partner"]);
+const emit = defineEmits([
+  "add-copy",
+  "remove-copy",
+  "set-commander",
+  "set-partner",
+  "remove-commander",
+  "remove-partner",
+  "favorite-card",
+  "add-to-package",
+]);
+const hasContextActions = computed(() => (
+  props.canSetCommander ||
+  props.canSetPartner ||
+  props.canRemovePartner ||
+  props.canRemoveCommander ||
+  props.showFavoriteAction ||
+  props.showAddToPackageAction
+));
 
 function buildTypeLine(card) {
   const superType = Array.isArray(card.super_type) ? card.super_type.join(" ") : "";
@@ -48,7 +90,15 @@ function buildTypeLine(card) {
     <div class="deck-card-row__count">{{ quantity }}x</div>
     <div class="deck-card-row__body">
       <div class="deck-card-row__top">
-        <span class="deck-card-row__name">{{ card.name }}</span>
+        <span class="deck-card-row__name">
+          <span>{{ card.name }}</span>
+          <v-icon
+            v-if="showFavoriteIndicator && favorited"
+            :icon="mdiHeart"
+            size="16"
+            class="deck-card-row__favorite"
+          ></v-icon>
+        </span>
         <div class="deck-card-row__actions">
           <ManaText class="deck-card-row__mana" :text="card.mana_cost || ''" empty-text="-" :cost="true" />
           <div v-if="editable" class="deck-card-row__buttons">
@@ -58,7 +108,7 @@ function buildTypeLine(card) {
             <v-btn size="x-small" variant="outlined" icon @click.stop="$emit('add-copy')">
               <span class="deck-card-row__button-glyph">+</span>
             </v-btn>
-            <v-menu location="bottom end">
+            <v-menu v-if="hasContextActions" location="bottom end">
               <template #activator="{ props: menuProps }">
                 <v-btn v-bind="menuProps" size="x-small" variant="outlined" icon @click.stop>
                   <v-icon :icon="mdiDotsHorizontal" size="14"></v-icon>
@@ -66,7 +116,7 @@ function buildTypeLine(card) {
               </template>
               <v-list density="compact">
                 <v-list-item
-                  :disabled="!canSetCommander"
+                  v-if="canSetCommander"
                   title="Set as Commander"
                   @click.stop="$emit('set-commander')"
                 >
@@ -75,7 +125,7 @@ function buildTypeLine(card) {
                   </template>
                 </v-list-item>
                 <v-list-item
-                  :disabled="!canSetPartner"
+                  v-if="canSetPartner"
                   title="Set as Partner"
                   @click.stop="$emit('set-partner')"
                 >
@@ -84,7 +134,7 @@ function buildTypeLine(card) {
                   </template>
                 </v-list-item>
                 <v-list-item
-                  :disabled="!canRemovePartner"
+                  v-if="canRemovePartner"
                   title="Remove as Partner"
                   @click.stop="$emit('remove-partner')"
                 >
@@ -93,12 +143,30 @@ function buildTypeLine(card) {
                   </template>
                 </v-list-item>
                 <v-list-item
-                  :disabled="!canRemoveCommander"
+                  v-if="canRemoveCommander"
                   title="Remove as Commander"
                   @click.stop="$emit('remove-commander')"
                 >
                   <template #prepend>
                     <v-icon :icon="mdiCloseCircleOutline" size="16"></v-icon>
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  v-if="showFavoriteAction"
+                  :title="favorited ? 'Unfavorite Card' : 'Favorite Card'"
+                  @click.stop="$emit('favorite-card')"
+                >
+                  <template #prepend>
+                    <v-icon :icon="favorited ? mdiHeart : mdiHeartOutline" size="16"></v-icon>
+                  </template>
+                </v-list-item>
+                <v-list-item
+                  v-if="showAddToPackageAction"
+                  title="Add to Package"
+                  @click.stop="$emit('add-to-package')"
+                >
+                  <template #prepend>
+                    <v-icon :icon="mdiPackageVariantClosedPlus" size="16"></v-icon>
                   </template>
                 </v-list-item>
               </v-list>
@@ -159,12 +227,25 @@ function buildTypeLine(card) {
 }
 
 .deck-card-row__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  color: #142033;
+}
+
+.deck-card-row__name > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 700;
-  color: #142033;
+}
+
+.deck-card-row__favorite {
+  color: #bf3347;
+  flex: 0 0 auto;
 }
 
 .deck-card-row__mana {

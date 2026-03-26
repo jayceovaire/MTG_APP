@@ -19,6 +19,14 @@ pub struct CardSearchSuggestion {
     type_line: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionCardView {
+    #[serde(flatten)]
+    card: Card,
+    favorite: bool,
+}
+
 #[derive(Debug, Clone)]
 struct CardSearchCandidate {
     suggestion: CardSearchSuggestion,
@@ -242,6 +250,11 @@ fn search_candidates() -> Result<&'static Vec<CardSearchCandidate>, String> {
         Ok(candidates) => Ok(candidates),
         Err(error) => Err(error.clone()),
     }
+}
+
+fn build_collection_card_view(card: Card, favorite_ids: &HashSet<u64>) -> CollectionCardView {
+    let favorite = favorite_ids.contains(&card.id());
+    CollectionCardView { card, favorite }
 }
 
 fn parse_card_types(type_line: &str) -> Vec<CardType> {
@@ -474,7 +487,10 @@ pub fn search_card_suggestions(query: String) -> Result<Vec<CardSearchSuggestion
 }
 
 #[tauri::command]
-pub fn add_card_to_collection(state: State<'_, AppState>, name: String) -> Result<Card, String> {
+pub fn add_card_to_collection(
+    state: State<'_, AppState>,
+    name: String,
+) -> Result<CollectionCardView, String> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return Err("Card name cannot be empty".to_string());
@@ -491,11 +507,17 @@ pub fn add_card_to_collection(state: State<'_, AppState>, name: String) -> Resul
     drop(collection);
     state.save_collection_card(&new_card)?;
 
-    Ok(new_card)
+    Ok(CollectionCardView {
+        card: new_card,
+        favorite: false,
+    })
 }
 
 #[tauri::command]
-pub fn duplicate_collection_card(state: State<'_, AppState>, card_id: u64) -> Result<Card, String> {
+pub fn duplicate_collection_card(
+    state: State<'_, AppState>,
+    card_id: u64,
+) -> Result<CollectionCardView, String> {
     let mut collection = state
         .collection
         .write()
@@ -513,7 +535,10 @@ pub fn duplicate_collection_card(state: State<'_, AppState>, card_id: u64) -> Re
     drop(collection);
     state.save_collection_card(&duplicated)?;
 
-    Ok(duplicated)
+    Ok(CollectionCardView {
+        card: duplicated,
+        favorite: false,
+    })
 }
 
 #[tauri::command]
@@ -536,8 +561,57 @@ pub fn remove_collection_card(state: State<'_, AppState>, card_id: u64) -> Resul
 
 
 #[tauri::command]
-pub fn get_collection(state: State<'_, AppState>) -> Vec<Card> {
-    state.collection.read().unwrap().clone()
+pub fn set_collection_card_favorite(
+    state: State<'_, AppState>,
+    card_id: u64,
+    favorite: bool,
+) -> Result<CollectionCardView, String> {
+    let collection = state
+        .collection
+        .read()
+        .map_err(|_| "Failed to lock collection for reading".to_string())?;
+    let card = collection
+        .iter()
+        .find(|card| card.id() == card_id)
+        .cloned()
+        .ok_or_else(|| format!("Card with id {} not found", card_id))?;
+    drop(collection);
+
+    let mut favorites = state
+        .favorites
+        .write()
+        .map_err(|_| "Failed to lock favorites for writing".to_string())?;
+    if favorite {
+        if !favorites.contains(&card_id) {
+            favorites.push(card_id);
+        }
+        drop(favorites);
+        state.save_favorite(card_id)?;
+    } else {
+        favorites.retain(|id| *id != card_id);
+        drop(favorites);
+        state.delete_favorite(card_id)?;
+    }
+
+    Ok(CollectionCardView { card, favorite })
+}
+
+#[tauri::command]
+pub fn get_collection(state: State<'_, AppState>) -> Vec<CollectionCardView> {
+    let favorite_ids: HashSet<u64> = state
+        .favorites
+        .read()
+        .unwrap()
+        .iter()
+        .copied()
+        .collect();
+    state.collection
+        .read()
+        .unwrap()
+        .clone()
+        .into_iter()
+        .map(|card| build_collection_card_view(card, &favorite_ids))
+        .collect()
 }
 
 

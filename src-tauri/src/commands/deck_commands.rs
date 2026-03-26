@@ -1,5 +1,6 @@
 use crate::state::AppState;
 use crate::models::deck_model::Deck;
+use crate::models::package_model::Package;
 use crate::commands::collection_commands::card_from_db_by_name;
 use tauri::State;
 
@@ -120,6 +121,96 @@ pub fn add_card_to_deck(state: State<'_, AppState>, deck_id: u64, name: String) 
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.add_card(new_card);
+    let updated = deck.clone();
+    drop(decks);
+
+    state.save_deck(&updated)?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn get_packages(state: State<'_, AppState>) -> Vec<Package> {
+    state.packages.read().unwrap().clone()
+}
+
+#[tauri::command]
+pub fn create_package(state: State<'_, AppState>, name: Option<String>) -> Result<Package, String> {
+    let package_name = match name {
+        Some(name) if !name.trim().is_empty() => name.trim().to_string(),
+        _ => "Untitled Package".to_string(),
+    };
+
+    let package = Package::new(state.next_package_id(), package_name);
+    state.packages.write().unwrap().push(package.clone());
+    state.save_package(&package)?;
+    Ok(package)
+}
+
+#[tauri::command]
+pub fn add_card_to_package(
+    state: State<'_, AppState>,
+    package_id: u64,
+    card_name: String,
+) -> Result<Package, String> {
+    let trimmed = card_name.trim();
+    if trimmed.is_empty() {
+        return Err("Card name cannot be empty".to_string());
+    }
+
+    let new_card = card_from_db_by_name(trimmed, state.next_card_id())?
+        .ok_or_else(|| format!("Card '{trimmed}' not found in local database"))?;
+
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+    let package = packages
+        .iter_mut()
+        .find(|package| package.id() == package_id)
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    package.add_card(new_card);
+    let updated = package.clone();
+    drop(packages);
+
+    state.save_package(&updated)?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn add_package_to_deck(
+    state: State<'_, AppState>,
+    deck_id: u64,
+    package_id: u64,
+) -> Result<Deck, String> {
+    let package = state
+        .packages
+        .read()
+        .map_err(|_| "Failed to acquire package lock".to_string())?
+        .iter()
+        .find(|package| package.id() == package_id)
+        .cloned()
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    let mut cards_to_add = Vec::new();
+    for card in package.get_cards() {
+        let mut cloned_card = card.clone();
+        cloned_card.set_id(state.next_card_id());
+        cards_to_add.push(cloned_card);
+    }
+
+    let mut decks = state
+        .decks
+        .write()
+        .map_err(|_| "Failed to acquire deck lock".to_string())?;
+    let deck = decks
+        .iter_mut()
+        .find(|deck| deck.id() == deck_id)
+        .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
+
+    for card in cards_to_add {
+        deck.add_card(card);
+    }
     let updated = deck.clone();
     drop(decks);
 
