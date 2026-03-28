@@ -320,7 +320,12 @@ function primaryType(card) {
   return typeDisplayOrder.find((type) => types.includes(type)) || "Other";
 }
 
-function canSetCommander(card) {
+function isCommanderCard(card) {
+  return commanderCards(deck.value?.commander).some((c) => c.id === card.id);
+}
+
+/** Rules only (used for current commander in canSetPartner, etc.). */
+function canBeCommander(card) {
   const types = Array.isArray(card?.card_type) ? card.card_type : [];
   const superTypes = Array.isArray(card?.super_type) ? card.super_type : [];
   const subTypes = Array.isArray(card?.sub_type) ? card.sub_type : [];
@@ -328,6 +333,14 @@ function canSetCommander(card) {
   const isCreature = types.includes("Creature");
   const isVehicle = subTypes.some((subtype) => subtype.toLowerCase() === "vehicle");
   return isLegendary && (isCreature || isVehicle);
+}
+
+/** Whether the row may show "Set as Commander" (mainboard / not already in command zone). */
+function canSetCommander(card) {
+  if (isCommanderCard(card)) {
+    return false;
+  }
+  return canBeCommander(card);
 }
 
 function hasPartnerMechanic(card) {
@@ -339,7 +352,10 @@ function hasPartnerMechanic(card) {
 }
 
 function canSetPartner(card) {
-  if (!canSetCommander(card) || !hasPartnerMechanic(card)) {
+  if (isCommanderCard(card)) {
+    return false;
+  }
+  if (!canBeCommander(card) || !hasPartnerMechanic(card)) {
     return false;
   }
 
@@ -348,7 +364,7 @@ function canSetPartner(card) {
     return false;
   }
 
-  return hasPartnerMechanic(commander.Single) && canSetCommander(commander.Single);
+  return hasPartnerMechanic(commander.Single) && canBeCommander(commander.Single);
 }
 
 function canRemovePartner(card){
@@ -866,13 +882,16 @@ onMounted(async () => {
                     :key="`${section.title}-${entry.card.id}`"
                     :card="entry.card"
                     :quantity="entry.quantity"
+                    :editable="true"
                     :can-set-commander="canSetCommander(entry.card)"
                     :can-set-partner="canSetPartner(entry.card)"
+                    :can-remove-partner="canRemovePartner(entry.card)"
                     :show-add-to-package-action="true"
                     @add-copy="handleAddCopy(entry.card.name)"
                     @remove-copy="handleRemoveCopy(entry.card.id, entry.card.name)"
                     @set-commander="handleSetCommander(entry.card.id, entry.card.name)"
                     @set-partner="handleSetPartner(entry.card.id, entry.card.name)"
+                    @remove-partner="handleRemovePartner(entry.card.id, entry.card.name)"
                     @add-to-package="handleAddToPackage(entry.card.name)"
                   />
                 </div>

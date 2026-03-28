@@ -1,4 +1,4 @@
-﻿use crate::models::card_model::{Card, CardType, SuperType};
+use crate::models::card_model::{Card, CardType, SuperType};
 use crate::state::AppState;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
@@ -347,7 +347,7 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
                                  ELSE 1
                              END,
                              CASE WHEN NULLIF(cf.mana_cost, '') IS NOT NULL THEN 0 ELSE 1 END,
-                             cf.id
+                             cf.rowid
                          LIMIT 1),
                         NULLIF(c.mana_cost, '')
                     ) AS mana_cost,
@@ -370,7 +370,7 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
                                  ELSE 1
                              END,
                              CASE WHEN NULLIF(cf.mana_cost, '') IS NOT NULL THEN 0 ELSE 1 END,
-                             cf.id
+                             cf.rowid
                          LIMIT 1),
                         CASE
                             WHEN NULLIF(c.type_line, '') IS NULL THEN NULL
@@ -392,7 +392,7 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
                                  ELSE 1
                              END,
                              CASE WHEN NULLIF(cf.mana_cost, '') IS NOT NULL THEN 0 ELSE 1 END,
-                             cf.id
+                             cf.rowid
                          LIMIT 1),
                         NULLIF(c.oracle_text, '')
                     ) AS oracle_text
