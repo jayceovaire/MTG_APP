@@ -638,15 +638,16 @@ onMounted(loadPackage);
 }
 
 .metric-card {
-  padding: 18px 20px;
+  padding: 16px 18px;
   border-radius: 20px;
   background: #fff;
   border: 1px solid rgba(27, 42, 63, 0.08);
   box-shadow: 0 16px 30px rgba(24, 37, 58, 0.05);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 8px;
+  text-align: center;
 }
 
 .metric-label {
@@ -658,10 +659,8 @@ onMounted(loadPackage);
 }
 
 .metric-card strong {
-  font-size: 1.8rem;
-  justify-self: center;
+  font-size: 1.6rem;
   width: 100%;
-  text-align: center;
 }
 
 .metric-label--symbol {

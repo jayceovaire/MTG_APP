@@ -931,6 +931,10 @@ onMounted(async () => {
           <strong>{{ manaCurve }}</strong>
         </article>
         <article class="metric-card">
+          <span class="metric-label">Bracket</span>
+          <strong>{{ deck.bracket ?? 2 }}</strong>
+        </article>
+        <article class="metric-card">
           <div class="d-flex align-center">
             <span class="metric-label">Game changers</span>
             <v-icon
@@ -1008,8 +1012,16 @@ onMounted(async () => {
         <main class="deck-main">
           <section class="deck-panel">
             <div class="panel-heading">
-              <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
-              <h2>Mainboard</h2>
+              <div class="d-flex align-center flex-grow-1">
+                <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
+                <h2 class="ml-2">Mainboard</h2>
+              </div>
+              <div class="d-flex align-center bg-amber-lighten-4 px-2 py-1 rounded-pill" v-if="deck.game_changer_count > 0">
+                <v-icon :icon="mdiGaugeFull" size="16" color="amber-darken-3"></v-icon>
+                <span class="text-caption font-weight-bold ml-1 text-amber-darken-4">
+                  {{ deck.game_changer_count }} GAME CHANGER{{ deck.game_changer_count > 1 ? 'S' : '' }}
+                </span>
+              </div>
             </div>
 
             <div v-if="mainDeckSections.length > 0" class="deck-sections">
@@ -1332,21 +1344,22 @@ onMounted(async () => {
 
 .deck-metrics {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 20px;
 }
 
 .metric-card {
-  padding: 18px 20px;
+  padding: 16px 18px;
   border-radius: 20px;
   background: #fff;
   border: 1px solid rgba(27, 42, 63, 0.08);
   box-shadow: 0 16px 30px rgba(24, 37, 58, 0.05);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 8px;
+  text-align: center;
 }
 
 .metric-card--illegal {
@@ -1363,10 +1376,8 @@ onMounted(async () => {
 }
 
 .metric-card strong {
-  font-size: 1.8rem;
-  justify-self: center;
+  font-size: 1.6rem;
   width: 100%;
-  text-align: center;
 }
 
 .metric-label--symbol {

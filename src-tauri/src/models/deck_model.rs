@@ -11,6 +11,8 @@ pub struct Deck {
     #[serde(default)]
     game_changer_count: u32,
     #[serde(default)]
+    bracket: u8,
+    #[serde(default)]
     illegal_count: u32,
     mana_value: i16,
     mana_pips: i16,
@@ -38,6 +40,7 @@ impl Deck {
             commander: CommanderSelection::None,
             cards: Vec::new(),
             game_changer_count: 0,
+            bracket: 2,
             illegal_count: 0,
             mana_value: 0,
             mana_pips: 0,
@@ -144,6 +147,14 @@ impl Deck {
         }
         self.game_changer_count = n_gc;
         self.illegal_count = n_illegal;
+
+        self.bracket = if n_gc == 0 {
+            2
+        } else if n_gc <= 3 {
+            3
+        } else {
+            4
+        };
     }
 
     pub fn set_single_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {

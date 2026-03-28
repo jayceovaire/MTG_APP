@@ -92,7 +92,7 @@ const averageManaValue = computed(() => {
   const totalManaValue = cards.reduce((sum, card) => sum + (Number(card?.mana_value) || 0), 0);
   return (totalManaValue / cards.length).toFixed(2);
 });
-const bracket = computed(() => "4");
+const bracket = computed(() => props.deck?.bracket || "2");
 
 function goToDeckEditor() {
   router.push(`/deck-editor/${props.deck.id}`);
