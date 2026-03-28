@@ -6,6 +6,7 @@ import {
   mdiCrownOutline,
   mdiPackageVariantClosedPlus,
   mdiPlus,
+  mdiDownload,
 } from "@mdi/js";
 import {
   addCardToDeckCommand,
@@ -54,6 +55,12 @@ const newPackageName = ref("");
 const pendingPackageCardName = ref("");
 const isSubmittingPackageAction = ref(false);
 const isCreatingPackage = ref(false);
+// Import deck dialog state
+const importDialogVisible = ref(false);
+const importText = ref("");
+const importErrors = ref([]);
+const isImporting = ref(false);
+const isPasting = ref(false);
 let suggestionSearchTimeout = null;
 let searchBlurTimeout = null;
 
@@ -129,6 +136,92 @@ function closePackageDialog() {
   pendingPackageCardName.value = "";
   isSubmittingPackageAction.value = false;
   isCreatingPackage.value = false;
+}
+
+function openImportDialog() {
+  importDialogVisible.value = true;
+  importText.value = "";
+  importErrors.value = [];
+}
+
+function closeImportDialog() {
+  importDialogVisible.value = false;
+  importText.value = "";
+  importErrors.value = [];
+  isImporting.value = false;
+  isPasting.value = false;
+}
+
+async function pasteFromClipboard() {
+  try {
+    isPasting.value = true;
+    const text = await navigator.clipboard.readText();
+    importText.value = text || "";
+    importErrors.value = validateImportLines(importText.value);
+  } catch (e) {
+    showError("Failed to read clipboard.");
+    console.error(e);
+  } finally {
+    isPasting.value = false;
+  }
+}
+
+function validateImportLines(text) {
+  const lines = text.split(/\r?\n/);
+  const errors = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(\d+)\s+(.+)$/);
+    if (!m) {
+      errors.push({ line: i + 1, text: raw });
+    }
+  }
+  return errors;
+}
+
+async function handleImport() {
+  importErrors.value = validateImportLines(importText.value);
+  if (importErrors.value.length > 0) {
+    showError("Fix import format errors before importing.");
+    return;
+  }
+
+  const lines = importText.value.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) {
+    showError("No cards to import.");
+    return;
+  }
+
+  const normalizedDeckId = normalizeDeckId(props.deckId);
+  if (normalizedDeckId === null) {
+    showError("Invalid deck id.");
+    return;
+  }
+
+  try {
+    isImporting.value = true;
+    // Process sequentially to keep deck updated after each add
+    for (const raw of lines) {
+      const m = raw.match(/^(\d+)\s+(.+)$/);
+      if (!m) continue;
+      const qty = Number(m[1]);
+      const name = m[2].trim();
+      for (let i = 0; i < qty; i++) {
+        // addCardToDeckCommand returns updated deck
+        deck.value = await addCardToDeckCommand(normalizedDeckId, name);
+      }
+    }
+
+    showSuccess(`Imported ${lines.length} lines to ${deck.value?.name || 'deck'}`);
+    closeImportDialog();
+  } catch (e) {
+    console.error(e);
+    showError(`Failed to import deck: ${String(e)}`);
+  } finally {
+    isImporting.value = false;
+  }
 }
 
 function openAddCardToPackageDialog(cardName) {
@@ -673,6 +766,14 @@ onMounted(async () => {
           >
             Add Package
           </v-btn>
+          <v-btn
+            class="import-btn"
+            variant="outlined"
+            :prepend-icon="mdiDownload"
+            @click="openImportDialog"
+          >
+            Import Deck
+          </v-btn>
         </div>
       </div>
     </section>
@@ -786,6 +887,51 @@ onMounted(async () => {
         </main>
       </section>
     </template>
+
+    <!-- Import Deck Dialog -->
+    <v-dialog v-model="importDialogVisible" max-width="720">
+      <v-card class="import-dialog">
+        <v-card-title>Import Deck</v-card-title>
+        <v-card-text>
+          <p class="import-dialog__help">Paste a deck list using the format: "1 Card Name" per line.</p>
+          <v-textarea
+            v-model="importText"
+            label="Deck list"
+            rows="10"
+            density="comfortable"
+            hide-details="auto"
+            class="import-textarea"
+            @input="importErrors = validateImportLines(importText)"
+          />
+
+          <div v-if="importErrors.length > 0" class="import-errors">
+            <p>Format errors found on the following lines:</p>
+            <ul>
+              <li v-for="err in importErrors" :key="`err-${err.line}`">Line {{ err.line }}: "{{ err.text }}"</li>
+            </ul>
+          </div>
+
+          <div class="import-actions" style="display:flex;gap:8px;margin-top:12px;align-items:center;">
+            <v-btn variant="outlined" :loading="isPasting" @click="pasteFromClipboard">Paste from Clipboard</v-btn>
+            <v-btn variant="outlined" @click="importText = ''">Clear List</v-btn>
+            <v-spacer />
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="closeImportDialog">Cancel</v-btn>
+          <v-btn
+            variant="outlined"
+            color="primary"
+            :loading="isImporting"
+            :disabled="isImporting || importErrors.length > 0"
+            @click="handleImport"
+          >
+            Import
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <v-dialog v-model="packageDialogVisible" max-width="560">
       <v-card class="package-dialog">
@@ -953,6 +1099,15 @@ onMounted(async () => {
 
 .package-btn {
   flex: 0 0 auto;
+}
+
+.import-btn {
+  flex: 0 0 auto;
+}
+
+.import-textarea {
+  max-height: 300px;
+  overflow-y: auto !important;
 }
 
 .feedback {
