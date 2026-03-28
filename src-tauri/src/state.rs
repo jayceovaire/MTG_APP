@@ -112,8 +112,9 @@ impl AppState {
             .map_err(|e| format!("Failed to read deck rows: {e}"))?;
         for row in deck_rows {
             let deck_json = row.map_err(|e| format!("Failed to parse deck row: {e}"))?;
-            let deck: Deck = serde_json::from_str(&deck_json)
+            let mut deck: Deck = serde_json::from_str(&deck_json)
                 .map_err(|e| format!("Failed to deserialize deck: {e}"))?;
+            deck.recount_game_changers();
             loaded_decks.push(deck);
         }
 

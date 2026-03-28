@@ -6,6 +6,7 @@
  * @property {unknown[]} cards
  * @property {number} mana_value
  * @property {number} mana_pips
+ * @property {number} game_changer_count
  * @property {number} black_pips
  * @property {number} blue_pips
  * @property {number} white_pips
@@ -27,6 +28,8 @@
  * @property {string[]} super_type
  * @property {string[]} sub_type
  * @property {string | null} oracle_text
+ * @property {string} commander_legality
+ * @property {boolean} game_changer
  * @property {boolean} favorite
  */
 
@@ -37,6 +40,8 @@
  * @property {string} name
  * @property {string | null} mana_cost
  * @property {string} type_line
+ * @property {string} commander_legality
+ * @property {boolean} game_changer
  */
 
 /**

@@ -67,6 +67,16 @@ export async function getDeckCommand(deckId) {
   }
 }
 
+/** @returns {Promise<import('./types.js').Card>} */
+export async function getCardCommand(name) {
+  try {
+    return await invoke("get_card", { name });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
 /** @returns {Promise<Deck>} */
 export async function addCardToDeckCommand(deckId, name) {
   try {

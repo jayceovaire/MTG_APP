@@ -7,6 +7,8 @@ import {
   mdiPackageVariantClosedPlus,
   mdiPlus,
   mdiDownload,
+  mdiGaugeFull,
+  mdiCancel,
 } from "@mdi/js";
 import {
   addCardToDeckCommand,
@@ -295,6 +297,19 @@ async function handleSearchEnter() {
   await handleAddCard();
 }
 
+/** Stable id match (avoids undefined===undefined treating every card as the commander). */
+function sameCardId(a, b) {
+  if (a == null || b == null) {
+    return false;
+  }
+  const na = Number(a);
+  const nb = Number(b);
+  if (!Number.isFinite(na) || !Number.isFinite(nb)) {
+    return false;
+  }
+  return na === nb;
+}
+
 function commanderCards(commander) {
   if (!commander) {
     return [];
@@ -304,12 +319,19 @@ function commanderCards(commander) {
     return commander === "None" ? [] : [];
   }
 
-  if (commander.Single) {
-    return [commander.Single];
+  // Serde externally-tagged None: { "None": null }
+  if (typeof commander === "object" && commander !== null && Object.prototype.hasOwnProperty.call(commander, "None")) {
+    return [];
   }
 
-  if (Array.isArray(commander.Partner)) {
-    return commander.Partner;
+  const single = commander.Single ?? commander.single;
+  if (single) {
+    return [single];
+  }
+
+  const partner = commander.Partner ?? commander.partner;
+  if (Array.isArray(partner)) {
+    return partner;
   }
 
   return [];
@@ -321,7 +343,10 @@ function primaryType(card) {
 }
 
 function isCommanderCard(card) {
-  return commanderCards(deck.value?.commander).some((c) => c.id === card.id);
+  if (card == null || card.id == null) {
+    return false;
+  }
+  return commanderCards(deck.value?.commander).some((c) => c != null && sameCardId(c.id, card.id));
 }
 
 /** Rules only (used for current commander in canSetPartner, etc.). */
@@ -329,10 +354,29 @@ function canBeCommander(card) {
   const types = Array.isArray(card?.card_type) ? card.card_type : [];
   const superTypes = Array.isArray(card?.super_type) ? card.super_type : [];
   const subTypes = Array.isArray(card?.sub_type) ? card.sub_type : [];
+  const oracleText = typeof card?.oracle_text === "string" ? card.oracle_text.toLowerCase() : "";
+
   const isLegendary = superTypes.includes("Legendary");
   const isCreature = types.includes("Creature");
   const isVehicle = subTypes.some((subtype) => subtype.toLowerCase() === "vehicle");
-  return isLegendary && (isCreature || isVehicle);
+  const isBackground = subTypes.some((subtype) => subtype.toLowerCase() === "background");
+
+  // Standard case: Legendary Creature or Legendary Vehicle
+  if (isLegendary && (isCreature || isVehicle)) {
+    return true;
+  }
+
+  // Special case: Backgrounds
+  if (isLegendary && isBackground) {
+    return true;
+  }
+
+  // Cards with "can be your commander" text (includes some planeswalkers)
+  if (oracleText.includes("can be your commander")) {
+    return true;
+  }
+
+  return false;
 }
 
 /** Whether the row may show "Set as Commander" (mainboard / not already in command zone). */
@@ -345,10 +389,35 @@ function canSetCommander(card) {
 
 function hasPartnerMechanic(card) {
   const oracleText = typeof card?.oracle_text === "string" ? card.oracle_text : "";
-  return oracleText
+  const subTypes = Array.isArray(card?.sub_type) ? card.sub_type : [];
+  const lower = oracleText.toLowerCase();
+
+  // Special case: Backgrounds
+  if (subTypes.some((s) => s.toLowerCase() === "background")) {
+    return true;
+  }
+
+  // Check each line for partner-like mechanics
+  const hasPartnerLine = oracleText
     .split("\n")
     .map((line) => line.trim().toLowerCase())
-    .some((line) => line.startsWith("partner"));
+    .some((line) =>
+      line === "partner" ||
+      line.startsWith("partner with ") ||
+      line === "friends forever" ||
+      line === "choose a background" ||
+      line === "doctor's companion"
+    );
+
+  if (hasPartnerLine) {
+    return true;
+  }
+
+  // Also check for "partner" as a standalone word anywhere in case it's formatted differently
+  return lower.includes("partner") ||
+         lower.includes("friends forever") ||
+         lower.includes("choose a background") ||
+         lower.includes("doctor's companion");
 }
 
 function canSetPartner(card) {
@@ -360,21 +429,36 @@ function canSetPartner(card) {
   }
 
   const commander = deck.value?.commander;
-  if (!commander || commander === "None" || !commander.Single) {
+  if (!commander || commander === "None") {
     return false;
   }
 
-  return hasPartnerMechanic(commander.Single) && canBeCommander(commander.Single);
+  const single = commander.Single ?? commander.single;
+  if (!single) {
+    return false;
+  }
+
+  return hasPartnerMechanic(single) && canBeCommander(single);
 }
 
-function canRemovePartner(card){
+/** Only for a card currently shown as partner commander in the command zone (not mainboard). */
+function canRemovePartner(card) {
   const commander = deck.value?.commander;
-  return Boolean(
-      commander &&
-      commander !== "None" &&
-      Array.isArray(commander.Partner) &&
-      commander.Partner.some((partnerCard) => partnerCard.id === card.id)
-  );
+  if (!commander || commander === "None") {
+    return false;
+  }
+  const partner = commander.Partner ?? commander.partner;
+  if (!Array.isArray(partner)) {
+    return false;
+  }
+  if (card == null || card.id == null) {
+    return false;
+  }
+  const isThisPartner = partner.some((partnerCard) => sameCardId(partnerCard?.id, card.id));
+  if (!isThisPartner) {
+    return false;
+  }
+  return canBeCommander(card) && hasPartnerMechanic(card);
 }
 
 
@@ -750,11 +834,48 @@ onMounted(async () => {
                 :key="`${suggestion.name}-${index}`"
                 type="button"
                 class="deck-search-suggestion"
-                :class="{ 'deck-search-suggestion--active': index === activeSuggestionIndex }"
+                :class="{
+                  'deck-search-suggestion--active': index === activeSuggestionIndex,
+                  'deck-search-suggestion--illegal':
+                    suggestion.commander_legality && suggestion.commander_legality !== 'legal',
+                  'deck-search-suggestion--game-changer':
+                    suggestion.game_changer &&
+                    !(suggestion.commander_legality && suggestion.commander_legality !== 'legal'),
+                }"
                 @mousedown.prevent="selectSuggestion(suggestion)"
               >
                 <div class="deck-search-suggestion__top">
-                  <span>{{ suggestion.name }}</span>
+                  <div class="d-flex align-center flex-grow-1">
+                    <span>{{ suggestion.name }}</span>
+                    <span
+                      v-if="suggestion.game_changer"
+                      class="suggestion-pill suggestion-pill--game-changer ml-1"
+                    >
+                      GAME CHANGER
+                    </span>
+                    <span
+                      v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
+                      class="suggestion-pill suggestion-pill--illegal ml-1"
+                    >
+                      {{ suggestion.commander_legality.toUpperCase().replace("_", " ") }}
+                    </span>
+                    <v-icon
+                      v-if="suggestion.game_changer"
+                      :icon="mdiGaugeFull"
+                      size="14"
+                      color="amber-darken-2"
+                      title="Game Changer"
+                      class="ml-1"
+                    ></v-icon>
+                    <v-icon
+                      v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
+                      :icon="mdiCancel"
+                      size="14"
+                      color="error"
+                      title="Banned"
+                      class="ml-1"
+                    ></v-icon>
+                  </div>
                   <ManaText
                     v-if="suggestion.mana_cost"
                     :text="suggestion.mana_cost"
@@ -808,6 +929,31 @@ onMounted(async () => {
         <article class="metric-card">
           <span class="metric-label">Average MV</span>
           <strong>{{ manaCurve }}</strong>
+        </article>
+        <article class="metric-card">
+          <div class="d-flex align-center">
+            <span class="metric-label">Game changers</span>
+            <v-icon
+              v-if="deck.game_changer_count > 0"
+              :icon="mdiGaugeFull"
+              size="16"
+              color="amber-darken-2"
+              class="ml-1"
+            ></v-icon>
+          </div>
+          <strong>{{ deck.game_changer_count ?? 0 }}</strong>
+        </article>
+        <article v-if="deck.illegal_count > 0" class="metric-card metric-card--illegal">
+          <div class="d-flex align-center">
+            <span class="metric-label">Illegal</span>
+            <v-icon
+              :icon="mdiCancel"
+              size="16"
+              color="error"
+              class="ml-1"
+            ></v-icon>
+          </div>
+          <strong>{{ deck.illegal_count }}</strong>
         </article>
         <article class="metric-card">
           <ManaText class="metric-label metric-label--symbol" text="{W}" :cost="true" />
@@ -885,13 +1031,11 @@ onMounted(async () => {
                     :editable="true"
                     :can-set-commander="canSetCommander(entry.card)"
                     :can-set-partner="canSetPartner(entry.card)"
-                    :can-remove-partner="canRemovePartner(entry.card)"
                     :show-add-to-package-action="true"
                     @add-copy="handleAddCopy(entry.card.name)"
                     @remove-copy="handleRemoveCopy(entry.card.id, entry.card.name)"
                     @set-commander="handleSetCommander(entry.card.id, entry.card.name)"
                     @set-partner="handleSetPartner(entry.card.id, entry.card.name)"
-                    @remove-partner="handleRemovePartner(entry.card.id, entry.card.name)"
                     @add-to-package="handleAddToPackage(entry.card.name)"
                   />
                 </div>
@@ -1086,17 +1230,41 @@ onMounted(async () => {
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 14px;
   background: rgba(239, 244, 252, 0.88);
   color: #132032;
   text-align: left;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deck-search-suggestion--illegal {
+  background: rgba(254, 242, 242, 0.88);
+  border-color: rgba(185, 28, 28, 0.2);
+}
+
+.deck-search-suggestion--game-changer {
+  background: rgba(255, 247, 237, 0.88);
+  border-color: rgba(194, 65, 12, 0.2);
 }
 
 .deck-search-suggestion--active,
 .deck-search-suggestion:hover {
   background: rgba(217, 229, 246, 0.96);
+  border-color: rgba(27, 42, 63, 0.15);
+}
+
+.deck-search-suggestion--illegal.deck-search-suggestion--active,
+.deck-search-suggestion--illegal:hover {
+  background: rgba(254, 226, 226, 0.96);
+  border-color: rgba(185, 28, 28, 0.4);
+}
+
+.deck-search-suggestion--game-changer.deck-search-suggestion--active,
+.deck-search-suggestion--game-changer:hover {
+  background: rgba(255, 237, 213, 0.96);
+  border-color: rgba(194, 65, 12, 0.4);
 }
 
 .deck-search-suggestion__top {
@@ -1110,6 +1278,25 @@ onMounted(async () => {
 .deck-search-suggestion__type {
   color: #607089;
   font-size: 0.85rem;
+}
+
+.suggestion-pill {
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.suggestion-pill--illegal {
+  background: #991b1b;
+  color: #fff;
+}
+
+.suggestion-pill--game-changer {
+  background: #c2410c;
+  color: #fff;
 }
 
 .add-card-btn {
@@ -1160,6 +1347,11 @@ onMounted(async () => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: center;
+}
+
+.metric-card--illegal {
+  background: #fef2f2;
+  border-color: rgba(185, 28, 28, 0.2);
 }
 
 .metric-label {

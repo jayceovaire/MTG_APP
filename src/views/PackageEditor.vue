@@ -1,6 +1,12 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
-import { mdiAlertCircleOutline, mdiCardsOutline, mdiPlus } from "@mdi/js";
+import {
+  mdiAlertCircleOutline,
+  mdiCardsOutline,
+  mdiPlus,
+  mdiCancel,
+  mdiGaugeFull,
+} from "@mdi/js";
 import {
   addCardToPackageCommand,
   getPackageCommand,
@@ -339,12 +345,49 @@ onMounted(loadPackage);
                 v-for="(suggestion, index) in cardSuggestions"
                 :key="`${suggestion.name}-${index}`"
                 class="deck-search-suggestion"
-                :class="{ 'deck-search-suggestion--active': index === activeSuggestionIndex }"
+                :class="{
+                  'deck-search-suggestion--active': index === activeSuggestionIndex,
+                  'deck-search-suggestion--illegal':
+                    suggestion.commander_legality && suggestion.commander_legality !== 'legal',
+                  'deck-search-suggestion--game-changer':
+                    suggestion.game_changer &&
+                    !(suggestion.commander_legality && suggestion.commander_legality !== 'legal'),
+                }"
                 type="button"
                 @mousedown.prevent="selectSuggestion(suggestion)"
               >
                 <div class="deck-search-suggestion__top">
-                  <span>{{ suggestion.name }}</span>
+                  <div class="d-flex align-center flex-grow-1">
+                    <span>{{ suggestion.name }}</span>
+                    <span
+                      v-if="suggestion.game_changer"
+                      class="suggestion-pill suggestion-pill--game-changer ml-1"
+                    >
+                      GAME CHANGER
+                    </span>
+                    <span
+                      v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
+                      class="suggestion-pill suggestion-pill--illegal ml-1"
+                    >
+                      {{ suggestion.commander_legality.toUpperCase().replace("_", " ") }}
+                    </span>
+                    <v-icon
+                      v-if="suggestion.game_changer"
+                      :icon="mdiGaugeFull"
+                      size="14"
+                      color="amber-darken-2"
+                      title="Game Changer"
+                      class="ml-1"
+                    ></v-icon>
+                    <v-icon
+                      v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
+                      :icon="mdiCancel"
+                      size="14"
+                      color="error"
+                      title="Banned"
+                      class="ml-1"
+                    ></v-icon>
+                  </div>
                   <ManaText v-if="suggestion.mana_cost" :text="suggestion.mana_cost" :cost="true" />
                 </div>
                 <span class="deck-search-suggestion__type">{{ suggestion.type_line }}</span>
@@ -504,17 +547,41 @@ onMounted(loadPackage);
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 14px;
   background: rgba(239, 244, 252, 0.88);
   color: #132032;
   text-align: left;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deck-search-suggestion--illegal {
+  background: rgba(254, 242, 242, 0.88);
+  border-color: rgba(185, 28, 28, 0.2);
+}
+
+.deck-search-suggestion--game-changer {
+  background: rgba(255, 247, 237, 0.88);
+  border-color: rgba(194, 65, 12, 0.2);
 }
 
 .deck-search-suggestion--active,
 .deck-search-suggestion:hover {
   background: rgba(217, 229, 246, 0.96);
+  border-color: rgba(27, 42, 63, 0.15);
+}
+
+.deck-search-suggestion--illegal.deck-search-suggestion--active,
+.deck-search-suggestion--illegal:hover {
+  background: rgba(254, 226, 226, 0.96);
+  border-color: rgba(185, 28, 28, 0.4);
+}
+
+.deck-search-suggestion--game-changer.deck-search-suggestion--active,
+.deck-search-suggestion--game-changer:hover {
+  background: rgba(255, 237, 213, 0.96);
+  border-color: rgba(194, 65, 12, 0.4);
 }
 
 .deck-search-suggestion__top {
@@ -528,6 +595,25 @@ onMounted(loadPackage);
 .deck-search-suggestion__type {
   color: #607089;
   font-size: 0.85rem;
+}
+
+.suggestion-pill {
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+
+.suggestion-pill--illegal {
+  background: #991b1b;
+  color: #fff;
+}
+
+.suggestion-pill--game-changer {
+  background: #c2410c;
+  color: #fff;
 }
 
 .feedback {

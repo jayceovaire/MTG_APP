@@ -12,15 +12,15 @@ static LOOKUP_INDEXES_READY: OnceLock<()> = OnceLock::new();
 static SEARCH_CANDIDATES: OnceLock<Result<Vec<CardSearchCandidate>, String>> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CardSearchSuggestion {
     name: String,
     mana_cost: Option<String>,
     type_line: String,
+    commander_legality: String,
+    game_changer: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CollectionCardView {
     #[serde(flatten)]
     card: Card,
@@ -196,16 +196,20 @@ fn load_search_candidates() -> Result<Vec<CardSearchCandidate>, String> {
 
     let mut statement = connection
         .prepare(
-            "SELECT name,
-                    NULLIF(mana_cost, '') AS mana_cost,
+            "SELECT c.name,
+                    NULLIF(c.mana_cost, '') AS mana_cost,
                     CASE
-                        WHEN NULLIF(type_line, '') IS NULL THEN 'Card'
-                        WHEN type_line = 'Card' THEN 'Card'
-                        WHEN type_line = 'Card // Card' THEN 'Card'
-                        ELSE type_line
-                    END AS type_line
-             FROM cards
-             ORDER BY name COLLATE NOCASE",
+                        WHEN NULLIF(c.type_line, '') IS NULL THEN 'Card'
+                        WHEN c.type_line = 'Card' THEN 'Card'
+                        WHEN c.type_line = 'Card // Card' THEN 'Card'
+                        ELSE c.type_line
+                    END AS type_line,
+                    c.commander_legality,
+                    c.game_changer
+             FROM cards c
+             ORDER BY c.name COLLATE NOCASE, 
+                      CASE WHEN c.commander_legality = 'legal' THEN 0 ELSE 1 END,
+                      c.id",
         )
         .map_err(|e| format!("Failed to prepare search candidate query: {e}"))?;
 
@@ -214,10 +218,17 @@ fn load_search_candidates() -> Result<Vec<CardSearchCandidate>, String> {
             let name: String = row.get(0)?;
             let mana_cost: Option<String> = row.get(1)?;
             let type_line: String = row.get(2)?;
+            let commander_legality: String = row.get::<_, Option<String>>(3)?
+                .unwrap_or_else(|| "not_legal".to_string());
+            let game_changer_int: i64 = row.get(4)?;
+            let game_changer = game_changer_int != 0;
+
             Ok(CardSearchSuggestion {
                 name,
                 mana_cost,
                 type_line,
+                commander_legality,
+                game_changer,
             })
         })
         .map_err(|e| format!("Failed to execute search candidate query: {e}"))?;
@@ -395,7 +406,9 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
                              cf.rowid
                          LIMIT 1),
                         NULLIF(c.oracle_text, '')
-                    ) AS oracle_text
+                    ) AS oracle_text,
+                    c.commander_legality,
+                    c.game_changer
              FROM (
                  SELECT
                      c.id AS card_id,
@@ -432,7 +445,10 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
                  GROUP BY c.id
              ) picked
              JOIN cards c ON c.id = picked.card_id
-             ORDER BY picked.priority, picked.quality DESC, picked.card_id
+             ORDER BY picked.priority, 
+                      CASE WHEN c.commander_legality = 'legal' THEN 0 ELSE 1 END,
+                      picked.quality DESC, 
+                      picked.card_id
              LIMIT 1",
         )
         .map_err(|e| format!("Failed to prepare query: {e}"))?;
@@ -443,7 +459,13 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
         let cmc: f64 = row.get(2)?;
         let type_line: Option<String> = row.get(3)?;
         let oracle_text: Option<String> = row.get(4)?;
+        let commander_legality: String = row.get::<_, Option<String>>(5)?
+            .unwrap_or_else(|| "not_legal".to_string());
+        let db_game_changer: i64 = row.get(6)?;
+
         let type_line = type_line.unwrap_or_else(|| "Card".to_string());
+        let game_changer = db_game_changer != 0;
+        let legal_in_commander = commander_legality == "legal";
 
         Ok(Card::new(
             id,
@@ -455,10 +477,18 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
             parse_super_types(&type_line),
             parse_sub_types(&type_line),
             oracle_text,
+            commander_legality,
+            legal_in_commander,
+            game_changer,
         ))
     })
     .optional()
     .map_err(|e| format!("Failed to execute query: {e}"))
+}
+
+#[tauri::command]
+pub fn get_card(name: String) -> Result<Option<Card>, String> {
+    card_from_db_by_name(&name, 0)
 }
 
 #[tauri::command]

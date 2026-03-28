@@ -13,6 +13,7 @@ pub fn create_deck(state: State<'_, AppState>, name: Option<String>) -> Result<D
         _ => "Untitled".to_string(),
     };
     deck.set_name(deck_name);
+    deck.recount_game_changers();
     state.decks.write().unwrap().push(deck.clone());
     state.save_deck(&deck)?;
     Ok(deck) //RETURNING THE DECK SO NEW DECK TILE CAN PULL FROM IT RATHER THAN RERENDER ALL THE DECKS IN UI
@@ -93,6 +94,7 @@ pub fn duplicate_deck(state: State<'_, AppState>, deck_id: u64) -> Result<Deck, 
     duplicated_deck.set_id(state.next_deck_id());
     let base_name = duplicated_deck.get_name().to_string();
     duplicated_deck.set_name(format!("{} (Copy)", base_name));
+    duplicated_deck.recount_game_changers();
 
     decks.push(duplicated_deck.clone());
     drop(decks);
@@ -121,6 +123,7 @@ pub fn add_card_to_deck(state: State<'_, AppState>, deck_id: u64, name: String) 
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.add_card(new_card);
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 
@@ -325,6 +328,7 @@ pub fn add_package_to_deck(
     for card in cards_to_add {
         deck.add_card(card);
     }
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 
@@ -383,6 +387,7 @@ pub fn remove_card_from_deck(state: State<'_, AppState>, deck_id: u64, card_id: 
         return Err(format!("Failed to remove card with id {} from deck {}", card_id, deck_id));
     }
 
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 
@@ -403,6 +408,7 @@ pub fn set_deck_commander(state: State<'_, AppState>, deck_id: u64, card_id: u64
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.set_single_commander_from_deck(card_id)?;
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 
@@ -423,6 +429,7 @@ pub fn set_deck_partner(state: State<'_, AppState>, deck_id: u64, card_id: u64) 
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.set_partner_commander_from_deck(card_id)?;
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 
@@ -443,6 +450,7 @@ pub fn remove_deck_partner(state: State<'_, AppState>,deck_id: u64, card_id: u64
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.remove_partner_commander_from_deck(card_id)?;
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
     state.save_deck(&updated)?;
@@ -464,6 +472,7 @@ pub fn remove_deck_commander(state: State<'_, AppState>, deck_id: u64) -> Result
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.clear_commander_to_deck()?;
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 
@@ -484,6 +493,7 @@ pub fn delete_deck_commander(state: State<'_, AppState>, deck_id: u64) -> Result
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
     deck.remove_commander()?;
+    deck.recount_game_changers();
     let updated = deck.clone();
     drop(decks);
 

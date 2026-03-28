@@ -24,6 +24,7 @@ pub fn run() {
             commands::collection_commands::duplicate_collection_card,
             commands::collection_commands::remove_collection_card,    
             commands::collection_commands::get_collection,
+            commands::collection_commands::get_card,
             commands::collection_commands::set_collection_card_favorite,
             commands::collection_commands::search_card_suggestions,
             commands::deck_commands::create_deck,

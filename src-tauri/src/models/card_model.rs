@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Card{
+pub struct Card {
     id: u64,
     image: String, //TODO this is to be tied to an address in cache somehow
     name: String,
@@ -11,7 +11,17 @@ pub struct Card{
     super_type: Vec<SuperType>,
     sub_type: Vec<String>,
     oracle_text: Option<String>,
+    /// Commander-format legality from Scryfall (`legal`, `banned`, `not_legal`, `restricted`, …).
+    #[serde(default = "default_commander_legality")]
+    commander_legality: String,
+    #[serde(default)]
+    legal_in_commander: bool,
+    #[serde(default)]
+    game_changer: bool,
+}
 
+fn default_commander_legality() -> String {
+    "legal".to_string()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,6 +57,9 @@ impl Card {
         super_type: Vec<SuperType>,
         sub_type: Vec<String>,
         oracle_text: Option<String>,
+        commander_legality: String,
+        legal_in_commander: bool,
+        game_changer: bool,
     ) -> Self {
         Self {
             id,
@@ -58,7 +71,24 @@ impl Card {
             super_type,
             sub_type,
             oracle_text,
+            commander_legality,
+            legal_in_commander,
+            game_changer,
         }
+    }
+
+    /// True if this card is legal for Commander.
+    pub fn is_legal_in_commander(&self) -> bool {
+        self.legal_in_commander
+    }
+
+    /// True if this card is not legal for Commander (banned, not legal in format, restricted, etc.).
+    pub fn is_illegal_in_commander(&self) -> bool {
+        !self.legal_in_commander
+    }
+
+    pub fn is_game_changer(&self) -> bool {
+        self.game_changer
     }
 
     pub fn is_legendary(&self) -> bool {
@@ -102,19 +132,72 @@ impl Card {
         self.card_type.contains(&CardType::Planeswalker)
     }
 
+    /// Checks if this card has the Partner mechanic.
+    /// This includes:
+    /// - "Partner" (generic partner)
+    /// - "Partner with [name]" (specific partner)
+    /// - "Friends forever" (from Doctor Who set, works like partner)
+    /// - "Choose a Background" (partners with Background cards)
+    /// - "Doctor's companion" (partners with The Doctor)
     pub fn has_partner_mechanic(&self) -> bool {
+        // Special case: Backgrounds are partners to "Choose a Background" cards
+        if self.is_enchantment() && self.sub_type.iter().any(|s| s.eq_ignore_ascii_case("Background")) {
+            return true;
+        }
+
         self.oracle_text
             .as_deref()
             .map(|text| {
+                let lower = text.to_ascii_lowercase();
+                // Standard partner mechanics often appear on their own line or at the start/end of a line
                 text.lines().any(|line| {
-                    line.trim().to_ascii_lowercase().starts_with("partner")
-                })
+                    let trimmed = line.trim().to_ascii_lowercase();
+                    trimmed == "partner"
+                        || trimmed.starts_with("partner with ")
+                        || trimmed == "friends forever"
+                        || trimmed == "choose a background"
+                        || trimmed == "doctor's companion"
+                }) ||
+                // Also check for them anywhere in the text as a standalone word (to be safe)
+                lower.contains("partner") ||
+                lower.contains("friends forever") ||
+                lower.contains("choose a background") ||
+                lower.contains("doctor's companion")
             })
             .unwrap_or(false)
     }
 
+    /// Checks if this card can legally be a commander.
+    /// A card can be a commander if it's:
+    /// - A Legendary Creature
+    /// - A Legendary Vehicle (e.g., Shorikai)
+    /// - A Legendary Planeswalker with "can be your commander" text
+    /// - A card with Partner, Partner with, or "can be your commander" in oracle text
+    /// - A Background (Legendary Enchantment that can be a commander)
     pub fn can_be_commander(&self) -> bool {
-        (self.is_legendary() && self.is_creature()) || (self.is_legendary() && self.is_vehicle())
+        // Standard case: Legendary Creature or Legendary Vehicle
+        if self.is_legendary() && (self.is_creature() || self.is_vehicle()) {
+            return true;
+        }
+
+        // Backgrounds: Legendary Enchantments with "Choose a Background" text (if they are the commander)
+        // Actually, Backgrounds themselves can be commanders if you have a "Choose a Background" creature.
+        // In Commander, a Background is a legal commander if the other commander has "Choose a Background".
+        if self.is_legendary() && self.is_enchantment() {
+            if self.sub_type.iter().any(|s| s.eq_ignore_ascii_case("Background")) {
+                return true;
+            }
+        }
+
+        // Cards with "can be your commander" text (includes some planeswalkers)
+        if let Some(text) = &self.oracle_text {
+            let lower = text.to_ascii_lowercase();
+            if lower.contains("can be your commander") {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn get_name(&self) -> &str {

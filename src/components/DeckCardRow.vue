@@ -1,12 +1,14 @@
 <script setup>
 import {
   mdiAccountMultiplePlusOutline,
+  mdiCancel,
   mdiCloseCircleOutline,
   mdiCrownOutline,
   mdiDotsHorizontal,
   mdiHeart,
   mdiHeartOutline,
   mdiPackageVariantClosedPlus,
+  mdiGaugeFull,
 } from "@mdi/js";
 import { computed } from "vue";
 import ManaText from "./ManaText.vue";
@@ -83,15 +85,105 @@ function buildTypeLine(card) {
   const subType = Array.isArray(card.sub_type) && card.sub_type.length > 0 ? ` - ${card.sub_type.join(" ")}` : "";
   return `${superType} ${cardType}${subType}`.trim();
 }
+
+function commanderLegality(card) {
+  if (!card || typeof card !== "object") {
+    return "";
+  }
+  const v = card.commander_legality ?? card.commanderLegality;
+  return typeof v === "string" ? v : "";
+}
+
+function isGameChangerCard(card) {
+  if (!card || typeof card !== "object") {
+    return false;
+  }
+  return card.game_changer === true || card.gameChanger === true;
+}
+
+/** Banned, not legal in Commander, restricted, etc. (anything other than `legal`). */
+const illegalInCommander = computed(() => {
+  const leg = commanderLegality(props.card).trim().toLowerCase();
+  if (!leg) {
+    return false;
+  }
+  return leg !== "legal";
+});
+
+const isGameChanger = computed(() => isGameChangerCard(props.card));
 </script>
 
 <template>
-  <article class="deck-card-row">
-    <div class="deck-card-row__count">{{ quantity }}x</div>
+  <article
+    class="deck-card-row"
+    :class="{
+      'deck-card-row--illegal': illegalInCommander,
+      'deck-card-row--game-changer': isGameChanger && !illegalInCommander,
+    }"
+  >
+    <div
+      class="deck-card-row__count"
+      :class="{
+        'deck-card-row__count--illegal': illegalInCommander,
+        'deck-card-row__count--game-changer': isGameChanger && !illegalInCommander,
+      }"
+    >
+      {{ quantity }}x
+      <v-icon
+        v-if="isGameChanger && !illegalInCommander"
+        :icon="mdiGaugeFull"
+        size="12"
+        class="ml-1"
+      ></v-icon>
+      <v-icon
+        v-if="illegalInCommander"
+        :icon="mdiCancel"
+        size="12"
+        class="ml-1"
+      ></v-icon>
+    </div>
     <div class="deck-card-row__body">
       <div class="deck-card-row__top">
         <span class="deck-card-row__name">
           <span>{{ card.name }}</span>
+          <span
+            v-if="illegalInCommander"
+            class="deck-card-row__status-pill deck-card-row__status-pill--illegal"
+          >
+            {{
+              commanderLegality(card).toUpperCase().replace("_", " ") || "NOT LEGAL"
+            }}
+          </span>
+          <span
+            v-if="isGameChanger"
+            class="deck-card-row__status-pill deck-card-row__status-pill--game-changer"
+          >
+            GAME CHANGER
+          </span>
+          <v-tooltip v-if="illegalInCommander" location="top">
+            <template #activator="{ props: tipProps }">
+              <v-icon
+                v-bind="tipProps"
+                :icon="mdiCancel"
+                size="18"
+                class="deck-card-row__illegal"
+                aria-label="Not legal in Commander"
+              ></v-icon>
+            </template>
+            <span>Not legal in Commander (banned or not legal in format)</span>
+          </v-tooltip>
+          <v-tooltip v-if="isGameChanger" location="top">
+            <template #activator="{ props: tipProps }">
+              <v-icon
+                v-bind="tipProps"
+                :icon="mdiGaugeFull"
+                size="18"
+                class="deck-card-row__game-changer"
+                aria-label="Game changer"
+              ></v-icon>
+            </template>
+            <span>Game changer (Commander)</span>
+          </v-tooltip>
           <v-icon
             v-if="showFavoriteIndicator && favorited"
             :icon="mdiHeart"
@@ -195,6 +287,28 @@ function buildTypeLine(card) {
   container-type: inline-size;
 }
 
+.deck-card-row--illegal {
+  border-color: rgba(185, 28, 28, 0.75);
+  background: rgba(254, 242, 242, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.15);
+}
+
+.deck-card-row--game-changer {
+  border-color: rgba(194, 65, 12, 0.5);
+  background: rgba(255, 247, 237, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(194, 65, 12, 0.1);
+}
+
+.deck-card-row__illegal {
+  color: #b91c1c;
+  flex: 0 0 auto;
+}
+
+.deck-card-row__game-changer {
+  color: #c2410c;
+  flex: 0 0 auto;
+}
+
 .deck-card-row__count {
   display: inline-flex;
   align-items: center;
@@ -205,6 +319,16 @@ function buildTypeLine(card) {
   color: #f5f7fb;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.deck-card-row__count--illegal {
+  background: #991b1b;
+  color: #fef2f2;
+}
+
+.deck-card-row__count--game-changer {
+  background: #c2410c;
+  color: #fff7ed;
 }
 
 .deck-card-row__body {
@@ -246,6 +370,25 @@ function buildTypeLine(card) {
 .deck-card-row__favorite {
   color: #bf3347;
   flex: 0 0 auto;
+}
+
+.deck-card-row__status-pill {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  flex: 0 0 auto;
+}
+
+.deck-card-row__status-pill--illegal {
+  background: #991b1b;
+  color: #fff;
+}
+
+.deck-card-row__status-pill--game-changer {
+  background: #c2410c;
+  color: #fff;
 }
 
 .deck-card-row__mana {

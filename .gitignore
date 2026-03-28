@@ -27,3 +27,6 @@ src-tauri/src/db/
 *.db
 *.sqlite
 *.sqlite3
+
+# Stakpak session files
+.stakpak/session*
