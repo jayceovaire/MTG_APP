@@ -244,7 +244,7 @@ const groupedCollection = computed(() => {
     }
 
     const cardTypes = Array.isArray(entry.card.card_type) ? entry.card.card_type : [];
-    return selectedTypes.some((type) => cardTypes.includes(type));
+    return selectedTypes.every((type) => cardTypes.includes(type));
   });
 });
 
