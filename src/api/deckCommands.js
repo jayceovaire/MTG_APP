@@ -88,6 +88,16 @@ export async function getPackagesCommand() {
 }
 
 /** @returns {Promise<Package>} */
+export async function getPackageCommand(packageId) {
+  try {
+    return await invoke("get_package", { packageId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package>} */
 export async function createPackageCommand(name) {
   try {
     return await invoke("create_package", { name });
@@ -98,9 +108,63 @@ export async function createPackageCommand(name) {
 }
 
 /** @returns {Promise<Package>} */
+export async function renamePackageCommand(packageId, name) {
+  try {
+    return await invoke("rename_package", { packageId, name });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @param {Package} packageEntry */
+export async function setPackageNameCommand(packageEntry, name) {
+  return renamePackageCommand(packageEntry.id, name);
+}
+
+/** @returns {Promise<Package>} */
+export async function setPackageDescriptionCommand(packageId, description) {
+  try {
+    return await invoke("set_package_description", { packageId, description });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+export async function deletePackageCommand(packageId) {
+  try {
+    await invoke("delete_package", { packageId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package>} */
+export async function duplicatePackageCommand(packageId) {
+  try {
+    return await invoke("duplicate_package", { packageId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package>} */
 export async function addCardToPackageCommand(packageId, cardName) {
   try {
     return await invoke("add_card_to_package", { packageId, cardName });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** @returns {Promise<Package>} */
+export async function removeCardFromPackageCommand(packageId, cardId) {
+  try {
+    return await invoke("remove_card_from_package", { packageId, cardId });
   } catch (e) {
     console.error(e);
     throw e;

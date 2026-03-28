@@ -3,6 +3,7 @@ import { ref } from "vue";
 import {
   mdiHomeOutline,
   mdiCardsOutline,
+  mdiPackageVariantClosed,
   mdiViewGridOutline,
   mdiCalculatorVariantOutline,
   mdiFire,
@@ -12,6 +13,7 @@ const isRail = ref(true);
 const primaryItems = [
   { title: "Home", to: "/", icon: mdiHomeOutline },
   { title: "Decks", to: "/deck-library", icon: mdiCardsOutline },
+  { title: "Packages", to: "/package-library", icon: mdiPackageVariantClosed },
   { title: "Collection", to: "/collection", icon: mdiViewGridOutline },
   { title: "Power Calculator", to: "/power-calculator", icon: mdiCalculatorVariantOutline },
   { title: "Roast", to: "/roast", icon: mdiFire },

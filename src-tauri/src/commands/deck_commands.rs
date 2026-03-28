@@ -134,6 +134,18 @@ pub fn get_packages(state: State<'_, AppState>) -> Vec<Package> {
 }
 
 #[tauri::command]
+pub fn get_package(state: State<'_, AppState>, package_id: u64) -> Result<Package, String> {
+    state
+        .packages
+        .read()
+        .map_err(|_| "Failed to acquire package lock".to_string())?
+        .iter()
+        .find(|package| package.id() == package_id)
+        .cloned()
+        .ok_or_else(|| format!("Package with id {} not found", package_id))
+}
+
+#[tauri::command]
 pub fn create_package(state: State<'_, AppState>, name: Option<String>) -> Result<Package, String> {
     let package_name = match name {
         Some(name) if !name.trim().is_empty() => name.trim().to_string(),
@@ -178,6 +190,108 @@ pub fn add_card_to_package(
 }
 
 #[tauri::command]
+pub fn rename_package(state: State<'_, AppState>, package_id: u64, name: Option<String>) -> Result<Package, String> {
+    let package_name = match name {
+        Some(name) if !name.trim().is_empty() => name.trim().to_string(),
+        _ => "Untitled Package".to_string(),
+    };
+
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+    let package = packages
+        .iter_mut()
+        .find(|package| package.id() == package_id)
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    package.set_name(package_name);
+    let updated = package.clone();
+    drop(packages);
+
+    state.save_package(&updated)?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn set_package_description(
+    state: State<'_, AppState>,
+    package_id: u64,
+    description: Option<String>,
+) -> Result<Package, String> {
+    let package_description = description.unwrap_or_default().trim().to_string();
+
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+    let package = packages
+        .iter_mut()
+        .find(|package| package.id() == package_id)
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    package.set_description(package_description);
+    let updated = package.clone();
+    drop(packages);
+
+    state.save_package(&updated)?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn delete_package(state: State<'_, AppState>, package_id: u64) -> Result<(), String> {
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+
+    let index = packages
+        .iter()
+        .position(|package| package.id() == package_id)
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    packages.remove(index);
+    drop(packages);
+    state.delete_package(package_id)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn duplicate_package(state: State<'_, AppState>, package_id: u64) -> Result<Package, String> {
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+
+    let source_package = packages
+        .iter()
+        .find(|package| package.id() == package_id)
+        .cloned()
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    let mut duplicated_package = source_package;
+    let base_name = duplicated_package.get_name().to_string();
+    duplicated_package.set_id(state.next_package_id());
+    duplicated_package.set_name(format!("{} (Copy)", base_name));
+
+    let source_cards = duplicated_package.get_cards().to_vec();
+    let mut copied_package = Package::new(
+        duplicated_package.id(),
+        duplicated_package.get_name().to_string(),
+    );
+
+    for mut card in source_cards {
+        card.set_id(state.next_card_id());
+        copied_package.add_card(card);
+    }
+
+    packages.push(copied_package.clone());
+    drop(packages);
+    state.save_package(&copied_package)?;
+    Ok(copied_package)
+}
+
+#[tauri::command]
 pub fn add_package_to_deck(
     state: State<'_, AppState>,
     deck_id: u64,
@@ -215,6 +329,35 @@ pub fn add_package_to_deck(
     drop(decks);
 
     state.save_deck(&updated)?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub fn remove_card_from_package(state: State<'_, AppState>, package_id: u64, card_id: u64) -> Result<Package, String> {
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+
+    let package = packages
+        .iter_mut()
+        .find(|package| package.id() == package_id)
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    let card_index = package
+        .get_cards()
+        .iter()
+        .position(|card| card.id() == card_id)
+        .ok_or_else(|| format!("Card with id {} not found in package {}", card_id, package_id))?;
+
+    if !package.remove_card_at(card_index) {
+        return Err(format!("Failed to remove card with id {} from package {}", card_id, package_id));
+    }
+
+    let updated = package.clone();
+    drop(packages);
+
+    state.save_package(&updated)?;
     Ok(updated)
 }
 

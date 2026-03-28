@@ -813,13 +813,6 @@ onMounted(async () => {
           />
 
           <div class="package-dialog__create">
-            <v-text-field
-              v-model="newPackageName"
-              label="New package name"
-              density="comfortable"
-              hide-details="auto"
-              @keydown.enter.prevent="handleCreatePackage"
-            />
             <v-btn
               variant="outlined"
               :loading="isCreatingPackage"
@@ -827,12 +820,20 @@ onMounted(async () => {
             >
               Create Package
             </v-btn>
+            <v-text-field
+              v-model="newPackageName"
+              label="New package name"
+              density="comfortable"
+              hide-details="auto"
+              @keydown.enter.prevent="handleCreatePackage"
+            />
           </div>
         </v-card-text>
         <v-card-actions class="package-dialog__actions">
           <v-spacer />
-          <v-btn variant="text" @click="closePackageDialog">Cancel</v-btn>
+          <v-btn variant="outlined" @click="closePackageDialog">Cancel</v-btn>
           <v-btn
+            variant="outlined"
             color="primary"
             :loading="isSubmittingPackageAction"
             :disabled="packages.length === 0 && !selectedPackageId"
@@ -1102,9 +1103,9 @@ onMounted(async () => {
 
 .package-dialog__create {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
-  align-items: start;
+  align-items: center;
 }
 
 .package-dialog__actions {

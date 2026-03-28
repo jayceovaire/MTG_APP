@@ -43,6 +43,7 @@
  * @typedef {Object} Package
  * @property {number} id
  * @property {string} name
+ * @property {string} description
  * @property {Card[]} cards
  */
 

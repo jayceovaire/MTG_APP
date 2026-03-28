@@ -343,17 +343,6 @@ watch(newCardName, (value) => {
             </template>
             Add Card
           </v-btn>
-
-          <v-btn
-            class="refresh-btn"
-            variant="outlined"
-            :prepend-icon="mdiRefresh"
-            :loading="isLoading"
-            @click="loadCollection"
-          >
-            Refresh
-          </v-btn>
-
           <v-menu location="bottom end">
             <template #activator="{ props: menuProps }">
               <v-btn
