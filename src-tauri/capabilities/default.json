@@ -5,6 +5,20 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "core:path:default",
+    "fs:default",
+    "core:app:default",
+    "core:image:default",
+    "core:event:default",
+    {
+      "identifier": "core:default",
+      "allow": [
+        {
+          "protocol": "asset",
+          "scope": ["$APPLOCALDATA/**", "$LOCALDATA/**"]
+        }
+      ]
+    }
   ]
 }

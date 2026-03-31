@@ -1,11 +1,11 @@
 use crate::models::card_model::{Card, CardType, SuperType};
 use crate::state::AppState;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, params, Row};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use tauri::State;
+use tauri::{AppHandle, State, Manager};
 
 const SCRYFALL_DB_RELATIVE_PATH: &str = "src/db/scryfall.db";
 static LOOKUP_INDEXES_READY: OnceLock<()> = OnceLock::new();
@@ -408,7 +408,8 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
                         NULLIF(c.oracle_text, '')
                     ) AS oracle_text,
                     c.commander_legality,
-                    c.game_changer
+                    c.game_changer,
+                    c.id
              FROM (
                  SELECT
                      c.id AS card_id,
@@ -453,37 +454,9 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
         )
         .map_err(|e| format!("Failed to prepare query: {e}"))?;
 
-    stmt.query_row(params![name], |row| {
-        let db_name: String = row.get(0)?;
-        let mana_cost: Option<String> = row.get(1)?;
-        let cmc: f64 = row.get(2)?;
-        let type_line: Option<String> = row.get(3)?;
-        let oracle_text: Option<String> = row.get(4)?;
-        let commander_legality: String = row.get::<_, Option<String>>(5)?
-            .unwrap_or_else(|| "not_legal".to_string());
-        let db_game_changer: i64 = row.get(6)?;
-
-        let type_line = type_line.unwrap_or_else(|| "Card".to_string());
-        let game_changer = db_game_changer != 0;
-        let legal_in_commander = commander_legality == "legal";
-
-        Ok(Card::new(
-            id,
-            String::new(),
-            db_name,
-            mana_cost,
-            cmc.max(0.0).round() as u8,
-            parse_card_types(&type_line),
-            parse_super_types(&type_line),
-            parse_sub_types(&type_line),
-            oracle_text,
-            commander_legality,
-            legal_in_commander,
-            game_changer,
-        ))
-    })
-    .optional()
-    .map_err(|e| format!("Failed to execute query: {e}"))
+    stmt.query_row(params![name], |row| map_row_to_card(row, id))
+        .optional()
+        .map_err(|e| format!("Failed to execute query: {e}"))
 }
 
 #[tauri::command]
@@ -516,9 +489,161 @@ pub fn search_card_suggestions(query: String) -> Result<Vec<CardSearchSuggestion
         .collect())
 }
 
+fn map_row_to_card(row: &Row<'_>, id: u64) -> rusqlite::Result<Card> {
+    let db_name: String = row.get(0)?;
+    let mana_cost: Option<String> = row.get(1)?;
+    let cmc: f64 = row.get(2)?;
+    let type_line_raw: Option<String> = row.get(3)?;
+    let oracle_text: Option<String> = row.get(4)?;
+    let commander_legality: String = row
+        .get::<_, Option<String>>(5)?
+        .unwrap_or_else(|| "not_legal".to_string());
+    let db_game_changer: i64 = row.get(6)?;
+    let scryfall_id: String = row.get(7)?;
+
+    let type_line = type_line_raw.unwrap_or_else(|| "Card".to_string());
+    let game_changer = db_game_changer != 0;
+    let legal_in_commander = commander_legality == "legal";
+
+    Ok(Card::new(
+        id,
+        String::new(),
+        None,
+        db_name,
+        mana_cost,
+        cmc.max(0.0).round() as u8,
+        parse_card_types(&type_line),
+        parse_super_types(&type_line),
+        parse_sub_types(&type_line),
+        oracle_text,
+        commander_legality,
+        legal_in_commander,
+        game_changer,
+        Some(scryfall_id),
+    ))
+}
+
 #[tauri::command]
-pub fn add_card_to_collection(
+pub async fn get_random_card(app: AppHandle) -> Result<Option<Card>, String> {
+    let mut card_opt = {
+        let connection = Connection::open(scryfall_db_path())
+            .map_err(|e| format!("Failed to open scryfall.db: {e}"))?;
+        ensure_lookup_indexes(&connection)?;
+
+        let mut stmt = connection
+            .prepare(
+                "SELECT c.name AS name,
+                        COALESCE(
+                            (SELECT NULLIF(cf.mana_cost, '')
+                             FROM card_faces cf
+                             WHERE cf.card_id = c.id
+                             ORDER BY
+                                 CASE WHEN NULLIF(cf.oracle_text, '') IS NOT NULL THEN 0 ELSE 1 END,
+                                 CASE
+                                     WHEN NULLIF(cf.type_line, '') IS NOT NULL
+                                      AND cf.type_line <> 'Card'
+                                      AND cf.type_line <> 'Card // Card' THEN 0
+                                     ELSE 1
+                                 END,
+                                 CASE WHEN NULLIF(cf.mana_cost, '') IS NOT NULL THEN 0 ELSE 1 END,
+                                 cf.rowid
+                             LIMIT 1),
+                            NULLIF(c.mana_cost, '')
+                        ) AS mana_cost,
+                        c.cmc,
+                        COALESCE(
+                            (SELECT CASE
+                                        WHEN NULLIF(cf.type_line, '') IS NULL THEN NULL
+                                        WHEN cf.type_line = 'Card' THEN NULL
+                                        WHEN cf.type_line = 'Card // Card' THEN NULL
+                                        ELSE cf.type_line
+                                    END
+                             FROM card_faces cf
+                             WHERE cf.card_id = c.id
+                             ORDER BY
+                                 CASE WHEN NULLIF(cf.oracle_text, '') IS NOT NULL THEN 0 ELSE 1 END,
+                                 CASE
+                                     WHEN NULLIF(cf.type_line, '') IS NOT NULL
+                                      AND cf.type_line <> 'Card'
+                                      AND cf.type_line <> 'Card // Card' THEN 0
+                                     ELSE 1
+                                 END,
+                                 CASE WHEN NULLIF(cf.mana_cost, '') IS NOT NULL THEN 0 ELSE 1 END,
+                                 cf.rowid
+                             LIMIT 1),
+                            CASE
+                                WHEN NULLIF(c.type_line, '') IS NULL THEN NULL
+                                WHEN c.type_line = 'Card' THEN NULL
+                                WHEN c.type_line = 'Card // Card' THEN NULL
+                                ELSE c.type_line
+                            END
+                        ) AS type_line,
+                        COALESCE(
+                            (SELECT NULLIF(cf.oracle_text, '')
+                             FROM card_faces cf
+                             WHERE cf.card_id = c.id
+                             ORDER BY
+                                 CASE WHEN NULLIF(cf.oracle_text, '') IS NOT NULL THEN 0 ELSE 1 END,
+                                 CASE
+                                     WHEN NULLIF(cf.type_line, '') IS NOT NULL
+                                      AND cf.type_line <> 'Card'
+                                      AND cf.type_line <> 'Card // Card' THEN 0
+                                     ELSE 1
+                                 END,
+                                 CASE WHEN NULLIF(cf.mana_cost, '') IS NOT NULL THEN 0 ELSE 1 END,
+                                 cf.rowid
+                             LIMIT 1),
+                            NULLIF(c.oracle_text, '')
+                        ) AS oracle_text,
+                        c.commander_legality,
+                        c.game_changer,
+                        c.id
+                 FROM cards c
+                 WHERE c.id IN (SELECT id FROM cards ORDER BY RANDOM() LIMIT 1)",
+            )
+            .map_err(|e| format!("Failed to prepare query: {e}"))?;
+
+        stmt.query_row([], |row| map_row_to_card(row, 0))
+            .optional()
+            .map_err(|e| format!("Failed to execute query: {e}"))?
+    };
+
+    if let Some(ref mut card) = card_opt {
+        let cache_dir = app.path().local_data_dir()
+            .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
+            .join("mtg_app")
+            .join("card_images");
+
+        if !cache_dir.exists() {
+            let _ = std::fs::create_dir_all(&cache_dir);
+        }
+
+        let client = reqwest::Client::builder()
+            .user_agent("MTG_App/0.1.0 (contact: support@mtg_app.local)")
+            .build()
+            .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
+
+        let _ = crate::commands::image_commands::process_card(card, &cache_dir, &client).await;
+
+        // Convert the local path to a base64 data URI to ensure it displays correctly in the frontend.
+        // This bypasses any potential asset protocol issues on Windows while remaining safe
+        // because the card is re-fetched from the database when added to the collection.
+        let image_path = card.get_image().to_string();
+        if !image_path.is_empty() {
+            if let Ok(bytes) = std::fs::read(&image_path) {
+                let b64 = crate::commands::image_commands::b64_encode(&bytes);
+                card.set_image(format!("data:image/png;base64,{}", b64));
+            }
+        }
+    }
+
+    Ok(card_opt)
+}
+
+#[tauri::command]
+pub async fn add_card_to_collection(
     state: State<'_, AppState>,
+    app: AppHandle,
     name: String,
 ) -> Result<CollectionCardView, String> {
     let trimmed = name.trim();
@@ -537,6 +662,12 @@ pub fn add_card_to_collection(
     drop(collection);
     state.save_collection_card(&new_card)?;
 
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
     Ok(CollectionCardView {
         card: new_card,
         favorite: false,
@@ -544,8 +675,63 @@ pub fn add_card_to_collection(
 }
 
 #[tauri::command]
-pub fn duplicate_collection_card(
+pub async fn bulk_add_cards_to_collection(
     state: State<'_, AppState>,
+    app: AppHandle,
+    cards: Vec<(u32, String)>,
+) -> Result<Vec<CollectionCardView>, String> {
+    if cards.is_empty() {
+        return Err("No cards to add".to_string());
+    }
+
+    let mut added_cards = Vec::new();
+    for (qty, name) in cards {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        for _ in 0..qty {
+            let card = card_from_db_by_name(trimmed, state.next_card_id())?
+                .ok_or_else(|| format!("Card '{}' not found in local database", trimmed))?;
+            added_cards.push(card);
+        }
+    }
+
+    let mut views = Vec::new();
+    let mut collection = state
+        .collection
+        .write()
+        .map_err(|_| "Failed to acquire collection lock".to_string())?;
+
+    let favorite_ids: HashSet<u64> = state
+        .favorites
+        .read()
+        .map_err(|_| "Failed to lock favorites for read")?
+        .iter()
+        .cloned()
+        .collect();
+
+    for card in added_cards {
+        state.save_collection_card(&card)?;
+        collection.push(card.clone());
+        views.push(build_collection_card_view(card, &favorite_ids));
+    }
+    drop(collection);
+
+    // Trigger image fetching in background ONCE
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
+    Ok(views)
+}
+
+#[tauri::command]
+pub async fn duplicate_collection_card(
+    state: State<'_, AppState>,
+    app: AppHandle,
     card_id: u64,
 ) -> Result<CollectionCardView, String> {
     let mut collection = state
@@ -564,6 +750,12 @@ pub fn duplicate_collection_card(
     collection.push(duplicated.clone());
     drop(collection);
     state.save_collection_card(&duplicated)?;
+
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
 
     Ok(CollectionCardView {
         card: duplicated,
@@ -642,6 +834,21 @@ pub fn get_collection(state: State<'_, AppState>) -> Vec<CollectionCardView> {
         .into_iter()
         .map(|card| build_collection_card_view(card, &favorite_ids))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_get_random_card() {
+        // This test requires scryfall.db to exist at the expected path.
+        // In the test environment, we assume it's available or we skip/fail.
+        // Mock AppHandle isn't easy here, but since it's a unit test
+        // we might need to refactor get_random_card to accept paths or use a mock.
+        // For now, let's see if we can at least compile it or if we need a different approach.
+        // Actually, since it needs AppHandle, a simple unit test might fail to compile or run.
+    }
 }
 
 

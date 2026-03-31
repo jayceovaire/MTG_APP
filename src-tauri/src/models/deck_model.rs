@@ -82,6 +82,14 @@ impl Deck {
         }
     }
 
+    pub fn get_cards_mut(&mut self) -> &mut Vec<Card> {
+        &mut self.cards
+    }
+
+    pub fn get_commander_mut(&mut self) -> &mut CommanderSelection {
+        &mut self.commander
+    }
+
     pub fn get_cards(&self) -> &[Card] {
         &self.cards
     }
@@ -295,6 +303,7 @@ mod tests {
         let rograkh = Card::new(
             1,
             "".to_string(),
+            None,
             "Rograkh, Son of Rohgahh".to_string(),
             Some("{0}".to_string()),
             0,
@@ -304,13 +313,15 @@ mod tests {
             Some("First strike, menace, trample\nPartner".to_string()),
             "legal".to_string(),
             true,
-            false,
+            true,
+            None,
         );
 
         // Ardenn, Intrepid Archaeologist (Legendary Creature Kor Scout)
         let ardenn = Card::new(
             2,
             "".to_string(),
+            None,
             "Ardenn, Intrepid Archaeologist".to_string(),
             Some("{2}{W}".to_string()),
             3,
@@ -320,7 +331,8 @@ mod tests {
             Some("Partner".to_string()),
             "legal".to_string(),
             true,
-            false,
+            true,
+            None,
         );
 
         deck.add_card(rograkh.clone());
@@ -348,6 +360,7 @@ mod tests {
         let burakos = Card::new(
             1,
             "".to_string(),
+            None,
             "Burakos, Party Leader".to_string(),
             Some("{3}{B}".to_string()),
             4,
@@ -357,13 +370,15 @@ mod tests {
             Some("Choose a Background".to_string()),
             "legal".to_string(),
             true,
-            false,
+            true,
+            None,
         );
 
         // Folk Hero (Legendary Enchantment - Background)
         let folk_hero = Card::new(
             2,
             "".to_string(),
+            None,
             "Folk Hero".to_string(),
             Some("{1}{W}".to_string()),
             2,
@@ -373,7 +388,8 @@ mod tests {
             Some("Commander creatures you own have...".to_string()),
             "legal".to_string(),
             true,
-            false,
+            true,
+            None,
         );
 
         deck.add_card(burakos.clone());

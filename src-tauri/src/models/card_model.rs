@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Card {
     id: u64,
-    image: String, //TODO this is to be tied to an address in cache somehow
+    image: String, 
+    #[serde(default)]
+    image_uri: Option<String>, 
     name: String,
     mana_cost: Option<String>,
     mana_value: u8,
@@ -18,6 +20,8 @@ pub struct Card {
     legal_in_commander: bool,
     #[serde(default)]
     game_changer: bool,
+    #[serde(default)]
+    scryfall_id: Option<String>,
 }
 
 fn default_commander_legality() -> String {
@@ -50,6 +54,7 @@ impl Card {
     pub fn new(
         id: u64,
         image: String,
+        image_uri: Option<String>,
         name: String,
         mana_cost: Option<String>,
         mana_value: u8,
@@ -60,10 +65,12 @@ impl Card {
         commander_legality: String,
         legal_in_commander: bool,
         game_changer: bool,
+        scryfall_id: Option<String>,
     ) -> Self {
         Self {
             id,
             image,
+            image_uri,
             name,
             mana_cost,
             mana_value,
@@ -74,7 +81,20 @@ impl Card {
             commander_legality,
             legal_in_commander,
             game_changer,
+            scryfall_id,
         }
+    }
+
+    pub fn image_uri(&self) -> Option<&str> {
+        self.image_uri.as_deref()
+    }
+
+    pub fn get_image(&self) -> &str {
+        &self.image
+    }
+
+    pub fn set_image(&mut self, image: String) {
+        self.image = image;
     }
 
     /// True if this card is legal for Commander.
@@ -210,5 +230,13 @@ impl Card {
 
     pub fn set_id(&mut self, id: u64) {
         self.id = id;
+    }
+
+    pub fn scryfall_id(&self) -> Option<&str> {
+        self.scryfall_id.as_deref()
+    }
+
+    pub fn set_scryfall_id(&mut self, scryfall_id: String) {
+        self.scryfall_id = Some(scryfall_id);
     }
 }

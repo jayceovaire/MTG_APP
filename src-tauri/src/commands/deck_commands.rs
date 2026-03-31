@@ -2,7 +2,7 @@ use crate::state::AppState;
 use crate::models::deck_model::Deck;
 use crate::models::package_model::Package;
 use crate::commands::collection_commands::card_from_db_by_name;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 // DECK COMMANDS
 #[tauri::command]
@@ -46,15 +46,23 @@ pub fn get_decks(state: State<'_, AppState>) -> Vec<Deck> {
 }
 
 #[tauri::command]
-pub fn get_deck(state: State<'_, AppState>, deck_id: u64) -> Result<Deck, String> {
-    state
+pub async fn get_deck(state: State<'_, AppState>, app: AppHandle, deck_id: u64) -> Result<Deck, String> {
+    let deck = state
         .decks
         .read()
         .map_err(|_| "Failed to acquire deck lock".to_string())?
         .iter()
         .find(|deck| deck.id() == deck_id)
         .cloned()
-        .ok_or_else(|| format!("Deck with id {} not found", deck_id))
+        .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
+
+    // Trigger image fetching in background when deck is opened
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
+    Ok(deck)
 }
 
 
@@ -81,7 +89,7 @@ pub fn delete_deck(state: State<'_, AppState>, deck_id: u64) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn duplicate_deck(state: State<'_, AppState>, deck_id: u64) -> Result<Deck, String> {
+pub async fn duplicate_deck(state: State<'_, AppState>, app: AppHandle, deck_id: u64) -> Result<Deck, String> {
     let mut decks = state.decks.write().map_err(|_| "Failed to acquire deck lock".to_string())?;
 
     let source_deck = decks
@@ -99,11 +107,18 @@ pub fn duplicate_deck(state: State<'_, AppState>, deck_id: u64) -> Result<Deck, 
     decks.push(duplicated_deck.clone());
     drop(decks);
     state.save_deck(&duplicated_deck)?;
+
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
     Ok(duplicated_deck)
 }
 
 #[tauri::command]
-pub fn add_card_to_deck(state: State<'_, AppState>, deck_id: u64, name: String) -> Result<Deck, String> {
+pub async fn add_card_to_deck(state: State<'_, AppState>, app: AppHandle, deck_id: u64, name: String) -> Result<Deck, String> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return Err("Card name cannot be empty".to_string());
@@ -128,6 +143,66 @@ pub fn add_card_to_deck(state: State<'_, AppState>, deck_id: u64, name: String) 
     drop(decks);
 
     state.save_deck(&updated)?;
+
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn bulk_add_cards_to_deck(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    deck_id: u64,
+    cards: Vec<(u32, String)>,
+) -> Result<Deck, String> {
+    if cards.is_empty() {
+        return Err("No cards to add".to_string());
+    }
+
+    let mut new_cards = Vec::new();
+    for (qty, name) in cards {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        for _ in 0..qty {
+            let card = card_from_db_by_name(trimmed, state.next_card_id())?
+                .ok_or_else(|| format!("Card '{}' not found in local database", trimmed))?;
+            new_cards.push(card);
+        }
+    }
+
+    let mut decks = state
+        .decks
+        .write()
+        .map_err(|_| "Failed to acquire deck lock".to_string())?;
+
+    let deck = decks
+        .iter_mut()
+        .find(|deck| deck.id() == deck_id)
+        .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
+
+    for card in new_cards {
+        deck.add_card(card);
+    }
+    deck.recount_game_changers();
+    let updated = deck.clone();
+    drop(decks);
+
+    state.save_deck(&updated)?;
+
+    // Trigger image fetching in background ONCE after all cards are added
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
     Ok(updated)
 }
 
@@ -137,15 +212,23 @@ pub fn get_packages(state: State<'_, AppState>) -> Vec<Package> {
 }
 
 #[tauri::command]
-pub fn get_package(state: State<'_, AppState>, package_id: u64) -> Result<Package, String> {
-    state
+pub async fn get_package(state: State<'_, AppState>, app: AppHandle, package_id: u64) -> Result<Package, String> {
+    let package = state
         .packages
         .read()
         .map_err(|_| "Failed to acquire package lock".to_string())?
         .iter()
         .find(|package| package.id() == package_id)
         .cloned()
-        .ok_or_else(|| format!("Package with id {} not found", package_id))
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    // Trigger image fetching in background when package is opened
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
+    Ok(package)
 }
 
 #[tauri::command]
@@ -162,8 +245,9 @@ pub fn create_package(state: State<'_, AppState>, name: Option<String>) -> Resul
 }
 
 #[tauri::command]
-pub fn add_card_to_package(
+pub async fn add_card_to_package(
     state: State<'_, AppState>,
+    app: AppHandle,
     package_id: u64,
     card_name: String,
 ) -> Result<Package, String> {
@@ -189,6 +273,13 @@ pub fn add_card_to_package(
     drop(packages);
 
     state.save_package(&updated)?;
+
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
     Ok(updated)
 }
 
@@ -260,7 +351,7 @@ pub fn delete_package(state: State<'_, AppState>, package_id: u64) -> Result<(),
 }
 
 #[tauri::command]
-pub fn duplicate_package(state: State<'_, AppState>, package_id: u64) -> Result<Package, String> {
+pub async fn duplicate_package(state: State<'_, AppState>, app: AppHandle, package_id: u64) -> Result<Package, String> {
     let mut packages = state
         .packages
         .write()
@@ -291,12 +382,20 @@ pub fn duplicate_package(state: State<'_, AppState>, package_id: u64) -> Result<
     packages.push(copied_package.clone());
     drop(packages);
     state.save_package(&copied_package)?;
+
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
     Ok(copied_package)
 }
 
 #[tauri::command]
-pub fn add_package_to_deck(
+pub async fn add_package_to_deck(
     state: State<'_, AppState>,
+    app: AppHandle,
     deck_id: u64,
     package_id: u64,
 ) -> Result<Deck, String> {
@@ -333,6 +432,13 @@ pub fn add_package_to_deck(
     drop(decks);
 
     state.save_deck(&updated)?;
+
+    // Trigger image fetching in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+    });
+
     Ok(updated)
 }
 

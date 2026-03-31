@@ -1,6 +1,7 @@
 <script setup>
 import { mdiDotsHorizontal, mdiHeart, mdiHeartOutline, mdiPlus, mdiTrashCan } from "@mdi/js";
 import { computed, ref } from "vue";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import ManaText from "./ManaText.vue";
 
 const props = defineProps({
@@ -41,6 +42,16 @@ const props = defineProps({
 const actionsMenuOpen = ref(false);
 const emit = defineEmits(["remove-card", "add-card", "favorite-card"]);
 const displayName = computed(() => props.name.split(" // ")[0]?.trim() || props.name);
+
+const cardImage = computed(() => {
+  if (!props.image) return "";
+  // If it's already a URL or base64, return as-is
+  if (props.image.startsWith("http") || props.image.startsWith("data:")) {
+    return props.image;
+  }
+  // Otherwise treat as local path and convert for Tauri
+  return convertFileSrc(props.image);
+});
 
 function handleRemoveCard() {
   actionsMenuOpen.value = false;
@@ -93,7 +104,7 @@ function handleFavoriteCard() {
     </header>
 
     <section class="card-art">
-      <img v-if="image" :src="image" :alt="displayName" />
+      <img v-if="cardImage" :src="cardImage" :alt="displayName" />
       <div v-else class="card-art-placeholder">Art</div>
     </section>
 

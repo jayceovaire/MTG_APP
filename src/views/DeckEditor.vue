@@ -12,6 +12,7 @@ import {
 } from "@mdi/js";
 import {
   addCardToDeckCommand,
+  bulkAddCardsToDeckCommand,
   addCardToPackageCommand,
   addPackageToDeckCommand,
   createPackageCommand,
@@ -204,16 +205,18 @@ async function handleImport() {
 
   try {
     isImporting.value = true;
-    // Process sequentially to keep deck updated after each add
+    
+    const cardData = [];
     for (const raw of lines) {
       const m = raw.match(/^(\d+)\s+(.+)$/);
       if (!m) continue;
       const qty = Number(m[1]);
       const name = m[2].trim();
-      for (let i = 0; i < qty; i++) {
-        // addCardToDeckCommand returns updated deck
-        deck.value = await addCardToDeckCommand(normalizedDeckId, name);
-      }
+      cardData.push([qty, name]);
+    }
+
+    if (cardData.length > 0) {
+      deck.value = await bulkAddCardsToDeckCommand(normalizedDeckId, cardData);
     }
 
     showSuccess(`Imported ${lines.length} lines to ${deck.value?.name || 'deck'}`);

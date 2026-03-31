@@ -52,6 +52,10 @@ impl Package {
         &self.cards
     }
 
+    pub fn get_cards_mut(&mut self) -> &mut Vec<Card> {
+        &mut self.cards
+    }
+
     pub fn remove_card_at(&mut self, index: usize) -> bool {
         if index >= self.cards.len() {
             return false;

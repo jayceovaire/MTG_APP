@@ -12,6 +12,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let state = app.state::<AppState>();
             state
@@ -20,13 +21,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::collection_commands::add_card_to_collection,
-            commands::collection_commands::duplicate_collection_card,
-            commands::collection_commands::remove_collection_card,    
             commands::collection_commands::get_collection,
             commands::collection_commands::get_card,
+            commands::collection_commands::get_random_card,
             commands::collection_commands::set_collection_card_favorite,
             commands::collection_commands::search_card_suggestions,
+            commands::collection_commands::add_card_to_collection,
+            commands::collection_commands::bulk_add_cards_to_collection,
+            commands::collection_commands::duplicate_collection_card,
+            commands::collection_commands::remove_collection_card,
             commands::deck_commands::create_deck,
             commands::deck_commands::get_decks,
             commands::deck_commands::get_deck,
@@ -34,6 +37,7 @@ pub fn run() {
             commands::deck_commands::delete_deck,
             commands::deck_commands::duplicate_deck,
             commands::deck_commands::add_card_to_deck,
+            commands::deck_commands::bulk_add_cards_to_deck,
             commands::deck_commands::get_packages,
             commands::deck_commands::get_package,
             commands::deck_commands::create_package,
@@ -51,6 +55,8 @@ pub fn run() {
             commands::deck_commands::remove_deck_commander,
             commands::deck_commands::delete_deck_commander,
             commands::deck_commands::test_command,
+            commands::image_commands::fetch_card_images,
+            commands::image_commands::get_most_recent_cached_image,
         ])
         .manage(app_state)
         .run(tauri::generate_context!())
