@@ -31,6 +31,7 @@ const randomCardImage = computed(() => {
 
 async function handleGetRandomCard() {
   isFetchingRandom.value = true;
+  randomCard.value = null;
   randomCardError.value = "";
   try {
     randomCard.value = await getRandomCardCommand();
@@ -97,20 +98,29 @@ async function handleFetchImages() {
     <div class="home-grid">
       <section class="command-reference random-card-section">
         <h2>Random Card Discovery</h2>
-        <div v-if="isFetchingRandom" class="d-flex align-center justify-center p-4">
-          <v-progress-circular indeterminate></v-progress-circular>
-        </div>
-        <div v-else-if="randomCard" class="random-card-container">
+        
+        <div class="random-card-container">
           <div class="card-display">
-            <img v-if="randomCardImage" :src="randomCardImage" :alt="randomCard.name" class="random-card-img" />
-            <div v-else class="card-art-placeholder">No Image Available</div>
+            <div v-if="isFetchingRandom" class="d-flex align-center justify-center" style="height: 100%">
+              <v-progress-circular indeterminate></v-progress-circular>
+            </div>
+            <template v-else-if="randomCard">
+              <img v-if="randomCardImage" :src="randomCardImage" :alt="randomCard.name" class="random-card-img" />
+              <div v-else class="card-art-placeholder">No Image Available</div>
+            </template>
+            <div v-else class="card-art-placeholder">No Card Found</div>
           </div>
           
-          <v-btn class="mt-2" @click="handleAddToCollection" color="success" block>
+          <v-btn 
+            class="mt-2" 
+            @click="handleAddToCollection" 
+            color="success" 
+            block 
+            :disabled="isFetchingRandom || !randomCard"
+          >
             Add to Collection
           </v-btn>
         </div>
-        <p v-else-if="!randomCardError">No card found.</p>
         
         <div v-if="randomCardError" class="command-error">
           <strong>Error:</strong>

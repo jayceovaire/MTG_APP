@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   mdiAlertCircleOutline,
   mdiCardsOutline,
@@ -26,6 +27,7 @@ import {
   setDeckPartnerCommand,
   removeDeckPartnerCommand,
 } from "../api/deckCommands.js";
+import { getBase64ImagesCommand } from "../api/imageCommands.js";
 import DeckCardRow from "../components/DeckCardRow.vue";
 import ManaText from "../components/ManaText.vue";
 
@@ -58,6 +60,7 @@ const newPackageName = ref("");
 const pendingPackageCardName = ref("");
 const isSubmittingPackageAction = ref(false);
 const isCreatingPackage = ref(false);
+const testHand = ref([]);
 // Import deck dialog state
 const importDialogVisible = ref(false);
 const importText = ref("");
@@ -98,6 +101,7 @@ async function loadDeck() {
 
   try {
     deck.value = await getDeckCommand(normalizedDeckId);
+    refreshTestHand();
   } catch (e) {
     deck.value = null;
     loadError.value = `Failed to load deck: ${String(e)}`;
@@ -519,7 +523,7 @@ const mainDeckSections = computed(() => {
 });
 
 const deckCardTotal = computed(() => allDeckCards.value.length);
-const manaCurve = computed(() => {
+const avgManaValue = computed(() => {
   const cards = allDeckCards.value;
   if (cards.length === 0) {
     return 0;
@@ -527,6 +531,210 @@ const manaCurve = computed(() => {
 
   const total = cards.reduce((sum, card) => sum + (Number(card.mana_value) || 0), 0);
   return (total / cards.length).toFixed(2);
+});
+
+const MANA_COLORS = {
+  W: '#f8f6d8',
+  U: '#c1d7e9',
+  B: '#bab1ab',
+  R: '#e49977',
+  G: '#a3c095',
+  grey: '#cac5c0'
+};
+
+const manaCurveDistribution = computed(() => {
+  const cards = allDeckCards.value.filter(c => primaryType(c) !== 'Land');
+  const dist = new Array(8).fill(0); // 0, 1, 2, 3, 4, 5, 6, 7+
+  for (const card of cards) {
+    const mv = Math.floor(Number(card.mana_value) || 0);
+    if (mv >= 7) dist[7]++;
+    else if (mv >= 0) dist[mv]++;
+  }
+  return dist;
+});
+
+const manaCurveColoredDistribution = computed(() => {
+  const cards = allDeckCards.value.filter(c => primaryType(c) !== 'Land');
+  const dist = Array.from({ length: 8 }, () => ({
+    W: 0, U: 0, B: 0, R: 0, G: 0, grey: 0, total: 0
+  }));
+
+  for (const card of cards) {
+    const mv = Math.floor(Number(card.mana_value) || 0);
+    const index = mv >= 7 ? 7 : (mv >= 0 ? mv : 0);
+    const manaCost = typeof card.mana_cost === "string" ? card.mana_cost : "";
+    const symbols = manaCost.match(/\{[^}]+\}/g) || [];
+    
+    let w = 0, u = 0, b = 0, r = 0, g = 0;
+    let coloredSymbolsCount = 0;
+    
+    for (const symbol of symbols) {
+      let hasColor = false;
+      if (symbol.includes('W')) { w++; hasColor = true; }
+      if (symbol.includes('U')) { u++; hasColor = true; }
+      if (symbol.includes('B')) { b++; hasColor = true; }
+      if (symbol.includes('R')) { r++; hasColor = true; }
+      if (symbol.includes('G')) { g++; hasColor = true; }
+      if (hasColor) coloredSymbolsCount++;
+    }
+    
+    const cardMv = Number(card.mana_value) || 0;
+    const grey = Math.max(0, cardMv - coloredSymbolsCount);
+    
+    const totalUnits = w + u + b + r + g + grey;
+    let cardW = 0, cardU = 0, cardB = 0, cardR = 0, cardG = 0, cardGrey = 0;
+    
+    if (totalUnits > 0) {
+      cardW = w / totalUnits;
+      cardU = u / totalUnits;
+      cardB = b / totalUnits;
+      cardR = r / totalUnits;
+      cardG = g / totalUnits;
+      cardGrey = grey / totalUnits;
+    } else {
+      cardGrey = 1;
+    }
+    
+    dist[index].W += cardW;
+    dist[index].U += cardU;
+    dist[index].B += cardB;
+    dist[index].R += cardR;
+    dist[index].G += cardG;
+    dist[index].grey += cardGrey;
+    dist[index].total += 1;
+  }
+  
+  return dist.map(d => {
+    const segments = [
+      { color: MANA_COLORS.W, value: d.W },
+      { color: MANA_COLORS.U, value: d.U },
+      { color: MANA_COLORS.B, value: d.B },
+      { color: MANA_COLORS.R, value: d.R },
+      { color: MANA_COLORS.G, value: d.G },
+      { color: MANA_COLORS.grey, value: d.grey }
+    ].filter(s => s.value > 0);
+    
+    return {
+      total: d.total,
+      segments
+    };
+  });
+});
+
+const manaCurveMode = ref('bar'); // 'bar' or 'line'
+const pieChartMode = ref('pips-grey'); // 'pips-grey', 'combined'
+
+const manaStats = computed(() => {
+  const cards = allDeckCards.value;
+  const totals = { W: 0, U: 0, B: 0, R: 0, G: 0, grey: 0, totalColoredSymbols: 0 };
+  
+  for (const card of cards) {
+    const mv = Number(card.mana_value) || 0;
+    const manaCost = typeof card.mana_cost === "string" ? card.mana_cost : "";
+    
+    // Improved pip counting to include hybrids/phyrexian
+    // We count each symbol that contains a color letter as 1 colored symbol
+    const symbols = manaCost.match(/\{[^}]+\}/g) || [];
+    let cardColoredSymbols = 0;
+    for (const symbol of symbols) {
+      let isColored = false;
+      if (symbol.includes('W')) { totals.W += 1; isColored = true; }
+      if (symbol.includes('U')) { totals.U += 1; isColored = true; }
+      if (symbol.includes('B')) { totals.B += 1; isColored = true; }
+      if (symbol.includes('R')) { totals.R += 1; isColored = true; }
+      if (symbol.includes('G')) { totals.G += 1; isColored = true; }
+      
+      if (isColored) {
+          cardColoredSymbols++;
+          totals.totalColoredSymbols++;
+      }
+    }
+    
+    // Grey mana for this card is MV - unique colored symbols
+    totals.grey += Math.max(0, mv - cardColoredSymbols);
+  }
+  
+  return totals;
+});
+
+const pieChartData = computed(() => {
+  if (pieChartMode.value === 'pips-grey') {
+    const stats = manaStats.value;
+    return [
+      { label: 'White', pip: '{W}', value: stats.W, color: MANA_COLORS.W },
+      { label: 'Blue', pip: '{U}', value: stats.U, color: MANA_COLORS.U },
+      { label: 'Black', pip: '{B}', value: stats.B, color: MANA_COLORS.B },
+      { label: 'Red', pip: '{R}', value: stats.R, color: MANA_COLORS.R },
+      { label: 'Green', pip: '{G}', value: stats.G, color: MANA_COLORS.G }
+    ].filter(d => d.value > 0);
+  } else {
+    const stats = manaStats.value;
+    return [
+      { label: 'White', pip: '{W}', value: stats.W, color: MANA_COLORS.W },
+      { label: 'Blue', pip: '{U}', value: stats.U, color: MANA_COLORS.U },
+      { label: 'Black', pip: '{B}', value: stats.B, color: MANA_COLORS.B },
+      { label: 'Red', pip: '{R}', value: stats.R, color: MANA_COLORS.R },
+      { label: 'Green', pip: '{G}', value: stats.G, color: MANA_COLORS.G },
+      { label: 'Grey', pip: '{C}', value: stats.grey, color: MANA_COLORS.grey }
+    ].filter(d => d.value > 0);
+  }
+});
+
+const manaCurveLegendItems = computed(() => [
+  { label: 'White', pip: '{W}', color: MANA_COLORS.W },
+  { label: 'Blue', pip: '{U}', color: MANA_COLORS.U },
+  { label: 'Black', pip: '{B}', color: MANA_COLORS.B },
+  { label: 'Red', pip: '{R}', color: MANA_COLORS.R },
+  { label: 'Green', pip: '{G}', color: MANA_COLORS.G },
+  { label: 'Grey', pip: '{C}', color: MANA_COLORS.grey }
+]);
+
+const pieSlices = computed(() => {
+  const data = pieChartData.value;
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+  if (total === 0) return [];
+  
+  if (data.length === 1) {
+    const d = data[0];
+    const radius = 100;
+    // Full circle path using two 180-degree arcs to avoid zero-length arc issues
+    const path = `M ${radius} 0 A ${radius} ${radius} 0 1 1 ${radius} ${2 * radius} A ${radius} ${radius} 0 1 1 ${radius} 0 Z`;
+    return [{ ...d, path }];
+  }
+
+  let currentAngle = -Math.PI / 2; // Start from top
+  return data.map(d => {
+    const angle = (d.value / total) * 2 * Math.PI;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+    currentAngle = endAngle;
+    
+    // Path calculation
+    const radius = 100;
+    const x1 = radius + radius * Math.cos(startAngle);
+    const y1 = radius + radius * Math.sin(startAngle);
+    const x2 = radius + radius * Math.cos(endAngle);
+    const y2 = radius + radius * Math.sin(endAngle);
+    const largeArcFlag = angle <= Math.PI ? 0 : 1;
+    const path = `M ${radius} ${radius} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+    
+    return { ...d, path };
+  });
+});
+
+const maxCurveCount = computed(() => Math.max(...manaCurveDistribution.value, 1));
+
+const manaCurvePoints = computed(() => {
+  const dist = manaCurveDistribution.value;
+  return dist.map((count, i) => ({
+    x: i * 100 + 50,
+    y: 200 - (count / maxCurveCount.value * 160) - 25
+  }));
+});
+
+const manaCurvePath = computed(() => {
+  const points = manaCurvePoints.value;
+  return points.reduce((p, c, i) => p + (i === 0 ? `M ${c.x} ${c.y}` : ` L ${c.x} ${c.y}`), "");
 });
 
 const pipCounts = computed(() => {
@@ -804,6 +1012,51 @@ watch(searchName, (value) => {
     }
   }, 180);
 });
+async function refreshTestHand() {
+  const cards = Array.isArray(deck.value?.cards) ? deck.value.cards : [];
+  if (cards.length === 0) {
+    testHand.value = [];
+    return;
+  }
+  
+  // Shuffle all copies of all cards
+  const pool = [...cards];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  
+  // Take first 7
+  const selectedCards = pool.slice(0, 7);
+  const paths = selectedCards.map(c => c.image || c.image_uri || "");
+  
+  try {
+    const b64s = await getBase64ImagesCommand(paths);
+    testHand.value = selectedCards.map((card, idx) => ({
+      ...card,
+      displayImage: b64s[idx] || card.image_uri || ""
+    }));
+  } catch (e) {
+    console.error("Failed to fetch test hand images", e);
+    testHand.value = selectedCards;
+  }
+}
+
+function getCardImage(card) {
+  const raw = card?.image || card?.image_uri;
+  if (!raw) return "";
+  if (raw.startsWith("http") || raw.startsWith("data:")) {
+    return raw;
+  }
+  return convertFileSrc(raw);
+}
+
+watch(() => deck.value?.cards?.length, (newLength) => {
+  if (newLength > 0 && testHand.value.length === 0) {
+    refreshTestHand();
+  }
+});
+
 onMounted(async () => {
   await Promise.all([loadDeck(), loadPackages()]);
 });
@@ -931,7 +1184,7 @@ onMounted(async () => {
         </article>
         <article class="metric-card">
           <span class="metric-label">Average MV</span>
-          <strong>{{ manaCurve }}</strong>
+          <strong>{{ avgManaValue }}</strong>
         </article>
         <article class="metric-card">
           <span class="metric-label">Bracket</span>
@@ -982,6 +1235,183 @@ onMounted(async () => {
           <ManaText class="metric-label metric-label--symbol" text="{G}" :cost="true" />
           <strong>{{ pipCounts.G }}</strong>
         </article>
+      </section>
+
+      <section class="deck-charts mb-6">
+        <v-row>
+          <v-col cols="12" md="8">
+            <v-card class="mana-curve-card pa-4 fill-height" variant="flat" border>
+              <div class="d-flex align-center justify-space-between mb-4">
+                <h3 class="text-subtitle-1 font-weight-bold">Mana Curve</h3>
+                <v-btn-toggle v-model="manaCurveMode" mandatory density="compact" color="primary" variant="outlined">
+                  <v-btn value="bar" size="x-small">Bar</v-btn>
+                  <v-btn value="color" size="x-small">Color</v-btn>
+                  <v-btn value="line" size="x-small">Line</v-btn>
+                </v-btn-toggle>
+              </div>
+              <div class="mana-curve-chart" style="height: 200px;">
+                <svg width="100%" height="100%" viewBox="0 0 800 200" preserveAspectRatio="none">
+                  <defs>
+                    <clipPath v-for="(count, i) in manaCurveDistribution" :key="'clip'+i" :id="'clip-bar-'+i">
+                      <rect 
+                        :x="i * 100 + 10"
+                        :y="200 - (count / maxCurveCount * 160) - 25"
+                        width="80"
+                        :height="(count / maxCurveCount * 160)"
+                        rx="4"
+                      />
+                    </clipPath>
+                  </defs>
+
+                  <!-- Bar Chart (Single Color) -->
+                  <template v-if="manaCurveMode === 'bar'">
+                    <rect 
+                      v-for="(count, i) in manaCurveDistribution" 
+                      :key="'b'+i"
+                      :x="i * 100 + 10"
+                      :y="200 - (count / maxCurveCount * 160) - 25"
+                      width="80"
+                      :height="(count / maxCurveCount * 160)"
+                      :fill="MANA_COLORS.grey"
+                      rx="4"
+                    />
+                  </template>
+
+                  <!-- Bar Chart (Segmented Colors) -->
+                  <template v-else-if="manaCurveMode === 'color'">
+                    <g 
+                      v-for="(dist, i) in manaCurveColoredDistribution" 
+                      :key="'c'+i"
+                      :clip-path="dist.total > 0 ? `url(#clip-bar-${i})` : null"
+                    >
+                      <rect 
+                        v-for="(segment, si) in dist.segments"
+                        :key="'s'+i+'-'+si"
+                        :x="i * 100 + 10"
+                        :y="200 - (dist.segments.slice(0, si + 1).reduce((sum, s) => sum + s.value, 0) / maxCurveCount * 160) - 25"
+                        width="80"
+                        :height="(segment.value / maxCurveCount * 160) + 0.5"
+                        :fill="segment.color"
+                        rx="0"
+                      />
+                    </g>
+                  </template>
+                  
+                  <!-- Line Chart -->
+                  <template v-else>
+                    <path 
+                      :d="manaCurvePath" 
+                      fill="none" 
+                      :stroke="MANA_COLORS.grey" 
+                      stroke-width="3" 
+                      stroke-linecap="round" 
+                      stroke-linejoin="round"
+                    />
+                    <circle 
+                      v-for="(p, i) in manaCurvePoints" 
+                      :key="'p'+i"
+                      :cx="p.x"
+                      :cy="p.y"
+                      r="5"
+                      :fill="MANA_COLORS.grey"
+                      stroke="currentColor"
+                      stroke-width="1"
+                    />
+                  </template>
+
+                  <text 
+                    v-for="(_, i) in manaCurveDistribution" 
+                    :key="'t'+i"
+                    :x="i * 100 + 50"
+                    y="195"
+                    text-anchor="middle"
+                    fill="currentColor"
+                    font-size="14"
+                    class="font-weight-bold"
+                  >{{ i === 7 ? '7+' : i }}</text>
+                  <text 
+                    v-for="(count, i) in manaCurveDistribution" 
+                    v-show="count > 0"
+                    :key="'v'+i"
+                    :x="i * 100 + 50"
+                    :y="200 - (count / maxCurveCount * 160) - 30"
+                    text-anchor="middle"
+                    fill="currentColor"
+                    font-size="12"
+                  >{{ count }}</text>
+                </svg>
+              </div>
+
+              <div v-if="manaCurveMode === 'color'" class="d-flex justify-center flex-wrap mt-4" style="gap: 16px;">
+                <div v-for="item in manaCurveLegendItems" :key="item.label" class="d-flex align-center">
+                  <div 
+                    class="mr-2" 
+                    :style="{ 
+                      width: '12px', 
+                      height: '12px', 
+                      backgroundColor: item.color, 
+                      borderRadius: '2px',
+                      border: '1px solid rgba(var(--v-border-color), var(--v-border-opacity))'
+                    }"
+                  ></div>
+                  <ManaText :text="item.pip" :cost="true" style="font-size: 0.75rem;" class="mr-1" />
+                  <span class="text-caption font-weight-medium">{{ item.label }}</span>
+                </div>
+              </div>
+            </v-card>
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-card class="mana-stats-card pa-4 fill-height" variant="flat" border>
+              <div class="d-flex align-center justify-space-between mb-4">
+                <h3 class="text-subtitle-1 font-weight-bold">Distribution</h3>
+                <v-btn-toggle v-model="pieChartMode" mandatory density="compact" color="primary" variant="outlined">
+                  <v-btn value="pips-grey" size="x-small">Pips</v-btn>
+                  <v-btn value="combined" size="x-small">All</v-btn>
+                </v-btn-toggle>
+              </div>
+              <div class="d-flex align-center justify-center" style="height: 180px;">
+                <svg width="180" height="180" viewBox="0 0 200 200">
+                  <path 
+                    v-for="(slice, i) in pieSlices" 
+                    :key="i"
+                    :d="slice.path"
+                    :fill="slice.color"
+                    stroke="rgba(var(--v-theme-surface), 0.8)"
+                    stroke-width="1"
+                  >
+                    <title>{{ slice.label }}: {{ slice.value }}</title>
+                  </path>
+                </svg>
+                <div class="ml-4 pie-chart-legend" style="font-size: 11px; max-width: 130px; overflow: hidden;">
+                  <template v-for="slice in pieSlices" :key="slice.label">
+                    <div class="pie-chart-legend-icon">
+                      <ManaText :text="slice.pip" :cost="true" style="font-size: 0.85rem;" />
+                    </div>
+                    <div class="pie-chart-legend-value" :title="`${slice.label}: ${slice.value}`">
+                      {{ slice.value }}
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+      </section>
+
+      <section v-if="testHand.length > 0" class="test-hand-simulation mb-6">
+        <v-card class="pa-4" variant="flat" border>
+          <div class="d-flex align-center justify-space-between mb-4">
+            <h3 class="text-subtitle-1 font-weight-bold">Test Hand</h3>
+            <v-btn size="small" variant="outlined" color="primary" @click="refreshTestHand">
+              New Hand
+            </v-btn>
+          </div>
+          <div class="test-hand-container">
+            <div v-for="(card, index) in testHand" :key="index" class="test-hand-card">
+              <img :src="card.displayImage || getCardImage(card)" :alt="card.name" :title="card.name" />
+            </div>
+          </div>
+        </v-card>
       </section>
 
       <section class="deck-layout">
@@ -1421,6 +1851,56 @@ onMounted(async () => {
   box-shadow: 0 20px 40px rgba(20, 31, 48, 0.05);
 }
 
+.deck-charts {
+  width: 100%;
+}
+
+.mana-curve-chart rect {
+  transition: height 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), y 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mana-stats-card svg path {
+  transition: d 0.4s ease, fill 0.4s ease;
+}
+
+.pie-chart-legend {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  column-gap: 8px;
+  row-gap: 4px;
+  align-items: center;
+}
+
+.pie-chart-legend-icon {
+  width: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pie-chart-legend-value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  justify-self: start;
+}
+
+@media (max-width: 1200px) {
+  .deck-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .deck-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .deck-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .panel-heading {
   display: flex;
   align-items: center;
@@ -1531,5 +2011,37 @@ onMounted(async () => {
   .package-dialog__create {
     grid-template-columns: 1fr;
   }
+}
+
+.test-hand-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  min-height: 200px;
+  align-items: center;
+}
+
+.test-hand-card {
+  width: 150px;
+  aspect-ratio: 63 / 88;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #f0f2f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease-in-out;
+}
+
+.test-hand-card:hover {
+  transform: translateY(-4px);
+}
+
+.test-hand-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 </style>

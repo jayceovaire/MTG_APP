@@ -56,6 +56,7 @@ pub fn run() {
             commands::deck_commands::delete_deck_commander,
             commands::deck_commands::test_command,
             commands::image_commands::fetch_card_images,
+            commands::image_commands::get_base64_images,
             commands::image_commands::get_most_recent_cached_image,
         ])
         .manage(app_state)
