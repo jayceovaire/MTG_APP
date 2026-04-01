@@ -58,6 +58,7 @@ pub fn run() {
             commands::image_commands::fetch_card_images,
             commands::image_commands::get_base64_images,
             commands::image_commands::get_most_recent_cached_image,
+            commands::crispi_commands::evaluate_deck_roles,
         ])
         .manage(app_state)
         .run(tauri::generate_context!())

@@ -8,6 +8,7 @@ import {
   mdiPackageVariantClosedPlus,
   mdiPlus,
   mdiDownload,
+  mdiExport,
   mdiGaugeFull,
   mdiCancel,
 } from "@mdi/js";
@@ -230,6 +231,44 @@ async function handleImport() {
     showError(`Failed to import deck: ${String(e)}`);
   } finally {
     isImporting.value = false;
+  }
+}
+
+async function exportDeckAsText() {
+  if (!deck.value) return;
+
+  try {
+    const lines = [];
+
+    // Commander section
+    const commanders = commanderSection.value;
+    if (commanders && commanders.length > 0) {
+      for (const entry of commanders) {
+        lines.push(`${entry.quantity} ${entry.card.name}`);
+      }
+    }
+
+    // Mainboard section
+    const sections = mainDeckSections.value;
+    if (sections && sections.length > 0) {
+      for (const section of sections) {
+        for (const entry of section.entries) {
+          lines.push(`${entry.quantity} ${entry.card.name}`);
+        }
+      }
+    }
+
+    if (lines.length === 0) {
+      showError("Deck is empty. Nothing to export.");
+      return;
+    }
+
+    const text = lines.join("\n");
+    await navigator.clipboard.writeText(text);
+    showSuccess("Deck list copied to clipboard as plain text.");
+  } catch (e) {
+    console.error(e);
+    showError("Failed to export deck.");
   }
 }
 
@@ -1166,6 +1205,15 @@ onMounted(async () => {
             @click="openImportDialog"
           >
             Import Deck
+          </v-btn>
+          <v-btn
+            class="export-btn"
+            variant="outlined"
+            :prepend-icon="mdiExport"
+            :disabled="!deck || deckCardTotal === 0"
+            @click="exportDeckAsText"
+          >
+            Export Deck
           </v-btn>
         </div>
       </div>

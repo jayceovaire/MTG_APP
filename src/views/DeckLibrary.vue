@@ -74,20 +74,35 @@ function handleDeckActionError(message) {
 </script>
 
 <template>
-  <v-container>
-    <div class="deck-library-header">
-      <v-btn class="create-deck-btn" :loading="isCreatingDeck" @click="handleCreateDeck">
+  <v-container class="deck-library-view">
+    <div class="d-flex align-center justify-space-between mb-6">
+      <h1 class="text-h4 font-weight-bold">Deck Library</h1>
+      <v-btn 
+        color="primary" 
+        :loading="isCreatingDeck" 
+        @click="handleCreateDeck"
+        class="text-none font-weight-bold"
+        rounded="lg"
+      >
         <template #prepend>
-          <span class="create-deck-icons" aria-hidden="true">
-            <v-icon :icon="mdiPlus" size="16"></v-icon>
-            <v-icon :icon="mdiCardsOutline" size="16"></v-icon>
-          </span>
+          <div class="d-flex align-center mr-1">
+            <v-icon :icon="mdiPlus" size="18"></v-icon>
+            <v-icon :icon="mdiCardsOutline" size="18" class="ml-n1"></v-icon>
+          </div>
         </template>
         Create Deck
       </v-btn>
     </div>
 
-    <div class="deck-grid">
+    <v-divider class="mb-6"></v-divider>
+
+    <div v-if="decks.length === 0" class="d-flex flex-column align-center justify-center pa-12 text-medium-emphasis">
+      <v-icon :icon="mdiCardsOutline" size="64" class="mb-4 opacity-20"></v-icon>
+      <div class="text-h6">No decks found</div>
+      <p>Create a new deck to get started.</p>
+    </div>
+
+    <div v-else class="deck-grid">
       <DeckTile
           v-for="deck in decks"
           :key="deck.id"
@@ -103,35 +118,21 @@ function handleDeckActionError(message) {
         v-model="snackbarVisible"
         :color="snackbarColor"
         :timeout="snackbarTimeout"
+        rounded="pill"
     >
       {{ snackbarMessage }}
     </v-snackbar>
   </v-container>
-
 </template>
 
 <style scoped>
+.deck-library-view {
+  color: #132032;
+}
+
 .deck-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 250px));
-  justify-content: start;
-  gap: 16px;
-}
-
-.deck-library-header {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 16px;
-}
-
-.create-deck-btn {
-  text-transform: none;
-  font-weight: 600;
-}
-
-.create-deck-icons {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 24px;
 }
 </style>

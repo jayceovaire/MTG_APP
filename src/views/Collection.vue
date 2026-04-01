@@ -294,17 +294,75 @@ watch(newCardName, (value) => {
 
 <template>
   <v-container class="collection-page">
-    <section class="collection-hero">
-      <div class="hero-content">
-        <h1>Collection</h1>
-        <div class="hero-actions">
+    <div class="d-flex align-center justify-space-between mb-6">
+      <h1 class="text-h4 font-weight-bold">Collection</h1>
+      <div class="d-flex align-center gap-3">
+        <v-menu location="bottom end">
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              v-bind="menuProps"
+              variant="outlined"
+              :prepend-icon="mdiFilterVariant"
+              class="text-none"
+              rounded="lg"
+            >
+              Filter<span v-if="activeFilterCount > 0" class="ml-1">({{ activeFilterCount }})</span>
+            </v-btn>
+          </template>
+          <v-list density="compact" class="filter-menu">
+            <v-list-item
+              :active="activeFilters.includes(favoritesFilterKey)"
+              title="Favorites"
+              @click.stop="toggleFilter(favoritesFilterKey)"
+            >
+              <template #prepend>
+                <v-icon :icon="mdiHeart" size="16"></v-icon>
+              </template>
+            </v-list-item>
+            <v-divider class="my-1"></v-divider>
+            <v-list-item
+              v-for="filter in typeFilterOptions"
+              :key="filter"
+              :active="activeFilters.includes(filter)"
+              :title="filter"
+              @click.stop="toggleFilter(filter)"
+            />
+            <v-divider class="my-1"></v-divider>
+            <v-list-item title="Clear Filters" @click.stop="clearFilters" />
+          </v-list>
+        </v-menu>
+
+        <v-btn 
+          color="primary" 
+          :loading="isCreatingCard" 
+          @click="handleCreateCard"
+          class="text-none font-weight-bold"
+          rounded="lg"
+        >
+          <template #prepend>
+            <div class="d-flex align-center mr-1">
+              <v-icon :icon="mdiPlus" size="18"></v-icon>
+              <v-icon :icon="mdiCardsOutline" size="18" class="ml-n1"></v-icon>
+            </div>
+          </template>
+          Add Card
+        </v-btn>
+      </div>
+    </div>
+
+    <v-divider class="mb-6"></v-divider>
+
+    <v-row class="mb-6">
+      <v-col cols="12" md="6" lg="5">
+        <v-card variant="flat" border class="pa-2 search-card">
           <div class="card-name-input">
             <v-text-field
               v-model="newCardName"
-              class="collection-search"
+              class="collection-search px-3"
               label="Search and add a card"
               density="comfortable"
               hide-details
+              variant="plain"
               :loading="isSearchingCards"
               @focus="handleSearchFocus"
               @blur="handleSearchBlur"
@@ -312,7 +370,11 @@ watch(newCardName, (value) => {
               @keydown.down.prevent="moveSuggestion(1)"
               @keydown.up.prevent="moveSuggestion(-1)"
               @keydown.esc="hideSuggestions"
-            />
+            >
+              <template #prepend-inner>
+                <v-icon :icon="mdiCardsOutline" color="primary" class="mr-2"></v-icon>
+              </template>
+            </v-text-field>
 
             <div v-if="showCardSuggestions" class="deck-search-suggestions">
               <button
@@ -372,64 +434,27 @@ watch(newCardName, (value) => {
               </button>
             </div>
           </div>
+        </v-card>
+      </v-col>
+    </v-row>
 
-          <v-btn class="create-card-btn" :loading="isCreatingCard" @click="handleCreateCard">
-            <template #prepend>
-              <span class="create-card-icons" aria-hidden="true">
-                <v-icon :icon="mdiPlus" size="16"></v-icon>
-                <v-icon :icon="mdiCardsOutline" size="16"></v-icon>
-              </span>
-            </template>
-            Add Card
-          </v-btn>
-          <v-menu location="bottom end">
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                v-bind="menuProps"
-                class="filter-btn"
-                variant="outlined"
-                :prepend-icon="mdiFilterVariant"
-              >
-                Filter<span v-if="activeFilterCount > 0"> ({{ activeFilterCount }})</span>
-              </v-btn>
-            </template>
-            <v-list density="compact" class="filter-menu">
-              <v-list-item
-                :active="activeFilters.includes(favoritesFilterKey)"
-                title="Favorites"
-                @click.stop="toggleFilter(favoritesFilterKey)"
-              >
-                <template #prepend>
-                  <v-icon :icon="mdiHeart" size="16"></v-icon>
-                </template>
-              </v-list-item>
-              <v-divider class="my-1"></v-divider>
-              <v-list-item
-                v-for="filter in typeFilterOptions"
-                :key="filter"
-                :active="activeFilters.includes(filter)"
-                :title="filter"
-                @click.stop="toggleFilter(filter)"
-              />
-              <v-divider class="my-1"></v-divider>
-              <v-list-item title="Clear Filters" @click.stop="clearFilters" />
-            </v-list>
-          </v-menu>
-        </div>
-      </div>
-    </section>
-
-    <div v-if="loadError" class="feedback feedback--error">
+    <div v-if="loadError" class="feedback feedback--error mb-6">
       <v-icon :icon="mdiAlertCircleOutline" size="18"></v-icon>
       <span>{{ loadError }}</span>
     </div>
 
-    <section class="collection-panel">
-      <div class="panel-heading">
-        <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
-        <h2>All Cards</h2>
-        <span class="panel-count">{{ collectionCount }} cards</span>
+    <v-card variant="flat" border class="pa-6">
+      <div class="d-flex align-center justify-space-between mb-6">
+        <div class="d-flex align-center">
+          <v-icon :icon="mdiCardsOutline" color="primary" class="mr-3" size="28"></v-icon>
+          <h2 class="text-h5 font-weight-bold">All Cards</h2>
+        </div>
+        <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold">
+          {{ collectionCount }} cards
+        </v-chip>
       </div>
+
+      <v-divider class="mb-4"></v-divider>
 
       <div v-if="groupedCollection.length > 0" class="deck-list">
         <DeckCardRow
@@ -447,16 +472,18 @@ watch(newCardName, (value) => {
         />
       </div>
 
-      <div v-else class="empty-state">
-        <h3>Your collection is empty</h3>
-        <p>Search for a card above and add it to start building out your library.</p>
+      <div v-else class="text-center pa-12">
+        <v-icon :icon="mdiCardsOutline" size="64" class="mb-4 opacity-20"></v-icon>
+        <h3 class="text-h6 text-medium-emphasis">Your collection is empty</h3>
+        <p class="text-body-2 text-medium-emphasis">Search for a card above and add it to start building out your library.</p>
       </div>
-    </section>
+    </v-card>
 
     <v-snackbar
         v-model="snackbarVisible"
         :color="snackbarColor"
         :timeout="snackbarTimeout"
+        rounded="pill"
     >
       {{ snackbarMessage }}
     </v-snackbar>
@@ -465,62 +492,33 @@ watch(newCardName, (value) => {
 
 <style scoped>
 .collection-page {
-  max-width: 1440px;
-  padding: 28px;
   color: #132032;
 }
 
-.collection-hero {
-  padding: 28px 32px;
-  margin-bottom: 20px;
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at top left, rgba(187, 214, 255, 0.9), transparent 34%),
-    linear-gradient(135deg, #fbfcff 0%, #eef3fb 48%, #e5ecf7 100%);
-  border: 1px solid rgba(34, 53, 84, 0.08);
-}
-
-.hero-content {
-  display: grid;
-  gap: 16px;
-}
-
-.collection-hero h1 {
-  margin: 0;
-  font-size: clamp(2rem, 3vw, 3.2rem);
-  line-height: 1;
-}
-
-.hero-actions {
-  display: flex;
+.gap-3 {
   gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
+}
+
+.search-card {
+  border-radius: 12px !important;
 }
 
 .card-name-input {
   position: relative;
-  min-width: 320px;
-  max-width: 520px;
   width: 100%;
-}
-
-.collection-search {
-  min-width: 0;
 }
 
 .deck-search-suggestions {
   position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
+  top: calc(100% + 12px);
+  left: -8px;
+  right: -8px;
   z-index: 20;
   display: grid;
   gap: 6px;
   padding: 10px;
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.98) 100%);
+  background: white;
   border: 1px solid rgba(27, 42, 63, 0.08);
   box-shadow: 0 22px 40px rgba(20, 31, 48, 0.12);
 }
@@ -552,18 +550,6 @@ watch(newCardName, (value) => {
 .deck-search-suggestion:hover {
   background: rgba(217, 229, 246, 0.96);
   border-color: rgba(27, 42, 63, 0.15);
-}
-
-.deck-search-suggestion--illegal.deck-search-suggestion--active,
-.deck-search-suggestion--illegal:hover {
-  background: rgba(254, 226, 226, 0.96);
-  border-color: rgba(185, 28, 28, 0.4);
-}
-
-.deck-search-suggestion--game-changer.deck-search-suggestion--active,
-.deck-search-suggestion--game-changer:hover {
-  background: rgba(255, 237, 213, 0.96);
-  border-color: rgba(194, 65, 12, 0.4);
 }
 
 .deck-search-suggestion__top {
@@ -598,51 +584,9 @@ watch(newCardName, (value) => {
   color: #fff;
 }
 
-.create-card-btn {
-  flex: 0 0 auto;
-  text-transform: none;
-  font-weight: 600;
-}
-
-.refresh-btn {
-  flex: 0 0 auto;
-}
-
-.create-card-icons {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.collection-panel {
-  padding: 20px;
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.98) 100%);
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow: 0 20px 40px rgba(20, 31, 48, 0.05);
-}
-
 .deck-list {
   display: grid;
-  gap: 10px;
-}
-
-.panel-heading {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.panel-heading h2 {
-  margin: 0;
-}
-
-.panel-count {
-  margin-left: auto;
-  color: #607089;
-  font-size: 0.9rem;
+  gap: 12px;
 }
 
 .feedback {
@@ -650,8 +594,7 @@ watch(newCardName, (value) => {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  margin-bottom: 20px;
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 .feedback--error {
@@ -659,42 +602,7 @@ watch(newCardName, (value) => {
   color: #8b2d27;
 }
 
-.empty-state {
-  padding: 36px 12px 18px;
-  text-align: center;
+.opacity-20 {
+  opacity: 0.2;
 }
-
-.empty-state h3 {
-  margin: 0 0 8px;
-}
-
-.empty-state p {
-  margin: 0;
-  color: #5f6f86;
-  line-height: 1.5;
-}
-
-@media (max-width: 720px) {
-  .collection-page {
-    padding: 16px;
-  }
-
-  .collection-hero {
-    padding: 22px;
-  }
-
-  .hero-actions {
-    width: 100%;
-    justify-content: stretch;
-  }
-
-  .card-name-input {
-    min-width: 0;
-  }
-
-  .collection-search {
-    width: 100%;
-  }
-}
-
 </style>

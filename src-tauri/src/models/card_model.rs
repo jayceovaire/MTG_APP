@@ -239,4 +239,12 @@ impl Card {
     pub fn set_scryfall_id(&mut self, scryfall_id: String) {
         self.scryfall_id = Some(scryfall_id);
     }
+
+    pub fn oracle_text(&self) -> Option<&str> {
+        self.oracle_text.as_deref()
+    }
+
+    pub fn mana_value(&self) -> u8 {
+        self.mana_value
+    }
 }
