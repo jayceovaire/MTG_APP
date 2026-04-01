@@ -229,18 +229,20 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
                   v-if="canRemovePartner"
                   title="Remove as Partner"
                   @click.stop="$emit('remove-partner')"
+                  class="text-error"
                 >
                   <template #prepend>
-                    <v-icon :icon="mdiCloseCircleOutline" size="16"></v-icon>
+                    <v-icon :icon="mdiCloseCircleOutline" size="16" color="error"></v-icon>
                   </template>
                 </v-list-item>
                 <v-list-item
                   v-if="canRemoveCommander"
                   title="Remove as Commander"
                   @click.stop="$emit('remove-commander')"
+                  class="text-error"
                 >
                   <template #prepend>
-                    <v-icon :icon="mdiCloseCircleOutline" size="16"></v-icon>
+                    <v-icon :icon="mdiCloseCircleOutline" size="16" color="error"></v-icon>
                   </template>
                 </v-list-item>
                 <v-list-item
@@ -282,30 +284,28 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
   align-items: start;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(14, 21, 30, 0.08);
-  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   container-type: inline-size;
 }
 
 .deck-card-row--illegal {
-  border-color: rgba(185, 28, 28, 0.75);
-  background: rgba(254, 242, 242, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(185, 28, 28, 0.15);
+  border-color: rgba(var(--v-theme-error), 0.5);
+  background: rgba(var(--v-theme-error), 0.05);
 }
 
 .deck-card-row--game-changer {
-  border-color: rgba(194, 65, 12, 0.5);
-  background: rgba(255, 247, 237, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(194, 65, 12, 0.1);
+  border-color: rgba(255, 193, 7, 0.3);
+  background: rgba(255, 193, 7, 0.05);
 }
 
 .deck-card-row__illegal {
-  color: #b91c1c;
+  color: rgb(var(--v-theme-error));
   flex: 0 0 auto;
 }
 
 .deck-card-row__game-changer {
-  color: #c2410c;
+  color: #ffc107;
   flex: 0 0 auto;
 }
 
@@ -315,20 +315,20 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
   justify-content: center;
   min-height: 36px;
   border-radius: 10px;
-  background: #0f1724;
-  color: #f5f7fb;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .deck-card-row__count--illegal {
-  background: #991b1b;
-  color: #fef2f2;
+  background: rgb(var(--v-theme-error));
+  color: #fff;
 }
 
 .deck-card-row__count--game-changer {
-  background: #c2410c;
-  color: #fff7ed;
+  background: #ffc107;
+  color: #000;
 }
 
 .deck-card-row__body {
@@ -357,7 +357,7 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
   min-width: 0;
   overflow: hidden;
   font-weight: 700;
-  color: #142033;
+  color: inherit;
 }
 
 .deck-card-row__name > span {
@@ -368,7 +368,7 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
 }
 
 .deck-card-row__favorite {
-  color: #bf3347;
+  color: #ff5252;
   flex: 0 0 auto;
 }
 
@@ -382,19 +382,19 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
 }
 
 .deck-card-row__status-pill--illegal {
-  background: #991b1b;
+  background: rgb(var(--v-theme-error));
   color: #fff;
 }
 
 .deck-card-row__status-pill--game-changer {
-  background: #c2410c;
-  color: #fff;
+  background: #ffc107;
+  color: #000;
 }
 
 .deck-card-row__mana {
   flex: 0 0 auto;
   font-weight: 700;
-  color: #43526b;
+  opacity: 0.9;
 }
 
 .deck-card-row__actions {
@@ -424,7 +424,7 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
 
 .deck-card-row__bottom {
   font-size: 0.85rem;
-  color: #5f6f86;
+  opacity: 0.7;
 }
 
 @container (max-width: 290px) {

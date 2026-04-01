@@ -492,7 +492,6 @@ watch(newCardName, (value) => {
 
 <style scoped>
 .collection-page {
-  color: #132032;
 }
 
 .gap-3 {
@@ -518,9 +517,9 @@ watch(newCardName, (value) => {
   gap: 6px;
   padding: 10px;
   border-radius: 18px;
-  background: white;
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow: 0 22px 40px rgba(20, 31, 48, 0.12);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.4);
 }
 
 .deck-search-suggestion {
@@ -529,27 +528,27 @@ watch(newCardName, (value) => {
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 14px;
-  background: rgba(239, 244, 252, 0.88);
-  color: #132032;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .deck-search-suggestion--illegal {
-  background: rgba(254, 242, 242, 0.88);
+  background: rgba(185, 28, 28, 0.1);
   border-color: rgba(185, 28, 28, 0.2);
 }
 
 .deck-search-suggestion--game-changer {
-  background: rgba(255, 247, 237, 0.88);
+  background: rgba(194, 65, 12, 0.1);
   border-color: rgba(194, 65, 12, 0.2);
 }
 
 .deck-search-suggestion--active,
 .deck-search-suggestion:hover {
-  background: rgba(217, 229, 246, 0.96);
-  border-color: rgba(27, 42, 63, 0.15);
+  background: rgba(var(--v-theme-primary), 0.1);
+  border-color: rgba(var(--v-theme-primary), 0.3);
 }
 
 .deck-search-suggestion__top {
@@ -561,7 +560,7 @@ watch(newCardName, (value) => {
 }
 
 .deck-search-suggestion__type {
-  color: #607089;
+  opacity: 0.7;
   font-size: 0.85rem;
 }
 
@@ -598,8 +597,8 @@ watch(newCardName, (value) => {
 }
 
 .feedback--error {
-  background: #feeceb;
-  color: #8b2d27;
+  background: rgba(var(--v-theme-error), 0.1);
+  color: rgb(var(--v-theme-error));
 }
 
 .opacity-20 {

@@ -183,7 +183,6 @@ async function handleFetchImages() {
 
 <style scoped>
 .home-page {
-  color: #132032;
 }
 
 .home-grid {
@@ -203,26 +202,23 @@ async function handleFetchImages() {
   max-width: 560px;
   display: grid;
   gap: 12px;
-  padding: 20px;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at top left, rgba(187, 214, 255, 0.4), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.98) 100%);
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow: 0 20px 40px rgba(20, 31, 48, 0.05);
-  color: #132032;
+  padding: 24px;
+  border-radius: 24px;
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .command-result {
   display: grid;
   gap: 6px;
-  color: #132032;
+  opacity: 0.9;
 }
 
 .command-error {
   display: grid;
   gap: 6px;
-  color: #8b2d27;
+  color: rgb(var(--v-theme-error));
 }
 
 .random-card-container {

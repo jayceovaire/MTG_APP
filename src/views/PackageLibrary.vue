@@ -81,19 +81,34 @@ function handlePackageActionError(message) {
 
 <template>
   <v-container>
-    <div class="deck-library-header">
-      <v-btn class="create-deck-btn" :loading="isCreatingPackage" @click="handleCreatePackage">
+    <div class="d-flex align-center justify-space-between mb-6">
+      <h1 class="text-h4 font-weight-bold">Packages</h1>
+      <v-btn
+        color="primary"
+        :loading="isCreatingPackage"
+        @click="handleCreatePackage"
+        class="text-none font-weight-bold"
+        rounded="lg"
+      >
         <template #prepend>
-          <span class="create-deck-icons" aria-hidden="true">
-            <v-icon :icon="mdiPlus" size="16"></v-icon>
-            <v-icon :icon="mdiPackageVariantClosed" size="16"></v-icon>
-          </span>
+          <div class="d-flex align-center mr-1">
+            <v-icon :icon="mdiPlus" size="18"></v-icon>
+            <v-icon :icon="mdiPackageVariantClosed" size="18" class="ml-n1"></v-icon>
+          </div>
         </template>
         Create Package
       </v-btn>
     </div>
 
-    <div class="deck-grid">
+    <v-divider class="mb-6"></v-divider>
+
+    <div v-if="packages.length === 0" class="d-flex flex-column align-center justify-center pa-12 text-medium-emphasis">
+      <v-icon :icon="mdiPackageVariantClosed" size="64" class="mb-4 opacity-20"></v-icon>
+      <div class="text-h6">No packages found</div>
+      <p>Create a new package to reuse groups of cards across decks.</p>
+    </div>
+
+    <div v-else class="deck-grid">
       <PackageTile
         v-for="packageEntry in packages"
         :key="packageEntry.id"
@@ -115,25 +130,11 @@ function handlePackageActionError(message) {
 <style scoped>
 .deck-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 250px));
-  justify-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
 
-.deck-library-header {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 16px;
-}
-
-.create-deck-btn {
-  text-transform: none;
-  font-weight: 600;
-}
-
-.create-deck-icons {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+.opacity-20 {
+  opacity: 0.2;
 }
 </style>

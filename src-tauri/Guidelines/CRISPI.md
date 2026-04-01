@@ -112,3 +112,18 @@ FinalCRISPI = RawCRISPI * M
 | 15–19 | High Power |
 | 20–23 | Fringe cEDH |
 | 24–25+ | cEDH Optimized |
+
+---
+
+## Bracket System
+
+The application uses a **Bracket System (1–5)** based on a combination of "Game Changers" (GC) and the Final CRISPI Score.
+
+### Base Bracket (Game Changers)
+- **Bracket 2:** 0 Game Changers (Default)
+- **Bracket 3:** 1–3 Game Changers
+- **Bracket 4:** >3 Game Changers
+
+### Refinement Rules
+- **Bracket 1:** If a deck is Base Bracket 2, has a CRISPI score in the lowest tier (**0–8**), and has a high Average Mana Value (**AMV > 3.5**).
+- **Bracket 5:** If a deck has a CRISPI score that puts it into **cEDH Optimized (24.0+)**.

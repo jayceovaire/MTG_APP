@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   mdiAlertCircleOutline,
@@ -11,6 +12,7 @@ import {
   mdiExport,
   mdiGaugeFull,
   mdiCancel,
+  mdiChevronLeft,
 } from "@mdi/js";
 import {
   addCardToDeckCommand,
@@ -38,6 +40,8 @@ const props = defineProps({
     required: true,
   },
 });
+
+const router = useRouter();
 
 const deck = ref(null);
 const isLoading = ref(false);
@@ -86,6 +90,10 @@ const typeDisplayOrder = [
 function normalizeDeckId(value) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function goBack() {
+  router.back();
 }
 
 async function loadDeck() {
@@ -1105,7 +1113,12 @@ onMounted(async () => {
   <v-container class="deck-editor-page">
     <section class="deck-editor-hero">
       <div class="hero-content">
-        <h1>{{ deck?.name || "Deck" }}</h1>
+        <div class="d-flex align-center gap-4">
+          <v-btn icon variant="text" @click="goBack" color="primary">
+            <v-icon :icon="mdiChevronLeft" size="32"></v-icon>
+          </v-btn>
+          <h1>{{ deck?.name || "Deck" }}</h1>
+        </div>
         <div class="hero-actions">
           <div class="deck-search-wrap">
             <v-text-field
@@ -1497,9 +1510,9 @@ onMounted(async () => {
                 <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
                 <h2 class="ml-2">Mainboard</h2>
               </div>
-              <div class="d-flex align-center bg-amber-lighten-4 px-2 py-1 rounded-pill" v-if="deck.game_changer_count > 0">
-                <v-icon :icon="mdiGaugeFull" size="16" color="amber-darken-3"></v-icon>
-                <span class="text-caption font-weight-bold ml-1 text-amber-darken-4">
+              <div class="d-flex align-center bg-amber-darken-4 px-2 py-1 rounded-pill" v-if="deck.game_changer_count > 0">
+                <v-icon :icon="mdiGaugeFull" size="16" color="amber-lighten-2"></v-icon>
+                <span class="text-caption font-weight-bold ml-1 text-amber-lighten-4">
                   {{ deck.game_changer_count }} GAME CHANGER{{ deck.game_changer_count > 1 ? 'S' : '' }}
                 </span>
               </div>
@@ -1661,21 +1674,23 @@ onMounted(async () => {
 .deck-editor-page {
   max-width: 1440px;
   padding: 28px;
-  color: #132032;
 }
 
 .deck-editor-hero {
   padding: 28px 32px;
   margin-bottom: 20px;
   border-radius: 28px;
-  background:
-    radial-gradient(circle at top left, rgba(187, 214, 255, 0.9), transparent 34%),
-    linear-gradient(135deg, #fbfcff 0%, #eef3fb 48%, #e5ecf7 100%);
-  border: 1px solid rgba(34, 53, 84, 0.08);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .hero-content {
   display: grid;
+  gap: 16px;
+}
+
+.gap-4 {
   gap: 16px;
 }
 
@@ -1713,10 +1728,9 @@ onMounted(async () => {
   gap: 6px;
   padding: 10px;
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.98) 100%);
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow: 0 22px 40px rgba(20, 31, 48, 0.12);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.4);
 }
 
 .deck-search-suggestion {
@@ -1725,39 +1739,39 @@ onMounted(async () => {
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 14px;
-  background: rgba(239, 244, 252, 0.88);
-  color: #132032;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .deck-search-suggestion--illegal {
-  background: rgba(254, 242, 242, 0.88);
-  border-color: rgba(185, 28, 28, 0.2);
+  background: rgba(var(--v-theme-error), 0.1);
+  border-color: rgba(var(--v-theme-error), 0.3);
 }
 
 .deck-search-suggestion--game-changer {
-  background: rgba(255, 247, 237, 0.88);
-  border-color: rgba(194, 65, 12, 0.2);
+  background: rgba(255, 193, 7, 0.1);
+  border-color: rgba(255, 193, 7, 0.3);
 }
 
 .deck-search-suggestion--active,
 .deck-search-suggestion:hover {
-  background: rgba(217, 229, 246, 0.96);
-  border-color: rgba(27, 42, 63, 0.15);
+  background: rgba(var(--v-theme-primary), 0.1);
+  border-color: rgba(var(--v-theme-primary), 0.3);
 }
 
 .deck-search-suggestion--illegal.deck-search-suggestion--active,
 .deck-search-suggestion--illegal:hover {
-  background: rgba(254, 226, 226, 0.96);
-  border-color: rgba(185, 28, 28, 0.4);
+  background: rgba(var(--v-theme-error), 0.2);
+  border-color: rgba(var(--v-theme-error), 0.5);
 }
 
 .deck-search-suggestion--game-changer.deck-search-suggestion--active,
 .deck-search-suggestion--game-changer:hover {
-  background: rgba(255, 237, 213, 0.96);
-  border-color: rgba(194, 65, 12, 0.4);
+  background: rgba(255, 193, 7, 0.2);
+  border-color: rgba(255, 193, 7, 0.5);
 }
 
 .deck-search-suggestion__top {
@@ -1769,7 +1783,7 @@ onMounted(async () => {
 }
 
 .deck-search-suggestion__type {
-  color: #607089;
+  opacity: 0.7;
   font-size: 0.85rem;
 }
 
@@ -1819,8 +1833,8 @@ onMounted(async () => {
 }
 
 .feedback--error {
-  background: #feeceb;
-  color: #8b2d27;
+  background: rgba(var(--v-theme-error), 0.1);
+  color: rgb(var(--v-theme-error));
 }
 
 .deck-metrics {
@@ -1833,9 +1847,9 @@ onMounted(async () => {
 .metric-card {
   padding: 16px 18px;
   border-radius: 20px;
-  background: #fff;
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow: 0 16px 30px rgba(24, 37, 58, 0.05);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1844,8 +1858,8 @@ onMounted(async () => {
 }
 
 .metric-card--illegal {
-  background: #fef2f2;
-  border-color: rgba(185, 28, 28, 0.2);
+  background: rgba(var(--v-theme-error), 0.1);
+  border-color: rgba(var(--v-theme-error), 0.3);
 }
 
 .metric-label {
@@ -1853,7 +1867,7 @@ onMounted(async () => {
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #687892;
+  opacity: 0.7;
 }
 
 .metric-card strong {
@@ -1893,10 +1907,9 @@ onMounted(async () => {
 .deck-panel {
   padding: 20px;
   border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 255, 0.98) 100%);
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow: 0 20px 40px rgba(20, 31, 48, 0.05);
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .deck-charts {
@@ -1979,14 +1992,14 @@ onMounted(async () => {
 }
 
 .deck-type-section__header span {
-  color: #607089;
+  opacity: 0.7;
   font-size: 0.9rem;
 }
 
 .empty-copy,
 .empty-state p {
   margin: 0;
-  color: #5f6f86;
+  opacity: 0.7;
   line-height: 1.5;
 }
 

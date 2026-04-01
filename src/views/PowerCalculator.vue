@@ -274,8 +274,12 @@ async function runMonteCarlo() {
               <v-card variant="flat" border class="pa-6 mb-4 text-center">
                 <div class="text-overline mb-1">Total CRISPI Score</div>
                 <div class="d-flex align-center justify-center mb-2">
-                  <div class="text-h2 font-weight-black mr-4">{{ crispiResults.crispi.total_score }}</div>
+                  <div class="text-h2 font-weight-black mr-4">{{ crispiResults.crispi.total_score.toFixed(1) }}</div>
                   <div class="text-h4 text-primary font-weight-bold">/ 25</div>
+                </div>
+                <div class="text-caption text-medium-emphasis mb-2">
+                  Raw Score: {{ crispiResults.crispi.raw_score }} | 
+                  AMV Multiplier: {{ crispiResults.crispi.amv_multiplier.toFixed(2) }}x
                 </div>
                 <v-chip
                   :color="getInterpretationColor(crispiResults.crispi.interpretation)"

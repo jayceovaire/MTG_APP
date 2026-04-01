@@ -14,6 +14,24 @@ import {router} from "./router/index.ts";
 const vuetify = createVuetify({
     components,
     directives,
+    theme: {
+        defaultTheme: 'dark',
+        themes: {
+            dark: {
+                colors: {
+                    primary: '#2196F3', // A bright, standard blue
+                    background: '#0f0f0f', // Very dark, matching the screenshot
+                    surface: '#1e1e1e', // Slightly lighter for cards
+                }
+            }
+        }
+    },
+    defaults: {
+        VBtn: {
+            variant: 'outlined',
+            color: 'primary',
+        },
+    },
     icons: {
         defaultSet: 'mdi',
         aliases,

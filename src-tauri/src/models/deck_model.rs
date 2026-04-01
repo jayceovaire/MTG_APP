@@ -1,5 +1,7 @@
 use crate::models::card_model::Card;
+use crate::models::crispi_model::{self, Role};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deck {
@@ -119,50 +121,63 @@ impl Deck {
     pub fn recount_game_changers(&mut self) {
         let mut n_gc: u32 = 0;
         let mut n_illegal: u32 = 0;
+        let mut role_counts = HashMap::new();
+        let mut total_mv = 0.0;
+        let mut non_land_count = 0;
         
-        for c in &self.cards {
+        let mut process_card = |c: &Card| {
             if c.is_game_changer() {
                 n_gc += 1;
             }
             if !c.is_legal_in_commander() {
                 n_illegal += 1;
             }
+            
+            let roles = crispi_model::infer_roles(c);
+            for role in roles {
+                *role_counts.entry(role).or_insert(0) += 1;
+            }
+            
+            if !c.is_land() {
+                total_mv += c.mana_value() as f32;
+                non_land_count += 1;
+            }
+        };
+
+        for c in &self.cards {
+            process_card(c);
         }
         match &self.commander {
             CommanderSelection::None => {}
-            CommanderSelection::Single(c) => {
-                if c.is_game_changer() {
-                    n_gc += 1;
-                }
-                if !c.is_legal_in_commander() {
-                    n_illegal += 1;
-                }
-            }
+            CommanderSelection::Single(c) => process_card(c),
             CommanderSelection::Partner(a, b) => {
-                if a.is_game_changer() {
-                    n_gc += 1;
-                }
-                if !a.is_legal_in_commander() {
-                    n_illegal += 1;
-                }
-                if b.is_game_changer() {
-                    n_gc += 1;
-                }
-                if !b.is_legal_in_commander() {
-                    n_illegal += 1;
-                }
+                process_card(a);
+                process_card(b);
             }
         }
+
         self.game_changer_count = n_gc;
         self.illegal_count = n_illegal;
 
-        self.bracket = if n_gc == 0 {
+        let mut bracket = if n_gc == 0 {
             2
         } else if n_gc <= 3 {
             3
         } else {
             4
         };
+
+        let amv = if non_land_count > 0 { total_mv / non_land_count as f32 } else { 0.0 };
+        let crispi = crispi_model::calculate_crispi(&role_counts, amv);
+
+        // Additional Bracket Rules
+        if bracket == 2 && crispi.total_score <= 8.0 && amv > 3.5 {
+            bracket = 1;
+        } else if crispi.total_score >= 24.0 {
+            bracket = 5;
+        }
+
+        self.bracket = bracket;
     }
 
     pub fn set_single_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {

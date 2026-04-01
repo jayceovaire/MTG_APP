@@ -89,9 +89,9 @@ function handleFavoriteCard() {
               <v-icon :icon="favorited ? mdiHeart : mdiHeartOutline"></v-icon>
             </template>
           </v-list-item>
-          <v-list-item @click.stop="handleRemoveCard" title="Remove Card">
+          <v-list-item @click.stop="handleRemoveCard" title="Remove Card" class="text-error">
             <template #prepend>
-              <v-icon :icon="mdiTrashCan"></v-icon>
+              <v-icon :icon="mdiTrashCan" color="error"></v-icon>
             </template>
           </v-list-item>
         </v-list>

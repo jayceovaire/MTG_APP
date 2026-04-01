@@ -152,66 +152,75 @@ async function submitDelete(){
 
 <template>
   <v-container>
-    <v-card
-      @click="goToDeckEditor"
-      class="deck-tile"
-      width="250"
-      height="250"
-      max-height="500"
-      max-width="500"
-    >
-      <div class="tile-header">
-        <h3 class="tile-item">{{ deckName }}</h3>
-        <v-menu v-model="actionsMenuOpen" location="bottom">
-          <template #activator="{ props: menuProps }">
-            <v-btn v-bind="menuProps" @click.stop size="small" class="tile-button" height="25" width="25">
-              <v-icon :icon="mdiDotsHorizontal" size="16"></v-icon>
-            </v-btn>
-          </template>
-          <v-list density="compact">
-            <v-list-item @click.stop="openRenameDialog" title="Rename Deck">
-              <template #prepend>
-                <v-icon :icon="mdiPencil"></v-icon>
-              </template>
-            </v-list-item>
-            <v-list-item @click.stop="submitDuplicate" title="Duplicate Deck">
-              <template #prepend>
-                <v-icon :icon="mdiContentCopy"></v-icon>
-              </template>
-            </v-list-item>
-            <v-list-item @click.stop="submitDelete" title="Delete Deck">
-              <template #prepend>
-                <v-icon :icon="mdiTrashCan"></v-icon>
-              </template>
-            </v-list-item>
-          </v-list>
-        </v-menu>
+  <v-card
+    @click="goToDeckEditor"
+    variant="flat"
+    border
+    class="deck-tile pa-4 h-100 deck-card-hover"
+  >
+    <div class="d-flex align-center gap-4 mb-3">
+      <v-icon :icon="mdiCardsOutline" size="32" color="primary"></v-icon>
+      <div class="overflow-hidden">
+        <h3 class="text-h6 font-weight-bold text-truncate">{{ deckName }}</h3>
+        <div class="text-caption text-medium-emphasis">{{ cardCount }} Cards</div>
       </div>
-      <div class="commander-name">{{ commanderName }}</div>
-      <div class="tile-footer">
-        <div class="stat-row">
-          <span class="stat-label">Cards</span>
-          <span class="stat-value">{{ cardCount }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Color</span>
-          <ManaText
-            class="stat-value stat-value--colors"
-            :text="colorProfileSymbols"
-            :empty-text="colorProfile"
-            :cost="true"
-          />
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Avg MV</span>
-          <span class="stat-value">{{ averageManaValue }}</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Bracket</span>
-          <span class="stat-value">{{ bracket }}</span>
-        </div>
+      <v-spacer />
+      <v-menu v-model="actionsMenuOpen" location="bottom end">
+        <template #activator="{ props: menuProps }">
+          <v-btn v-bind="menuProps" @click.stop variant="text" icon size="small" class="mt-n4 mr-n2">
+            <v-icon :icon="mdiDotsHorizontal"></v-icon>
+          </v-btn>
+        </template>
+        <v-list density="compact">
+          <v-list-item @click.stop="openRenameDialog">
+            <template #prepend>
+              <v-icon :icon="mdiPencil" size="18"></v-icon>
+            </template>
+            <v-list-item-title>Rename</v-list-item-title>
+          </v-list-item>
+          <v-list-item @click.stop="submitDuplicate">
+            <template #prepend>
+              <v-icon :icon="mdiContentCopy" size="18"></v-icon>
+            </template>
+            <v-list-item-title>Duplicate</v-list-item-title>
+          </v-list-item>
+          <v-divider />
+          <v-list-item @click.stop="submitDelete" class="text-error">
+            <template #prepend>
+              <v-icon :icon="mdiTrashCan" size="18" color="error"></v-icon>
+            </template>
+            <v-list-item-title>Delete</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+    </div>
+
+    <div class="text-body-2 text-medium-emphasis mb-4 text-truncate">
+      {{ commanderName }}
+    </div>
+
+    <v-divider class="mb-4" />
+
+    <div class="deck-stats">
+      <div class="stat-row">
+        <span class="text-caption text-medium-emphasis">Color</span>
+        <ManaText
+          class="stat-value"
+          :text="colorProfileSymbols"
+          :empty-text="colorProfile"
+          :cost="true"
+        />
       </div>
-    </v-card>
+      <div class="stat-row">
+        <span class="text-caption text-medium-emphasis">Avg MV</span>
+        <span class="stat-value">{{ averageManaValue }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="text-caption text-medium-emphasis">Bracket</span>
+        <span class="stat-value">{{ bracket }}</span>
+      </div>
+    </div>
+  </v-card>
 
     <v-dialog v-model="renameDialogOpen" max-width="420">
       <v-card @click.stop>
@@ -236,121 +245,36 @@ async function submitDelete(){
 
 <style scoped>
 .deck-tile {
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  position: relative;
-  overflow: hidden;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at top left, rgba(187, 214, 255, 0.5), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(247, 250, 255, 0.88) 100%);
-  border: 1px solid rgba(27, 42, 63, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.78),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.2),
-    0 20px 40px rgba(20, 31, 48, 0.08);
-  backdrop-filter: blur(14px) saturate(120%);
-  isolation: isolate;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    border-color 160ms ease;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
 }
 
 .deck-tile:hover {
-  transform: translateY(-6px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.24),
-    0 28px 46px rgba(20, 31, 48, 0.14);
-  border-color: rgba(27, 42, 63, 0.12);
+  transform: translateY(-4px);
 }
 
-.deck-tile::before,
-.deck-tile::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.deck-card-hover:hover {
+  border-color: rgb(var(--v-theme-primary)) !important;
+  background-color: rgba(var(--v-theme-primary), 0.02) !important;
 }
 
-.deck-tile::before {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.16) 22%, rgba(255, 255, 255, 0.02) 46%),
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 34%);
-  opacity: 0.9;
+.gap-4 {
+  gap: 16px;
 }
 
-.deck-tile::after {
-  inset: auto 10px 10px 10px;
-  height: 44%;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.03) 100%);
-  opacity: 0.7;
-}
-
-.tile-header {
-  width: 100%;
+.deck-stats {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  position: relative;
-  z-index: 1;
-}
-
-.tile-item {
-  margin: 0;
-  color: #132032;
-}
-
-.tile-button {
-  min-width: 24px !important;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.8);
-  color: #132032;
-}
-
-.commander-name {
-  margin-top: 8px;
-  color: #5f6f86;
-  position: relative;
-  z-index: 1;
-}
-
-.tile-footer {
-  width: 100%;
-  margin-top: auto;
-  padding-top: 12px;
-  display: grid;
-  gap: 6px;
-  position: relative;
-  z-index: 1;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .stat-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  line-height: 1.1;
-}
-
-.stat-label {
-  color: #687892;
 }
 
 .stat-value {
   font-weight: 600;
-  color: #132032;
-}
-
-.stat-value--colors {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 20px;
 }
 </style>
