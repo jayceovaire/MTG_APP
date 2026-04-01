@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from "vue";
 import { getDecksCommand, getDeckCommand } from "../api/deckCommands.js";
 import { evaluateDeckRolesCommand } from "../api/crispiCommands.js";
 import DeckTile from "../components/DeckTile.vue";
-import { mdiCalculator, mdiDice6, mdiChartBar, mdiChevronLeft, mdiCardsOutline } from "@mdi/js";
+import { mdiCalculator, mdiDice6, mdiChartBar, mdiChevronLeft } from "@mdi/js";
 
 const decks = ref([]);
 const selectedDeck = ref(null);
@@ -215,7 +215,7 @@ async function runMonteCarlo() {
 <template>
   <v-container class="power-calculator-view">
     <div v-if="!selectedDeck">
-      <h1 class="text-h4 mb-4">Select a Deck to Evaluate</h1>
+      <h1 class="text-h4 mb-4 text-primary">Select a Deck to Evaluate</h1>
       <v-divider class="mb-6"></v-divider>
       
       <div v-if="isLoadingDecks" class="d-flex justify-center pa-12">
@@ -230,11 +230,10 @@ async function runMonteCarlo() {
           class="deck-selection-tile"
         >
           <v-card variant="flat" border class="pa-4 h-100 deck-card-hover">
-            <div class="d-flex align-center gap-4">
-              <v-icon :icon="mdiCardsOutline" size="32" color="primary"></v-icon>
+            <div class="d-flex align-center">
               <div>
-                <div class="text-h6 font-weight-bold">{{ deck.name }}</div>
-                <div class="text-caption text-medium-emphasis">{{ deck.cards?.length || 0 }} Cards</div>
+                <div class="text-h6 font-weight-bold text-left text-primary">{{ deck.name }}</div>
+                <div class="text-caption text-medium-emphasis text-left">{{ deck.cards?.length || 0 }} Cards</div>
               </div>
             </div>
           </v-card>
@@ -247,7 +246,7 @@ async function runMonteCarlo() {
         <v-btn icon variant="text" @click="deselectDeck" color="primary">
           <v-icon :icon="mdiChevronLeft"></v-icon>
         </v-btn>
-        <h1 class="text-h4">{{ selectedDeck.name }} Evaluation</h1>
+        <h1 class="text-h4 text-primary">{{ selectedDeck.name }} Evaluation</h1>
       </div>
 
       <v-tabs v-model="activeTool" color="primary" grow class="mb-6">

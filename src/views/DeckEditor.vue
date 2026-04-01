@@ -1117,7 +1117,7 @@ onMounted(async () => {
           <v-btn icon variant="text" @click="goBack" color="primary">
             <v-icon :icon="mdiChevronLeft" size="32"></v-icon>
           </v-btn>
-          <h1>{{ deck?.name || "Deck" }}</h1>
+          <h1 class="text-primary">{{ deck?.name || "Deck" }}</h1>
         </div>
         <div class="hero-actions">
           <div class="deck-search-wrap">

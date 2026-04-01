@@ -295,7 +295,7 @@ watch(newCardName, (value) => {
 <template>
   <v-container class="collection-page">
     <div class="d-flex align-center justify-space-between mb-6">
-      <h1 class="text-h4 font-weight-bold">Collection</h1>
+      <h1 class="text-h4 font-weight-bold text-primary">Collection</h1>
       <div class="d-flex align-center gap-3">
         <v-menu location="bottom end">
           <template #activator="{ props: menuProps }">

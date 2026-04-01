@@ -76,7 +76,7 @@ function handleDeckActionError(message) {
 <template>
   <v-container class="deck-library-view">
     <div class="d-flex align-center justify-space-between mb-6">
-      <h1 class="text-h4 font-weight-bold">Deck Library</h1>
+      <h1 class="text-h4 font-weight-bold text-primary">Deck Library</h1>
       <v-btn 
         color="primary" 
         :loading="isCreatingDeck" 

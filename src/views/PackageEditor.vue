@@ -334,7 +334,7 @@ onMounted(loadPackage);
           <v-btn icon variant="text" @click="goBack" color="primary">
             <v-icon :icon="mdiChevronLeft" size="32"></v-icon>
           </v-btn>
-          <h1>{{ packageEntry?.name || "Package" }}</h1>
+          <h1 class="text-primary">{{ packageEntry?.name || "Package" }}</h1>
         </div>
         <div class="hero-actions">
           <div class="deck-search-wrap">

@@ -92,7 +92,7 @@ async function handleFetchImages() {
 
 <template>
   <v-container class="home-page">
-    <h1>Home</h1>
+    <h1 class="text-primary">Home</h1>
     <p>This page includes a simple frontend-to-Rust command example.</p>
 
     <div class="home-grid">

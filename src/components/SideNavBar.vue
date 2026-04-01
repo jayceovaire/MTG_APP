@@ -15,7 +15,7 @@ const primaryItems = [
   { title: "Decks", to: "/deck-library", icon: mdiCardsOutline },
   { title: "Packages", to: "/package-library", icon: mdiPackageVariantClosed },
   { title: "Collection", to: "/collection", icon: mdiViewGridOutline },
-  { title: "Power Calculator", to: "/power-calculator", icon: mdiCalculatorVariantOutline },
+  { title: "Tools", to: "/power-calculator", icon: mdiCalculatorVariantOutline },
   { title: "Roast", to: "/roast", icon: mdiFire },
 
 ];
@@ -51,7 +51,7 @@ function toggleDrawerWidth() {
       </v-btn>
     </div>
 
-    <v-list nav density="compact" class="side-nav__list">
+    <v-list nav density="compact" class="side-nav__list" color="primary">
       <v-list-item
         v-for="item in primaryItems"
         :key="item.title"
@@ -88,7 +88,15 @@ function toggleDrawerWidth() {
   padding: 2px 6px;
 }
 .side-nav__icon {
-  opacity: 0.9;
+  opacity: 0.7;
+}
+
+:deep(.v-list-item--active .side-nav__icon) {
+  opacity: 1;
+}
+
+:deep(.v-list-item--active) {
+  background-color: rgba(var(--v-theme-primary), 0.08) !important;
 }
 .side-nav__list--bottom {
   margin-bottom: 10px;

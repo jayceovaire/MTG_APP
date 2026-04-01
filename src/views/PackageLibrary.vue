@@ -82,7 +82,7 @@ function handlePackageActionError(message) {
 <template>
   <v-container>
     <div class="d-flex align-center justify-space-between mb-6">
-      <h1 class="text-h4 font-weight-bold">Packages</h1>
+      <h1 class="text-h4 font-weight-bold text-primary">Packages</h1>
       <v-btn
         color="primary"
         :loading="isCreatingPackage"

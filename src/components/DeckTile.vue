@@ -151,18 +151,16 @@ async function submitDelete(){
 </script>
 
 <template>
-  <v-container>
   <v-card
     @click="goToDeckEditor"
     variant="flat"
     border
     class="deck-tile pa-4 h-100 deck-card-hover"
   >
-    <div class="d-flex align-center gap-4 mb-3">
-      <v-icon :icon="mdiCardsOutline" size="32" color="primary"></v-icon>
+    <div class="d-flex align-center mb-3">
       <div class="overflow-hidden">
-        <h3 class="text-h6 font-weight-bold text-truncate">{{ deckName }}</h3>
-        <div class="text-caption text-medium-emphasis">{{ cardCount }} Cards</div>
+        <h3 class="text-h6 font-weight-bold text-truncate text-left text-primary">{{ deckName }}</h3>
+        <div class="text-caption text-medium-emphasis text-left">{{ cardCount }} Cards</div>
       </div>
       <v-spacer />
       <v-menu v-model="actionsMenuOpen" location="bottom end">
@@ -195,7 +193,7 @@ async function submitDelete(){
       </v-menu>
     </div>
 
-    <div class="text-body-2 text-medium-emphasis mb-4 text-truncate">
+    <div class="text-body-2 text-medium-emphasis mb-4 text-truncate text-left">
       {{ commanderName }}
     </div>
 
@@ -222,25 +220,24 @@ async function submitDelete(){
     </div>
   </v-card>
 
-    <v-dialog v-model="renameDialogOpen" max-width="420">
-      <v-card @click.stop>
-        <v-card-title>Rename Deck</v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="pendingName"
-            label="Deck Name"
-            autofocus
-            hide-details
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="renameDialogOpen = false">Cancel</v-btn>
-          <v-btn :loading="isRenaming" @click="submitRename">Change Name</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </v-container>
+  <v-dialog v-model="renameDialogOpen" max-width="420">
+    <v-card @click.stop>
+      <v-card-title>Rename Deck</v-card-title>
+      <v-card-text>
+        <v-text-field
+          v-model="pendingName"
+          label="Deck Name"
+          autofocus
+          hide-details
+        />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn variant="text" @click="renameDialogOpen = false">Cancel</v-btn>
+        <v-btn :loading="isRenaming" @click="submitRename">Change Name</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
