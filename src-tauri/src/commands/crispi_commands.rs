@@ -30,7 +30,7 @@ pub fn evaluate_deck_roles(state: State<'_, AppState>, deck_id: u64) -> Result<D
     let mut total_mv = 0.0;
     let mut card_count = 0;
 
-    let mut process_card = |card: &Card, card_evaluations: &mut Vec<CardRoles>, role_counts: &mut HashMap<Role, usize>, total_mv: &mut f32, card_count: &mut usize| {
+    let process_card = |card: &Card, card_evaluations: &mut Vec<CardRoles>, role_counts: &mut HashMap<Role, usize>, total_mv: &mut f32, card_count: &mut usize| {
         let roles_set = crispi_model::infer_roles(card);
         let mut roles: Vec<Role> = roles_set.into_iter().collect();
         roles.sort_by_key(|r| format!("{:?}", r));
