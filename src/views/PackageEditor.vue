@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import { useRouter } from "vue-router";
 import {
   mdiAlertCircleOutline,
@@ -8,9 +9,14 @@ import {
   mdiCancel,
   mdiGaugeFull,
   mdiChevronLeft,
+  mdiDownload,
+  mdiExport,
+  mdiContentPaste,
+  mdiCheck,
 } from "@mdi/js";
 import {
   addCardToPackageCommand,
+  bulkAddCardsToPackageCommand,
   getPackageCommand,
   removeCardFromPackageCommand,
   searchCardSuggestionsCommand,
@@ -40,8 +46,14 @@ const isAddingCard = ref(false);
 const snackbarVisible = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("success");
+const importDialogVisible = ref(false);
+const importText = ref("");
+const isImporting = ref(false);
+const isPasting = ref(false);
+const importErrors = ref([]);
 let suggestionSearchTimeout = null;
 let searchBlurTimeout = null;
+let unlistenImages = null;
 
 const typeDisplayOrder = [
   "Creature",
@@ -83,6 +95,116 @@ async function loadPackage() {
     console.error(e);
   } finally {
     isLoading.value = false;
+  }
+}
+
+function openImportDialog() {
+  importDialogVisible.value = true;
+  importText.value = "";
+  importErrors.value = [];
+}
+
+function closeImportDialog() {
+  importDialogVisible.value = false;
+  importText.value = "";
+  importErrors.value = [];
+  isImporting.value = false;
+  isPasting.value = false;
+}
+
+async function pasteFromClipboard() {
+  try {
+    isPasting.value = true;
+    const text = await navigator.clipboard.readText();
+    importText.value = text || "";
+    importErrors.value = validateImportLines(importText.value);
+  } catch (e) {
+    showError("Failed to read clipboard.");
+    console.error(e);
+  } finally {
+    isPasting.value = false;
+  }
+}
+
+function validateImportLines(text) {
+  const lines = text.split(/\r?\n/);
+  const errors = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(\d+)\s+(.+)$/);
+    if (!m) {
+      errors.push({ line: i + 1, text: raw });
+    }
+  }
+  return errors;
+}
+
+async function handleImport() {
+  importErrors.value = validateImportLines(importText.value);
+  if (importErrors.value.length > 0) {
+    showError("Fix import format errors before importing.");
+    return;
+  }
+
+  const lines = importText.value
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length === 0) {
+    showError("No cards to import.");
+    return;
+  }
+
+  const normalizedPackageId = normalizePackageId(props.packageId);
+  if (normalizedPackageId === null) {
+    showError("Invalid package id.");
+    return;
+  }
+
+  try {
+    isImporting.value = true;
+
+    const cardData = [];
+    for (const raw of lines) {
+      const m = raw.match(/^(\d+)\s+(.+)$/);
+      if (!m) continue;
+      const qty = Number(m[1]);
+      const name = m[2].trim();
+      cardData.push([qty, name]);
+    }
+
+    if (cardData.length > 0) {
+      packageEntry.value = await bulkAddCardsToPackageCommand(normalizedPackageId, cardData);
+    }
+
+    showSuccess(`Imported ${lines.length} lines to ${packageEntry.value?.name || "package"}`);
+    closeImportDialog();
+  } catch (e) {
+    console.error(e);
+    showError(`Failed to import package: ${String(e)}`);
+  } finally {
+    isImporting.value = false;
+  }
+}
+
+async function exportPackageAsText() {
+  if (!packageEntry.value) return;
+
+  try {
+    const lines = [];
+    const entries = collapseCardCopies(packageEntry.value.cards || []);
+    for (const entry of entries) {
+      lines.push(`${entry.quantity} ${entry.card.name}`);
+    }
+
+    const text = lines.join("\n");
+    await navigator.clipboard.writeText(text);
+    showSuccess("Package exported to clipboard.");
+  } catch (e) {
+    showError("Failed to export package.");
+    console.error(e);
   }
 }
 
@@ -323,7 +445,19 @@ watch(searchName, (value) => {
   }, 180);
 });
 
-onMounted(loadPackage);
+onMounted(async () => {
+  await loadPackage();
+  unlistenImages = await listen("images-updated", () => {
+    console.log("Images updated event received in Package Editor, reloading...");
+    loadPackage();
+  });
+});
+
+onUnmounted(() => {
+  if (unlistenImages) {
+    unlistenImages();
+  }
+});
 </script>
 
 <template>
@@ -343,6 +477,7 @@ onMounted(loadPackage);
               class="deck-search"
               label="Search and add a card"
               density="comfortable"
+              variant="outlined"
               hide-details
               :loading="isSearchingCards"
               @focus="handleSearchFocus"
@@ -410,6 +545,23 @@ onMounted(loadPackage);
 
           <v-btn class="add-card-btn" :prepend-icon="mdiPlus" :loading="isAddingCard" @click="handleAddCard">
             Add Card
+          </v-btn>
+          <v-btn
+            class="import-btn"
+            variant="outlined"
+            :prepend-icon="mdiDownload"
+            @click="openImportDialog"
+          >
+            Import Decklist
+          </v-btn>
+          <v-btn
+            class="export-btn"
+            variant="outlined"
+            :prepend-icon="mdiExport"
+            :disabled="!packageEntry || packageCardTotal === 0"
+            @click="exportPackageAsText"
+          >
+            Export Package
           </v-btn>
         </div>
       </div>
@@ -491,6 +643,78 @@ onMounted(loadPackage);
     <v-snackbar v-model="snackbarVisible" :color="snackbarColor" :timeout="2500">
       {{ snackbarMessage }}
     </v-snackbar>
+
+    <!-- Import Dialog -->
+    <v-dialog v-model="importDialogVisible" max-width="600" persistent>
+      <v-card rounded="xl" class="pa-4">
+        <v-card-title class="d-flex align-center justify-space-between pb-0">
+          <span class="text-h5 font-weight-bold">Import Card List</span>
+          <v-btn icon variant="text" @click="closeImportDialog" :disabled="isImporting">
+            <v-icon :icon="mdiCancel"></v-icon>
+          </v-btn>
+        </v-card-title>
+
+        <v-card-text class="pt-4">
+          <p class="text-body-2 mb-4 opacity-70">
+            Paste your card list below. Format: "Quantity CardName" (e.g., "1 Sol Ring").
+          </p>
+
+          <v-textarea
+            v-model="importText"
+            label="Card List"
+            placeholder="1 Sol Ring&#10;1 Arcane Signet"
+            variant="outlined"
+            rows="10"
+            auto-grow
+            class="import-textarea"
+            :error-messages="
+              importErrors.length > 0 ? `Format errors on ${importErrors.length} lines` : ''
+            "
+            persistent-hint
+            hint="One card per line: [quantity] [name]"
+          ></v-textarea>
+
+          <div v-if="importErrors.length > 0" class="mt-4">
+            <div class="text-caption text-error font-weight-bold mb-1">Format Errors:</div>
+            <v-list density="compact" class="bg-error-lighten-5 rounded-lg">
+              <v-list-item v-for="(err, i) in importErrors.slice(0, 5)" :key="i">
+                <template #prepend>
+                  <v-icon :icon="mdiAlertCircleOutline" color="error" size="14"></v-icon>
+                </template>
+                <div class="text-caption text-error">Line {{ err.line }}: "{{ err.text }}"</div>
+              </v-list-item>
+              <v-list-item v-if="importErrors.length > 5">
+                <div class="text-caption text-error">...and {{ importErrors.length - 5 }} more</div>
+              </v-list-item>
+            </v-list>
+          </div>
+        </v-card-text>
+
+        <v-card-actions class="pa-4 pt-0">
+          <v-btn
+            variant="tonal"
+            :prepend-icon="mdiContentPaste"
+            @click="pasteFromClipboard"
+            :loading="isPasting"
+            :disabled="isImporting"
+          >
+            Paste
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            variant="flat"
+            class="px-6"
+            :prepend-icon="mdiCheck"
+            @click="handleImport"
+            :loading="isImporting"
+            :disabled="importErrors.length > 0 || !importText.trim()"
+          >
+            Import
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -534,6 +758,16 @@ onMounted(loadPackage);
 
 .deck-search {
   min-width: 0;
+}
+
+.import-btn,
+.export-btn {
+  flex: 0 0 auto;
+}
+
+.import-textarea {
+  max-height: 300px;
+  overflow-y: auto !important;
 }
 
 .deck-search-wrap {

@@ -1,15 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { fetchCardImagesCommand } from "./imageCommands.js";
 
 /** @typedef {import('./types.js').Card} Card */
 
 /** @returns {Promise<Card>} */
 export async function createCollectionCardCommand(name = "Unnamed Card") {
   try {
-    const card = await invoke("add_card_to_collection", { name });
-    // Trigger image fetching in background
-    fetchCardImagesCommand().catch(console.error);
-    return card;
+    return await invoke("add_card_to_collection", { name });
   } catch (e) {
     console.error(e);
     throw e;
@@ -19,9 +15,7 @@ export async function createCollectionCardCommand(name = "Unnamed Card") {
 /** @returns {Promise<Card>} */
 export async function duplicateCollectionCardCommand(cardId) {
   try {
-    const card = await invoke("duplicate_collection_card", { cardId });
-    fetchCardImagesCommand().catch(console.error);
-    return card;
+    return await invoke("duplicate_collection_card", { cardId });
   } catch (e) {
     console.error(e);
     throw e;
@@ -34,9 +28,7 @@ export async function duplicateCollectionCardCommand(cardId) {
  */
 export async function bulkAddCardsToCollectionCommand(cards) {
   try {
-    const addedCards = await invoke("bulk_add_cards_to_collection", { cards });
-    fetchCardImagesCommand().catch(console.error);
-    return addedCards;
+    return await invoke("bulk_add_cards_to_collection", { cards });
   } catch (e) {
     console.error(e);
     throw e;

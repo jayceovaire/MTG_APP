@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { fetchCardImagesCommand } from "./imageCommands.js";
 
 /** @typedef {import('./types.js').Deck} Deck */
 /** @typedef {import('./types.js').Package} Package */
@@ -81,9 +80,7 @@ export async function getCardCommand(name) {
 /** @returns {Promise<Deck>} */
 export async function addCardToDeckCommand(deckId, name) {
   try {
-    const deck = await invoke("add_card_to_deck", { deckId, name });
-    fetchCardImagesCommand().catch(console.error);
-    return deck;
+    return await invoke("add_card_to_deck", { deckId, name });
   } catch (e) {
     console.error(e);
     throw e;
@@ -97,9 +94,7 @@ export async function addCardToDeckCommand(deckId, name) {
  */
 export async function bulkAddCardsToDeckCommand(deckId, cards) {
   try {
-    const deck = await invoke("bulk_add_cards_to_deck", { deckId, cards });
-    fetchCardImagesCommand().catch(console.error);
-    return deck;
+    return await invoke("bulk_add_cards_to_deck", { deckId, cards });
   } catch (e) {
     console.error(e);
     throw e;
@@ -183,9 +178,21 @@ export async function duplicatePackageCommand(packageId) {
 /** @returns {Promise<Package>} */
 export async function addCardToPackageCommand(packageId, cardName) {
   try {
-    const pkg = await invoke("add_card_to_package", { packageId, cardName });
-    fetchCardImagesCommand().catch(console.error);
-    return pkg;
+    return await invoke("add_card_to_package", { packageId, cardName });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+/** 
+ * @param {number} packageId 
+ * @param {[number, string][]} cards - Array of [quantity, cardName]
+ * @returns {Promise<Package>} 
+ */
+export async function bulkAddCardsToPackageCommand(packageId, cards) {
+  try {
+    return await invoke("bulk_add_cards_to_package", { packageId, cards });
   } catch (e) {
     console.error(e);
     throw e;
@@ -235,9 +242,7 @@ export async function removeCardFromDeckCommand(deckId, cardId) {
 /** @returns {Promise<Deck>} */
 export async function setDeckCommanderCommand(deckId, cardId) {
   try {
-    const deck = await invoke("set_deck_commander", { deckId, cardId });
-    fetchCardImagesCommand().catch(console.error);
-    return deck;
+    return await invoke("set_deck_commander", { deckId, cardId });
   } catch (e) {
     console.error(e);
     throw e;
@@ -247,9 +252,7 @@ export async function setDeckCommanderCommand(deckId, cardId) {
 /** @returns {Promise<Deck>} */
 export async function setDeckPartnerCommand(deckId, cardId) {
   try {
-    const deck = await invoke("set_deck_partner", { deckId, cardId });
-    fetchCardImagesCommand().catch(console.error);
-    return deck;
+    return await invoke("set_deck_partner", { deckId, cardId });
   } catch (e) {
     console.error(e);
     throw e;

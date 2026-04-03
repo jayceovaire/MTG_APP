@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { 
   getMostRecentCachedImageCommand, 
@@ -63,7 +64,7 @@ async function handleFetchImages() {
   isFetching.value = true;
   imageError.value = "";
   try {
-    await fetchCardImagesCommand();
+    await fetchCardImagesCommand(null, null, null, true);
     await loadRecentImage();
   } catch (error) {
     imageError.value = String(error);
@@ -72,9 +73,21 @@ async function handleFetchImages() {
   }
 }
 
+  let unlistenImages = null;
+
   onMounted(async () => {
-    await handleFetchImages();
+    await loadRecentImage();
     await handleGetRandomCard();
+    unlistenImages = await listen("images-updated", () => {
+      console.log("Images updated event received in Home, reloading recent image...");
+      loadRecentImage();
+    });
+  });
+
+  onUnmounted(() => {
+    if (unlistenImages) {
+      unlistenImages();
+    }
   });
 </script>
 

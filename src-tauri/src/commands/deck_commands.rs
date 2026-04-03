@@ -56,10 +56,10 @@ pub async fn get_deck(state: State<'_, AppState>, app: AppHandle, deck_id: u64) 
         .cloned()
         .ok_or_else(|| format!("Deck with id {} not found", deck_id))?;
 
-    // Trigger image fetching in background when deck is opened
+    // Trigger image fetching for this specific deck in background
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, Some(deck_id), None, None, None).await;
     });
 
     Ok(deck)
@@ -108,10 +108,11 @@ pub async fn duplicate_deck(state: State<'_, AppState>, app: AppHandle, deck_id:
     drop(decks);
     state.save_deck(&duplicated_deck)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for the new deck
     let app_handle = app.clone();
+    let new_deck_id = duplicated_deck.id();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, Some(new_deck_id), None, None, None).await;
     });
 
     Ok(duplicated_deck)
@@ -144,10 +145,10 @@ pub async fn add_card_to_deck(state: State<'_, AppState>, app: AppHandle, deck_i
 
     state.save_deck(&updated)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for this specific deck
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, Some(deck_id), None, None, None).await;
     });
 
     Ok(updated)
@@ -197,10 +198,10 @@ pub async fn bulk_add_cards_to_deck(
 
     state.save_deck(&updated)?;
 
-    // Trigger image fetching in background ONCE after all cards are added
+    // Trigger image fetching in background ONCE after all cards are added to the deck
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, Some(deck_id), None, None, None).await;
     });
 
     Ok(updated)
@@ -222,10 +223,10 @@ pub async fn get_package(state: State<'_, AppState>, app: AppHandle, package_id:
         .cloned()
         .ok_or_else(|| format!("Package with id {} not found", package_id))?;
 
-    // Trigger image fetching in background when package is opened
+    // Trigger image fetching for this specific package in background
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, Some(package_id), None, None).await;
     });
 
     Ok(package)
@@ -242,6 +243,59 @@ pub fn create_package(state: State<'_, AppState>, name: Option<String>) -> Resul
     state.packages.write().unwrap().push(package.clone());
     state.save_package(&package)?;
     Ok(package)
+}
+
+#[tauri::command]
+pub async fn bulk_add_cards_to_package(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    package_id: u64,
+    cards: Vec<(u32, String)>,
+) -> Result<Package, String> {
+    if cards.is_empty() {
+        return Err("No cards to add".to_string());
+    }
+
+    let mut new_cards = Vec::new();
+    for (qty, name) in cards {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        for _ in 0..qty {
+            let card = card_from_db_by_name(trimmed, state.next_card_id())?
+                .ok_or_else(|| format!("Card '{}' not found in local database", trimmed))?;
+            new_cards.push(card);
+        }
+    }
+
+    let mut packages = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+
+    let package = packages
+        .iter_mut()
+        .find(|p| p.id() == package_id)
+        .ok_or_else(|| format!("Package with id {} not found", package_id))?;
+
+    for card in new_cards {
+        package.add_card(card);
+    }
+    
+    let updated = package.clone();
+    drop(packages);
+
+    state.save_package(&updated)?;
+
+    // Trigger image fetching in background ONCE after all cards are added to the package
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, Some(package_id), None, None).await;
+    });
+
+    Ok(updated)
 }
 
 #[tauri::command]
@@ -274,10 +328,10 @@ pub async fn add_card_to_package(
 
     state.save_package(&updated)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for this specific package
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, Some(package_id), None, None).await;
     });
 
     Ok(updated)
@@ -383,10 +437,11 @@ pub async fn duplicate_package(state: State<'_, AppState>, app: AppHandle, packa
     drop(packages);
     state.save_package(&copied_package)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for the new package
     let app_handle = app.clone();
+    let new_pkg_id = copied_package.id();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, Some(new_pkg_id), None, None).await;
     });
 
     Ok(copied_package)
@@ -433,10 +488,10 @@ pub async fn add_package_to_deck(
 
     state.save_deck(&updated)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for this specific deck
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, Some(deck_id), None, None, None).await;
     });
 
     Ok(updated)

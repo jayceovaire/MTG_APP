@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   mdiAlertCircleOutline,
   mdiCardsOutline,
@@ -74,6 +75,7 @@ const isImporting = ref(false);
 const isPasting = ref(false);
 let suggestionSearchTimeout = null;
 let searchBlurTimeout = null;
+let unlistenImages = null;
 
 const typeDisplayOrder = [
   "Creature",
@@ -413,10 +415,11 @@ function canBeCommander(card) {
   const isLegendary = superTypes.includes("Legendary");
   const isCreature = types.includes("Creature");
   const isVehicle = subTypes.some((subtype) => subtype.toLowerCase() === "vehicle");
+  const isSpacecraft = subTypes.some((subtype) => subtype.toLowerCase() === "spacecraft");
   const isBackground = subTypes.some((subtype) => subtype.toLowerCase() === "background");
 
-  // Standard case: Legendary Creature or Legendary Vehicle
-  if (isLegendary && (isCreature || isVehicle)) {
+  // Standard case: Legendary Creature, Legendary Vehicle, or Legendary Spacecraft
+  if (isLegendary && (isCreature || isVehicle || isSpacecraft)) {
     return true;
   }
 
@@ -1106,6 +1109,17 @@ watch(() => deck.value?.cards?.length, (newLength) => {
 
 onMounted(async () => {
   await Promise.all([loadDeck(), loadPackages()]);
+  unlistenImages = await listen("images-updated", async () => {
+    console.log("Images updated event received, reloading deck and refreshing test hand.");
+    await loadDeck();
+    refreshTestHand();
+  });
+});
+
+onUnmounted(() => {
+  if (unlistenImages) {
+    unlistenImages();
+  }
 });
 </script>
 
@@ -1126,6 +1140,7 @@ onMounted(async () => {
               class="deck-search"
               label="Search and add a card"
               density="comfortable"
+              variant="outlined"
               hide-details
               :loading="isSearchingCards"
               @focus="handleSearchFocus"

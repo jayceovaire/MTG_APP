@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import {
   mdiAlertCircleOutline,
   mdiCardsOutline,
@@ -37,6 +38,7 @@ const snackbarTimeout = 2500;
 const activeFilters = ref([]);
 let suggestionSearchTimeout = null;
 let searchBlurTimeout = null;
+let unlistenImages = null;
 
 const typeFilterOptions = [
   "Creature",
@@ -66,7 +68,19 @@ async function loadCollection() {
   }
 }
 
-onMounted(loadCollection);
+onMounted(async () => {
+  await loadCollection();
+  unlistenImages = await listen("images-updated", () => {
+    console.log("Images updated event received in Collection, reloading...");
+    loadCollection();
+  });
+});
+
+onUnmounted(() => {
+  if (unlistenImages) {
+    unlistenImages();
+  }
+});
 
 function showSuccess(message) {
   snackbarMessage.value = message;
@@ -140,13 +154,20 @@ async function handleCreateCard() {
     return;
   }
 
+  const trimmed = newCardName.value.trim();
+  if (!trimmed) {
+    showError("Enter a card name first.");
+    return;
+  }
+
   //TODO In the future this will look for a card in the database from the backend and then push it, not just make a new card
   try {
     isCreatingCard.value = true;
-    const newCard = await createCollectionCardCommand(newCardName.value);
+    const newCard = await createCollectionCardCommand(trimmed);
     cards.value.push(newCard);
     showSuccess(`Added "${newCard.name}" to collection`);
     newCardName.value = "";
+    clearSuggestions();
   } catch (e) {
     showError(`Failed to add card: ${String(e)}`);
     console.error(e);
@@ -354,29 +375,28 @@ watch(newCardName, (value) => {
 
     <v-row class="mb-6">
       <v-col cols="12" md="6" lg="5">
-        <v-card variant="flat" border class="pa-2 search-card">
-          <div class="card-name-input">
-            <v-text-field
-              v-model="newCardName"
-              class="collection-search px-3"
-              label="Search and add a card"
-              density="comfortable"
-              hide-details
-              variant="plain"
-              :loading="isSearchingCards"
-              @focus="handleSearchFocus"
-              @blur="handleSearchBlur"
-              @keydown.enter.prevent="handleSearchEnter"
-              @keydown.down.prevent="moveSuggestion(1)"
-              @keydown.up.prevent="moveSuggestion(-1)"
-              @keydown.esc="hideSuggestions"
-            >
-              <template #prepend-inner>
-                <v-icon :icon="mdiCardsOutline" color="primary" class="mr-2"></v-icon>
-              </template>
-            </v-text-field>
+        <div class="card-name-input">
+          <v-text-field
+            v-model="newCardName"
+            class="collection-search"
+            label="Search and add a card"
+            density="comfortable"
+            variant="outlined"
+            hide-details
+            :loading="isSearchingCards"
+            @focus="handleSearchFocus"
+            @blur="handleSearchBlur"
+            @keydown.enter.prevent="handleSearchEnter"
+            @keydown.down.prevent="moveSuggestion(1)"
+            @keydown.up.prevent="moveSuggestion(-1)"
+            @keydown.esc="hideSuggestions"
+          >
+            <template #prepend-inner>
+              <v-icon :icon="mdiCardsOutline" color="primary" class="mr-2"></v-icon>
+            </template>
+          </v-text-field>
 
-            <div v-if="showCardSuggestions" class="deck-search-suggestions">
+          <div v-if="showCardSuggestions" class="deck-search-suggestions">
               <button
                 v-for="(suggestion, index) in cardSuggestions"
                 :key="`${suggestion.name}-${index}`"
@@ -434,9 +454,8 @@ watch(newCardName, (value) => {
               </button>
             </div>
           </div>
-        </v-card>
-      </v-col>
-    </v-row>
+        </v-col>
+      </v-row>
 
     <div v-if="loadError" class="feedback feedback--error mb-6">
       <v-icon :icon="mdiAlertCircleOutline" size="18"></v-icon>
@@ -504,6 +523,8 @@ watch(newCardName, (value) => {
 
 .card-name-input {
   position: relative;
+  min-width: 320px;
+  max-width: 520px;
   width: 100%;
 }
 

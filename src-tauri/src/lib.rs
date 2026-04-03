@@ -46,6 +46,7 @@ pub fn run() {
             commands::deck_commands::delete_package,
             commands::deck_commands::duplicate_package,
             commands::deck_commands::add_card_to_package,
+            commands::deck_commands::bulk_add_cards_to_package,
             commands::deck_commands::add_package_to_deck,
             commands::deck_commands::remove_card_from_package,
             commands::deck_commands::remove_card_from_deck,

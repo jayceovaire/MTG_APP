@@ -8,6 +8,6 @@ export async function getBase64ImagesCommand(paths) {
   return await invoke("get_base64_images", { paths });
 }
 
-export async function fetchCardImagesCommand() {
-  return await invoke("fetch_card_images");
+export async function fetchCardImagesCommand(deckId = null, packageId = null, collection = null, all = null) {
+  return await invoke("fetch_card_images", { deckId, packageId, collection, all });
 }

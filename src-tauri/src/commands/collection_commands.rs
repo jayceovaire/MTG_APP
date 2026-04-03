@@ -663,10 +663,10 @@ pub async fn add_card_to_collection(
     drop(collection);
     state.save_collection_card(&new_card)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for collection
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
     });
 
     Ok(CollectionCardView {
@@ -720,10 +720,10 @@ pub async fn bulk_add_cards_to_collection(
     }
     drop(collection);
 
-    // Trigger image fetching in background ONCE
+    // Trigger image fetching in background ONCE for collection
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
     });
 
     Ok(views)
@@ -752,10 +752,10 @@ pub async fn duplicate_collection_card(
     drop(collection);
     state.save_collection_card(&duplicated)?;
 
-    // Trigger image fetching in background
+    // Trigger image fetching in background for collection
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle).await;
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
     });
 
     Ok(CollectionCardView {
@@ -820,21 +820,30 @@ pub fn set_collection_card_favorite(
 }
 
 #[tauri::command]
-pub fn get_collection(state: State<'_, AppState>) -> Vec<CollectionCardView> {
+pub async fn get_collection(state: State<'_, AppState>, app: AppHandle) -> Result<Vec<CollectionCardView>, String> {
     let favorite_ids: HashSet<u64> = state
         .favorites
         .read()
-        .unwrap()
+        .map_err(|_| "Failed to lock favorites for read".to_string())?
         .iter()
         .copied()
         .collect();
-    state.collection
+    
+    let cards = state.collection
         .read()
-        .unwrap()
+        .map_err(|_| "Failed to lock collection for read".to_string())?
         .clone()
         .into_iter()
         .map(|card| build_collection_card_view(card, &favorite_ids))
-        .collect()
+        .collect();
+
+    // Trigger image fetching for collection in background
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
+    });
+
+    Ok(cards)
 }
 
 #[cfg(test)]

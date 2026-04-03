@@ -148,6 +148,12 @@ impl Card {
             .any(|subtype| subtype.eq_ignore_ascii_case("Vehicle"))
     }
 
+    pub fn is_spacecraft(&self) -> bool {
+        self.sub_type
+            .iter()
+            .any(|subtype| subtype.eq_ignore_ascii_case("Spacecraft"))
+    }
+
     pub fn is_planeswalker(&self) -> bool {
         self.card_type.contains(&CardType::Planeswalker)
     }
@@ -191,12 +197,13 @@ impl Card {
     /// A card can be a commander if it's:
     /// - A Legendary Creature
     /// - A Legendary Vehicle (e.g., Shorikai)
+    /// - A Legendary Spacecraft
     /// - A Legendary Planeswalker with "can be your commander" text
     /// - A card with Partner, Partner with, or "can be your commander" in oracle text
     /// - A Background (Legendary Enchantment that can be a commander)
     pub fn can_be_commander(&self) -> bool {
-        // Standard case: Legendary Creature or Legendary Vehicle
-        if self.is_legendary() && (self.is_creature() || self.is_vehicle()) {
+        // Standard case: Legendary Creature, Legendary Vehicle, or Legendary Spacecraft
+        if self.is_legendary() && (self.is_creature() || self.is_vehicle() || self.is_spacecraft()) {
             return true;
         }
 
