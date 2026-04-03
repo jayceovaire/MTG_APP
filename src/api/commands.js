@@ -33,3 +33,7 @@ export {
   getMostRecentCachedImageCommand,
   fetchCardImagesCommand,
 } from "./imageCommands.js";
+
+export {
+  checkForUpdatesCommand,
+} from "./settingsCommands.js";

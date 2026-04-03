@@ -8,6 +8,7 @@ import PackageEditor from "../views/PackageEditor.vue";
 import Collection from "../views/Collection.vue";
 import PowerCalculator from "../views/PowerCalculator.vue";
 import Roast from "../views/Roast.vue";
+import Settings from "../views/Settings.vue";
 
 const routes = [
     { path: "/", component: HomeView },
@@ -18,6 +19,7 @@ const routes = [
     {path: "/power-calculator", component: PowerCalculator},
     {path: "/collection", component: Collection},
     {path: "/roast", component: Roast},
+    {path: "/settings", component: Settings},
 
 ]
 

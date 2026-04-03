@@ -18,6 +18,10 @@ pub fn run() {
             state
                 .initialize_persistence(app.handle())
                 .map_err(|e| -> Box<dyn std::error::Error> { std::io::Error::other(e).into() })?;
+
+            commands::collection_commands::initialize_db_paths(app.handle())
+                .map_err(|e| -> Box<dyn std::error::Error> { std::io::Error::other(e).into() })?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -60,6 +64,7 @@ pub fn run() {
             commands::image_commands::get_base64_images,
             commands::image_commands::get_most_recent_cached_image,
             commands::crispi_commands::evaluate_deck_roles,
+            commands::settings_commands::check_for_updates,
         ])
         .manage(app_state)
         .run(tauri::generate_context!())

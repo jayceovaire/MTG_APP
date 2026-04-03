@@ -136,6 +136,15 @@ function getInterpretationColor(interpretation) {
   }
 }
 
+function getTierColor(tier) {
+  switch (tier) {
+    case "Premium": return "purple-accent-4";
+    case "Efficient": return "blue-darken-1";
+    case "Slow": return "amber-darken-2";
+    default: return "grey";
+  }
+}
+
 async function runMonteCarlo() {
   if (!selectedDeck.value || !crispiResults.value) return;
   isSimulating.value = true;
@@ -277,8 +286,9 @@ async function runMonteCarlo() {
                   <div class="text-h4 text-primary font-weight-bold">/ 25</div>
                 </div>
                 <div class="text-caption text-medium-emphasis mb-2">
-                  Raw Score: {{ crispiResults.crispi.raw_score }} | 
-                  AMV Multiplier: {{ crispiResults.crispi.amv_multiplier.toFixed(2) }}x
+                  Raw Score: {{ crispiResults.crispi.raw_score.toFixed(1) }} | 
+                  AMV Multiplier: {{ crispiResults.crispi.amv_multiplier.toFixed(2) }}x |
+                  Bracket: {{ crispiResults.crispi.bracket }}
                 </div>
                 <v-chip
                   :color="getInterpretationColor(crispiResults.crispi.interpretation)"
@@ -312,8 +322,6 @@ async function runMonteCarlo() {
                   height="8"
                   class="mb-4"
                 ></v-progress-linear>
-
-                <p class="text-body-2">{{ crispiResults.crispi[dim.key].justification }}</p>
               </v-card>
             </v-col>
 
@@ -332,7 +340,7 @@ async function runMonteCarlo() {
                   <div v-for="role in sortedRoles" :key="role" class="mb-3">
                     <div class="d-flex justify-space-between align-center mb-1">
                       <span class="text-subtitle-2">{{ role }}</span>
-                      <span class="font-weight-bold">{{ crispiResults.role_counts[role] }}</span>
+                      <span class="font-weight-bold">{{ crispiResults.role_counts[role].toFixed(1) }}</span>
                     </div>
                     <v-progress-linear 
                       :model-value="crispiResults.role_counts[role]" 
@@ -352,7 +360,7 @@ async function runMonteCarlo() {
                   <v-expansion-panel
                     v-for="role in sortedRoles"
                     :key="role"
-                    :title="`${role} (${crispiResults?.role_counts[role] || 0})`"
+                    :title="`${role} (${(crispiResults?.role_counts[role] || 0).toFixed(1)})`"
                   >
                     <v-expansion-panel-text>
                       <v-list density="compact">
@@ -361,6 +369,9 @@ async function runMonteCarlo() {
                           :key="eval_.card_id"
                           :title="eval_.card_name"
                         >
+                          <template v-slot:append>
+                            <v-chip size="x-small" :color="getTierColor(eval_.tier)" label>{{ eval_.tier }}</v-chip>
+                          </template>
                         </v-list-item>
                       </v-list>
                     </v-expansion-panel-text>

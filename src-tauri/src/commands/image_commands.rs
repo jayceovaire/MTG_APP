@@ -31,6 +31,13 @@ struct ScryfallImageUris {
     png: Option<String>,
 }
 
+#[derive(serde::Serialize, Clone)]
+struct ProgressPayload {
+    current: usize,
+    total: usize,
+    card_name: String,
+}
+
 #[tauri::command]
 pub async fn fetch_card_images(
     app: AppHandle,
@@ -48,11 +55,7 @@ pub async fn fetch_card_images(
 
     let is_all = all.unwrap_or(false);
 
-    println!("Starting image fetch. Cache dir: {:?}, target: deck={:?}, package={:?}, collection={:?}, all={}", 
-        cache_dir, deck_id, package_id, collection, is_all);
-
     if !cache_dir.exists() {
-        println!("Creating cache directory: {:?}", cache_dir);
         fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache directory: {e}"))?;
     }
 
@@ -60,6 +63,47 @@ pub async fn fetch_card_images(
         .user_agent("MTG_App/0.1.0 (contact: support@mtg_app.local)")
         .build()
         .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
+
+    // Pre-calculate total for progress
+    let mut total_cards = 0;
+    if collection.unwrap_or(false) || is_all {
+        total_cards += state.collection.read().map_err(|_| "Lock failed")?.len();
+    }
+    
+    let decks_to_process: Vec<u64> = if let Some(id) = deck_id {
+        vec![id]
+    } else if is_all {
+        state.decks.read().map_err(|_| "Lock failed")?.iter().map(|d| d.id()).collect()
+    } else {
+        vec![]
+    };
+    
+    for d_id in &decks_to_process {
+        if let Some(d) = state.decks.read().map_err(|_| "Lock failed")?.iter().find(|d| d.id() == *d_id) {
+            total_cards += d.get_cards().len();
+            match d.get_commander() {
+                CommanderSelection::None => {}
+                CommanderSelection::Single(_) => total_cards += 1,
+                CommanderSelection::Partner(_, _) => total_cards += 2,
+            }
+        }
+    }
+
+    let packages_to_process: Vec<u64> = if let Some(id) = package_id {
+        vec![id]
+    } else if is_all {
+        state.packages.read().map_err(|_| "Lock failed")?.iter().map(|p| p.id()).collect()
+    } else {
+        vec![]
+    };
+    
+    for p_id in &packages_to_process {
+        if let Some(p) = state.packages.read().map_err(|_| "Lock failed")?.iter().find(|p| p.id() == *p_id) {
+            total_cards += p.get_cards().len();
+        }
+    }
+
+    let mut current_card = 0;
 
     // 1. Process Collection
     if collection.unwrap_or(false) || is_all {
@@ -69,10 +113,6 @@ pub async fn fetch_card_images(
             .map(|c| c.id())
             .collect();
 
-        if !collection_ids.is_empty() {
-            println!("Processing {} collection cards", collection_ids.len());
-        }
-
         for id in collection_ids {
             let card_opt = state.collection.read()
                 .map_err(|_| "Failed to lock collection for card lookup")?
@@ -81,6 +121,13 @@ pub async fn fetch_card_images(
                 .cloned();
 
             if let Some(mut card) = card_opt {
+                current_card += 1;
+                let _ = app.emit("image-download-progress", ProgressPayload {
+                    current: current_card,
+                    total: total_cards,
+                    card_name: card.get_name().to_string(),
+                });
+
                 match process_card(&mut card, &cache_dir, &client).await {
                     Ok(true) => {
                         any_changed = true;
@@ -99,22 +146,6 @@ pub async fn fetch_card_images(
     }
 
     // 2. Process Decks
-    let decks_to_process: Vec<u64> = if let Some(id) = deck_id {
-        vec![id]
-    } else if is_all {
-        state.decks.read()
-            .map_err(|_| "Failed to lock decks for reading")?
-            .iter()
-            .map(|d| d.id())
-            .collect()
-    } else {
-        Vec::new()
-    };
-
-    if !decks_to_process.is_empty() {
-        println!("Processing {} decks", decks_to_process.len());
-    }
-
     for d_id in decks_to_process {
         let deck_opt = state.decks.read()
             .map_err(|_| "Failed to lock decks for deck lookup")?
@@ -127,6 +158,12 @@ pub async fn fetch_card_images(
 
             // Cards in deck
             for card in deck.get_cards_mut().iter_mut() {
+                current_card += 1;
+                let _ = app.emit("image-download-progress", ProgressPayload {
+                    current: current_card,
+                    total: total_cards,
+                    card_name: card.get_name().to_string(),
+                });
                 match process_card(card, &cache_dir, &client).await {
                     Ok(true) => changed = true,
                     Ok(false) => {}
@@ -138,6 +175,12 @@ pub async fn fetch_card_images(
             match deck.get_commander_mut() {
                 CommanderSelection::None => {}
                 CommanderSelection::Single(card) => {
+                    current_card += 1;
+                    let _ = app.emit("image-download-progress", ProgressPayload {
+                        current: current_card,
+                        total: total_cards,
+                        card_name: card.get_name().to_string(),
+                    });
                     match process_card(card, &cache_dir, &client).await {
                         Ok(true) => changed = true,
                         Ok(false) => {}
@@ -145,11 +188,23 @@ pub async fn fetch_card_images(
                     }
                 }
                 CommanderSelection::Partner(c1, c2) => {
+                    current_card += 1;
+                    let _ = app.emit("image-download-progress", ProgressPayload {
+                        current: current_card,
+                        total: total_cards,
+                        card_name: c1.get_name().to_string(),
+                    });
                     match process_card(c1, &cache_dir, &client).await {
                         Ok(true) => changed = true,
                         Ok(false) => {}
                         Err(e) => println!("Error processing partner: {}", e),
                     }
+                    current_card += 1;
+                    let _ = app.emit("image-download-progress", ProgressPayload {
+                        current: current_card,
+                        total: total_cards,
+                        card_name: c2.get_name().to_string(),
+                    });
                     match process_card(c2, &cache_dir, &client).await {
                         Ok(true) => changed = true,
                         Ok(false) => {}
@@ -171,22 +226,6 @@ pub async fn fetch_card_images(
     }
 
     // 3. Process Packages
-    let packages_to_process: Vec<u64> = if let Some(id) = package_id {
-        vec![id]
-    } else if is_all {
-        state.packages.read()
-            .map_err(|_| "Failed to lock packages for reading")?
-            .iter()
-            .map(|p| p.id())
-            .collect()
-    } else {
-        Vec::new()
-    };
-
-    if !packages_to_process.is_empty() {
-        println!("Processing {} packages", packages_to_process.len());
-    }
-
     for p_id in packages_to_process {
         let package_opt = state.packages.read()
             .map_err(|_| "Failed to lock packages for package lookup")?
@@ -197,6 +236,12 @@ pub async fn fetch_card_images(
         if let Some(mut package) = package_opt {
             let mut changed = false;
             for card in package.get_cards_mut().iter_mut() {
+                current_card += 1;
+                let _ = app.emit("image-download-progress", ProgressPayload {
+                    current: current_card,
+                    total: total_cards,
+                    card_name: card.get_name().to_string(),
+                });
                 match process_card(card, &cache_dir, &client).await {
                     Ok(true) => changed = true,
                     Ok(false) => {}
@@ -216,6 +261,7 @@ pub async fn fetch_card_images(
     }
 
     println!("Image fetch complete.");
+    let _ = app.emit("image-download-complete", ());
     if any_changed {
         let _ = app.emit("images-updated", ());
     }

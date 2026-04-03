@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 use tauri::{AppHandle, State, Manager};
 
 const SCRYFALL_DB_RELATIVE_PATH: &str = "src/db/scryfall.db";
+static SCRYFALL_DB_PATH: OnceLock<PathBuf> = OnceLock::new();
 static LOOKUP_INDEXES_READY: OnceLock<()> = OnceLock::new();
 static SEARCH_CANDIDATES: OnceLock<Result<Vec<CardSearchCandidate>, String>> = OnceLock::new();
 
@@ -33,12 +34,21 @@ struct CardSearchCandidate {
     normalized_name: String,
 }
 
-fn scryfall_db_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(SCRYFALL_DB_RELATIVE_PATH)
+pub fn initialize_db_paths(app: &AppHandle) -> Result<(), String> {
+    let path = app.path()
+        .resource_dir()
+        .map_err(|e| format!("Failed to resolve resource directory: {e}"))?
+        .join(SCRYFALL_DB_RELATIVE_PATH);
+    let _ = SCRYFALL_DB_PATH.set(path);
+    Ok(())
+}
+
+fn scryfall_db_path() -> Result<PathBuf, String> {
+    SCRYFALL_DB_PATH.get().cloned().ok_or_else(|| "Scryfall DB path not initialized".to_string())
 }
 
 fn open_scryfall_db() -> Result<Connection, String> {
-    let db_path = scryfall_db_path();
+    let db_path = scryfall_db_path()?;
     let db_uri = format!("file:{}?mode=ro&immutable=1", db_path.to_string_lossy().replace('\\', "/"));
     Connection::open_with_flags(
         db_uri,

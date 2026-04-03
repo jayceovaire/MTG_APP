@@ -2,6 +2,21 @@
 
 A desktop application for Magic: The Gathering card collection and deck building, built with [Tauri](https://tauri.app/), [Vue 3](https://vuejs.org/), and [Rust](https://www.rust-lang.org/).
 
+## 🌟 Key Features
+
+- **Advanced Deck Management:** Full-featured deck builder with "Import Decklist" capabilities (Quantity CardName format).
+- **CRISPI v2 Power Evaluation:** A sophisticated power-level scoring framework (Consistency, Resilience, Interaction, Speed, Pivotability) that uses:
+  - Global efficiency rules based on mana value (MV).
+  - Non-linear AMV multipliers for high-curve penalties.
+  - Integration with "Game Changers" (high-impact cards) for accurate bracket-based tiering.
+- **Monte Carlo Simulations:** Real-time probability calculations for drawing specific card roles across turn-by-turn simulations.
+- **Targeted Image Caching:** 
+  - Automated, background image fetching for specific decks, packages, or individual card searches.
+  - Scryfall API compliance with a global 100ms rate limiter and 10 requests-per-second cap.
+  - Real-time UI updates via Tauri event emitters (`images-updated`).
+- **Expanded Commander Rules:** Support for Legendary Vehicles and Legendary Spacecraft as valid commanders.
+- **Collection Tracker:** Search and manage your personal card collection with suggestion-driven UI.
+
 ## 🛠 Tech Stack
 
 - **Frontend Framework:** [Vue 3](https://vuejs.org/) (Composition API with `<script setup>`)
@@ -69,8 +84,8 @@ MTG_APP/
 │   └── views/          # Page-level Vue components
 ├── src-tauri/          # Backend (Rust + Tauri)
 │   ├── src/            # Rust source code
-│   │   ├── commands/   # Tauri command handlers (collection, deck, etc.)
-│   │   ├── models/     # Rust data models (card, deck, package)
+│   │   ├── commands/   # Tauri command handlers (collection, deck, image, etc.)
+│   │   ├── models/     # Rust data models (card, deck, package, crispi)
 │   │   ├── lib.rs      # Main Tauri application logic
 │   │   ├── state.rs    # AppState and Persistence logic
 │   │   └── main.rs     # Binary entry point
@@ -93,6 +108,13 @@ The application uses SQLite for data storage:
   - Windows: `%LOCALAPPDATA%\mtg_app\user_data.db`
   - Linux: `~/.local/share/mtg_app/user_data.db`
   - macOS: `~/Library/Application Support/mtg_app/user_data.db`
+- **Image Cache:** Card images are locally cached in the application data directory to reduce Scryfall API load.
+
+## 📖 Technical Guidelines
+
+For more detailed information on internal frameworks, refer to:
+- [`CRISPI.md`](src-tauri/Guidelines/CRISPI.md) - Documentation on the power evaluation algorithm and scoring rules.
+- [`MTG_Role_Inference_Engine_Agent_Spec.md`](src-tauri/Guidelines/MTG_Role_Inference_Engine_Agent_Spec.md) - Specification for the card classification system.
 
 ## 🧪 Tests
 

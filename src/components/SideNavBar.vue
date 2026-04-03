@@ -7,6 +7,7 @@ import {
   mdiViewGridOutline,
   mdiCalculatorVariantOutline,
   mdiFire,
+  mdiCog,
 } from "@mdi/js";
 
 const isRail = ref(true);
@@ -18,6 +19,10 @@ const primaryItems = [
   { title: "Tools", to: "/power-calculator", icon: mdiCalculatorVariantOutline },
   { title: "Roast", to: "/roast", icon: mdiFire },
 
+];
+
+const bottomItems = [
+  { title: "Settings", to: "/settings", icon: mdiCog },
 ];
 
 function toggleDrawerWidth() {
@@ -68,6 +73,19 @@ function toggleDrawerWidth() {
 
     <v-spacer />
 
+    <v-list nav density="compact" class="side-nav__list side-nav__list--bottom" color="primary">
+      <v-list-item
+        v-for="item in bottomItems"
+        :key="item.title"
+        :to="item.to"
+        :title="isRail ? undefined : item.title"
+        rounded="lg"
+      >
+        <template #prepend>
+          <v-icon :icon="item.icon" size="18" class="side-nav__icon"/>
+        </template>
+      </v-list-item>
+    </v-list>
   </v-navigation-drawer>
 </template>
 

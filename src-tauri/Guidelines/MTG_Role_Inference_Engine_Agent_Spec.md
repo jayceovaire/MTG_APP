@@ -145,6 +145,33 @@ Match if text contains any:
     any color
 
 ------------------------------------------------------------------------
+## 🔶 STAX Detection Guard Clause (CRITICAL)
+
+A card may ONLY be classified as **STAX** if the tax or restriction:
+
+- Applies to **opponents** or **all players**, **AND**
+- Affects casting spells, attacking, drawing, untapping, or activating abilities
+
+### The following MUST NOT be classified as STAX
+
+- Costs paid by the controller to activate or untap the card
+- Mana costs that are part of the card’s own ability
+- Upkeep costs, untap costs, or activation costs
+- “You may pay {X}” clauses referring to the controller
+
+### Code Logic Requirement
+
+If the phrase contains **"you may pay"**, it must be **ignored for STAX detection**.
+
+### Valid STAX Match Patterns
+
+Only classify as STAX when text matches patterns such as:
+
+- "Unless an opponent pays"
+- "Spells cost {X} more to cast"
+- "Players can't"
+- "Each opponent must pay"
+- "Opponents can't"
 
 ### STAX
 
