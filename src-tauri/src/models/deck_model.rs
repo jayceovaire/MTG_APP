@@ -1,5 +1,5 @@
 use crate::models::card_model::Card;
-use crate::models::crispi_model::{self, Role};
+use crate::models::crispi_model;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

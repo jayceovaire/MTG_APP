@@ -9,9 +9,7 @@ import {
   createCollectionCardCommand
 } from "../api/commands.js";
 
-const testGreetingInput = ref("string from HomeView.vue");
-const testCommandResult = ref("");
-const testCommandError = ref("");
+
 const recentImage = ref("");
 const imageError = ref("");
 const isFetching = ref(false);
@@ -52,16 +50,6 @@ async function handleAddToCollection() {
   }
 }
 
-async function handleTestCommand() {
-  testCommandError.value = "";
-
-  try {
-    testCommandResult.value = await runTestCommand(testGreetingInput.value);
-  } catch (error) {
-    testCommandResult.value = "";
-    testCommandError.value = String(error);
-  }
-}
 
 async function loadRecentImage() {
   try {
@@ -93,7 +81,6 @@ async function handleFetchImages() {
 <template>
   <v-container class="home-page">
     <h1 class="text-primary">Home</h1>
-    <p>This page includes a simple frontend-to-Rust command example.</p>
 
     <div class="home-grid">
       <section class="command-reference random-card-section">
@@ -151,32 +138,6 @@ async function handleFetchImages() {
         </v-btn>
       </section>
 
-      <section class="command-reference test-command-section">
-        <h2>Test Command Reference</h2>
-        <p>
-          Listener in this view: `handleTestCommand()`.
-          Wrapper in `src/api/commands.js`: `runTestCommand()`.
-          Backend Rust command: `test_command`.
-        </p>
-
-        <v-text-field
-          v-model="testGreetingInput"
-          label="Greeting payload"
-          hide-details
-        />
-
-        <v-btn class="mt-4" @click="handleTestCommand">Run Test Command</v-btn>
-
-        <div class="command-result">
-          <strong>Command result:</strong>
-          <span>{{ testCommandResult || "-" }}</span>
-        </div>
-
-        <div v-if="testCommandError" class="command-error">
-          <strong>Command error:</strong>
-          <span>{{ testCommandError }}</span>
-        </div>
-      </section>
     </div>
   </v-container>
 </template>

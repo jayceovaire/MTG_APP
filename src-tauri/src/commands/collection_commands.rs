@@ -1,6 +1,6 @@
 use crate::models::card_model::{Card, CardType, SuperType};
 use crate::state::AppState;
-use rusqlite::{Connection, OptionalExtension, params, Row};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, Row, params};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -37,21 +37,25 @@ fn scryfall_db_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(SCRYFALL_DB_RELATIVE_PATH)
 }
 
+fn open_scryfall_db() -> Result<Connection, String> {
+    let db_path = scryfall_db_path();
+    let db_uri = format!("file:{}?mode=ro&immutable=1", db_path.to_string_lossy().replace('\\', "/"));
+    Connection::open_with_flags(
+        db_uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+        .map_err(|e| format!("Failed to open scryfall.db: {e}"))
+}
+
 fn ensure_lookup_indexes(connection: &Connection) -> Result<(), String> {
     if LOOKUP_INDEXES_READY.get().is_some() {
         return Ok(());
     }
 
-    connection
-        .execute_batch(
-            "CREATE INDEX IF NOT EXISTS idx_cards_name_nocase
-             ON cards(name COLLATE NOCASE);
-
-             CREATE INDEX IF NOT EXISTS idx_card_faces_name_nocase_card_id
-             ON card_faces(name COLLATE NOCASE, card_id);",
-        )
-        .map_err(|e| format!("Failed to create lookup indexes: {e}"))?;
-
+    let _ = connection;
+    // The bundled Scryfall database lives under `src-tauri/src/db`, which Tauri watches in dev.
+    // Creating indexes at runtime generates SQLite sidecar files (`-wal`, `-shm`) and triggers
+    // an endless rebuild loop. Keep the bundled database strictly read-only in development.
     let _ = LOOKUP_INDEXES_READY.set(());
     Ok(())
 }
@@ -190,8 +194,7 @@ fn search_score(query: &str, candidate: &CardSearchCandidate) -> Option<usize> {
 }
 
 fn load_search_candidates() -> Result<Vec<CardSearchCandidate>, String> {
-    let connection = Connection::open(scryfall_db_path())
-        .map_err(|e| format!("Failed to open scryfall.db: {e}"))?;
+    let connection = open_scryfall_db()?;
     ensure_lookup_indexes(&connection)?;
 
     let mut statement = connection
@@ -338,8 +341,7 @@ fn parse_sub_types(type_line: &str) -> Vec<String> {
 }
 
 pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, String> {
-    let connection = Connection::open(scryfall_db_path())
-        .map_err(|e| format!("Failed to open scryfall.db: {e}"))?;
+    let connection = open_scryfall_db()?;
     ensure_lookup_indexes(&connection)?;
 
     let mut stmt = connection
@@ -526,8 +528,7 @@ fn map_row_to_card(row: &Row<'_>, id: u64) -> rusqlite::Result<Card> {
 #[tauri::command]
 pub async fn get_random_card(app: AppHandle) -> Result<Option<Card>, String> {
     let mut card_opt = {
-        let connection = Connection::open(scryfall_db_path())
-            .map_err(|e| format!("Failed to open scryfall.db: {e}"))?;
+        let connection = open_scryfall_db()?;
         ensure_lookup_indexes(&connection)?;
 
         let mut stmt = connection

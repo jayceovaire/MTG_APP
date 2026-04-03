@@ -114,7 +114,7 @@ function calculateHypergeometric() {
 }
 
 // Monte Carlo Tool State
-const mcSimulations = ref(1000);
+const mcSimulations = ref(10000);
 const mcResults = ref(null);
 const isSimulating = ref(false);
 
