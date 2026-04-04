@@ -287,9 +287,40 @@ async function runMonteCarlo() {
                 </div>
                 <div class="text-caption text-medium-emphasis mb-2">
                   Raw Score: {{ crispiResults.crispi.raw_score.toFixed(1) }} | 
-                  AMV Multiplier: {{ crispiResults.crispi.amv_multiplier.toFixed(2) }}x |
-                  Bracket: {{ crispiResults.crispi.bracket }}
+                  AMV Multiplier: {{ crispiResults.crispi.amv_multiplier.toFixed(2) }}x
+                  <span v-if="crispiResults.crispi.combo_multiplier > 1.0"> & Combo: {{ crispiResults.crispi.combo_multiplier.toFixed(2) }}x </span>
+                  | Final Multiplier: {{ crispiResults.crispi.final_multiplier.toFixed(2) }}x |
+                  Bracket: {{ crispiResults.crispi.bracket }} |
+                  Archetype: {{ crispiResults.crispi.archetype }}
                 </div>
+
+                <!-- Structural Metrics Row -->
+                <div class="d-flex justify-center flex-wrap gap-4 mb-4">
+                  <v-chip size="small" variant="outlined" color="primary">
+                    Role Score: {{ crispiResults.crispi.role_score.toFixed(2) }}
+                  </v-chip>
+                  <v-chip size="small" variant="outlined" color="primary">
+                    Land Score: {{ crispiResults.crispi.land_score.toFixed(2) }}
+                  </v-chip>
+                  <v-chip size="small" variant="outlined" :color="crispiResults.crispi.commander_mv_penalty > 0 ? 'warning' : 'primary'">
+                    Cmdr Penalty: -{{ crispiResults.crispi.commander_mv_penalty.toFixed(2) }}
+                  </v-chip>
+                </div>
+                
+                <v-alert
+                  v-if="crispiResults.crispi.detected_combos.length > 0"
+                  density="compact"
+                  variant="tonal"
+                  color="error"
+                  class="mt-4 text-left"
+                >
+                  <div class="text-subtitle-2 font-weight-bold mb-1">Detected Infinite Combos:</div>
+                  <ul class="pl-4">
+                    <li v-for="combo in crispiResults.crispi.detected_combos" :key="combo" class="text-caption">
+                      {{ combo }}
+                    </li>
+                  </ul>
+                </v-alert>
                 <v-chip
                   :color="getInterpretationColor(crispiResults.crispi.interpretation)"
                   size="large"

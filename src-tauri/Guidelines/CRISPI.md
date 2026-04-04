@@ -15,6 +15,8 @@ Each category is scored **0–5** using **strict efficiency rules**.
 
 RawCRISPI = C + R + I + S + P  (0–25)
 
+The evaluation also includes a **Deck Archetype Label** (Turbo, Midrange, Stax, or Commander Engine).
+
 A **non-linear Average Mana Value (AMV) modifier** is then applied.
 
 ---
@@ -45,6 +47,7 @@ Before roles are inferred, every card must be classified into a Quality Tier.
 - Unrestricted tutor ≤2 MV (e.g. Demonic Tutor)
 - ≤2 MV instant-speed premium interaction (e.g. Swords to Plowshares)
 - Compact combo piece ≤3 MV (e.g. Thassa's Oracle, Underworld Breach)
+- Creature or Artifact with at least one role and a non-tapping activation
 
 If none apply and MV ≥4 → **Slow**
 
@@ -94,6 +97,28 @@ These metrics are REQUIRED inputs to scoring.
 
 ---
 
+## Deck Archetype Detection
+
+🔶 **New Section — Step 3: Deck Archetype Detection (Required)**
+
+Before scoring, detect the deck's archetype to apply specialized adjustments.
+
+### Archetype Signals
+
+- **Turbo Signal:** `ExplosiveManaPoints + ExplosiveDrawPoints`
+- **Midrange Signal:** `ConsistencyWeighted + EngineWeighted + DrawWeighted`
+- **Stax Signal:** `WeightedStaxSum` (Non-land = 1.0, Land = 0.3)
+- **Commander Engine Signal:** Number of commanders with `ENGINE` or `COST_REDUCTION` roles.
+
+### Classification Heuristics
+
+1. **Stax:** `StaxSignal >= 8.0`
+2. **Commander Engine:** `CommanderEngineSignal > 0` AND `TurboSignal > 8.0`
+3. **Turbo:** `TurboSignal > MidrangeSignal * 1.2`
+4. **Midrange:** Default
+
+---
+
 ## C — Consistency (0–5)
 
 Measures how reliably the deck assembles its plan.
@@ -122,6 +147,9 @@ Measures how reliably the deck assembles its plan.
 | 2 | 1–2 weighted tutor value |
 | 1 | Minimal search/selection |
 | 0 | None |
+
+🔶 **New Rule — Win Package Density Adjustment**  
+Decks with high win condition density (`win_package_density > 0.08`) receive `Consistency +1` (capped at 5). This rewards Turbo decks that favor redundancy over tutors.
 
 ---
 
@@ -162,13 +190,15 @@ Measures ability to disrupt opponents **at competitive speed**.
 
 Measures how quickly the deck can **deterministically win**.
 
-🔶 **New Rule — Speed Is Determined ONLY by Win Turn + Fast Mana**
+CRISPI uses **Dual-Axis Speed** to evaluate both efficiency and explosiveness.
 
-Speed score is NOT influenced by roles. It is computed strictly from:
-- Earliest deterministic goldfish win turn
-- Fast mana count cap
+Speed = max(EfficiencySpeed, ExplosiveSpeed)
 
-### Earliest Deterministic Win Turn (goldfish)
+### 1. Efficiency Speed (Traditional)
+
+Efficiency Speed is determined by the deck's win turn and its fast mana base.
+
+**Earliest Deterministic Win Turn (goldfish)**
 
 | Turn | Speed Score |
 |---:|---:|
@@ -178,7 +208,7 @@ Speed score is NOT influenced by roles. It is computed strictly from:
 | 6 | 2 |
 | ≥7 | 1 |
 
-### Fast Mana Gate (caps Speed)
+**Fast Mana Gate (caps Efficiency Speed)**
 
 | Fast Mana Count | Speed Cap |
 |---:|---:|
@@ -187,6 +217,40 @@ Speed score is NOT influenced by roles. It is computed strictly from:
 | 8+ | No cap |
 
 Fast mana includes 0–1 MV rocks, rituals, and mana-positive artifacts.
+
+### 2. Explosive Speed (Velocity)
+
+Explosive Speed measures the deck's ability to generate massive bursts of mana or card draw in turns 1–2.
+
+**Mana Velocity Calculation:**
+`ManaVelocity = (FastManaCount * 0.8) + ExplosiveManaPoints`
+
+**Explosive Mana Points:**
+- **Ritual (≥3 mana):** 2.5 pts
+- **Treasure Burst:** 2.0 pts
+- **Sacrifice Mana:** 1.8 pts
+- **Cost Reduction:** 1.5 pts
+- **One-Shot Fast Mana:** 1.8 pts (includes burst sacrifice for mana/treasures without tapping)
+
+**Draw Velocity Calculation:**
+`DrawVelocity = (PremiumDrawCount * 0.8) + ExplosiveDrawPoints`
+
+**Explosive Draw Points:**
+- **Wheel Effect:** 2.5 pts
+- **Mass Draw (≥3 cards):** 2.0 pts
+- **Burst Draw:** 1.5 pts
+
+**Explosive Speed Score:**
+
+| Velocity (Mana or Draw) | Speed Score |
+|---:|---:|
+| ≥18.0 | 5 |
+| ≥13.0 | 4 |
+| ≥9.0 | 3 |
+| ≥5.0 | 2 |
+| <5.0 | 1 |
+
+Final Speed Score = max(EfficiencySpeed, ExplosiveSpeed)
 
 ---
 
@@ -203,11 +267,60 @@ Measures ability to change plans mid-game.
 
 ---
 
+## 🔶 Two-Card Infinite Combo Detection (New)
+
+CRISPI detects two-card infinite combos in the decklist and adjusts the score and bracket accordingly.
+
+### Multiplier Rules
+
+- **Max Bonus (per combo):** **+0.20**
+- **Base Bonus:** **+0.15** for combos with total combined mana value ≤3.
+- **Tutor Bonus:** **+0.05** if the deck contains at least one tutor.
+- **Mana Value Scaling:** Penalty of **-0.01** per MV for every point above **3** (total combined cost).
+- **Speed Scaling:** Penalty of **-0.02** for each slow component (Sorcery-speed spells, or Tap abilities on creatures without haste).
+- **Minimum Bonus:** Every valid infinite combo grants at least **+0.05** (×1.05).
+- **Additive Bonus:** If multiple separate combos are detected, their bonuses are combined additively: `1.0 + sum(bonuses)`.
+- **Total Cap:** Total combo multiplier is capped at **×1.30** (to prevent score inflation).
+- **Score Cap:** The final `Total Score` is capped at **25.0**.
+
+### Final Multiplier Calculation
+
+The AMV multiplier and Combo multiplier are combined into a `Final Multiplier`:
+`FinalMultiplier = AMVMultiplier * ComboMultiplier`
+
+`FinalCRISPI = min(RawCRISPI * FinalMultiplier, 25.0)`
+
+### Bracket Override
+
+Detecting any valid two-card infinite combo overrides lower brackets up to **Bracket 4**.
+
+### Two-Card Combo List (Examples)
+
+| Card A | Card B | Effect |
+|---|---|---|
+| Demonic Consultation | Thassa's Oracle | win |
+| Exquisite Blood | Sanguine Bond | lifegain, damage |
+| Tainted Pact | Thassa's Oracle | win |
+| Dramatic Reversal | Isochron Scepter | mana |
+| Dualcaster Mage | Twinflame | ETB, LTB |
+| Niv-Mizzet, Parun | Curiosity | draw, damage |
+| Basalt Monolith | Forsaken Monument | mana |
+| Bruvac the Grandiloquent | Maddening Cacophony | mill |
+| Kiki-Jiki, Mirror Breaker | Zealous Conscripts | ETB |
+| Godo, Bandit Warlord | Helm of the Host | ETB |
+| Karn, the Great Creator | Mycosynth Lattice | lock |
+
+*Note: Prerequisites must be met for a combo to be valid (e.g., sufficient non-land count for complex setups).*
+
+---
+
 ## Structural Floors (Override Category Minimums)
 
 🔶 **New Section — Structural Floors (Override Category Minimums)**
 
 These are applied after scoring but before AMV modifier.
+
+### Structural Floors
 
 | Condition | Category Floor |
 |---|---|
@@ -217,7 +330,15 @@ These are applied after scoring but before AMV modifier.
 | 10+ fast mana pieces | Speed = 5 |
 | 5+ premium ≤2 MV tutors | Consistency = 5 |
 
-Multiple floors may apply.
+### Archetype-Aware Adjustments
+
+| Archetype | Score Adjustments |
+|---|---|
+| **Turbo** | `Consistency >= 4`, `Pivotability >= 4` |
+| **Stax** | `Interaction >= 4`, `Resilience >= 4` |
+| **Commander Engine** | `Consistency >= 4`, `Resilience >= 4`, `Pivotability >= 4` |
+
+Multiple floors and archetype adjustments may apply. Scores are capped at 5.
 
 ---
 
@@ -237,14 +358,17 @@ AMV multiplier is the final step after all category floors and adjustments.
 
 | Deck AMV | Multiplier (M) |
 |---:|---:|
-| ≤2.2 | 1.12 |
-| 2.21–2.6 | 1.06 |
-| 2.61–3.0 | 1.00 |
+| ≤1.3 | 1.24 |
+| 1.31–1.6 | 1.16 |
+| 1.61–2.0 | 1.06 |
+| 2.01–2.4 | 1.02 |
+| 2.41–2.8 | 1.00 |
+| 2.81–3.0 | 0.94 |
 | 3.01–3.4 | 0.88 |
 | 3.41–3.8 | 0.72 |
 | >3.8 | 0.55 |
 |
-FinalCRISPI = RawCRISPI × M
+FinalCRISPI = min(RawCRISPI * FinalMultiplier, 25.0)
 
 ---
 
@@ -254,9 +378,9 @@ FinalCRISPI = RawCRISPI × M
 |---:|---|
 | 0–8 | Casual / Battlecruiser |
 | 9–14 | Focused / Synergistic |
-| 15–19 | High Power |
-| 20–23 | Fringe cEDH |
-| 24+ | cEDH Optimized |
+| 15–18 | High Power |
+| 19–22 | Fringe cEDH |
+| 23+ | cEDH Optimized |
 
 ---
 
@@ -275,6 +399,7 @@ FinalCRISPI = RawCRISPI × M
 | Condition | Final Bracket |
 |---|---|
 | Base Bracket 2, CRISPI 0–8, AMV >3.5 | 1 |
+| **Two-Card Infinite Combo Detected** | **Min Bracket 4** |
 | FinalCRISPI ≥24 | 5 |
 
 ---

@@ -9,6 +9,7 @@ import Collection from "../views/Collection.vue";
 import PowerCalculator from "../views/PowerCalculator.vue";
 import Roast from "../views/Roast.vue";
 import Settings from "../views/Settings.vue";
+import InfoView from "../views/InfoView.vue";
 
 const routes = [
     { path: "/", component: HomeView },
@@ -20,6 +21,7 @@ const routes = [
     {path: "/collection", component: Collection},
     {path: "/roast", component: Roast},
     {path: "/settings", component: Settings},
+    {path: "/info", component: InfoView},
 
 ]
 

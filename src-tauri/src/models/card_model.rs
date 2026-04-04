@@ -119,6 +119,10 @@ impl Card {
         self.card_type.contains(&CardType::Creature)
     }
 
+    pub fn is_artifact(&self) -> bool {
+        self.card_type.contains(&CardType::Artifact)
+    }
+
     pub fn is_enchantment(&self) -> bool {
         self.card_type.contains(&CardType::Enchantment)
     }

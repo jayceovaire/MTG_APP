@@ -8,6 +8,7 @@ import {
   mdiCalculatorVariantOutline,
   mdiFire,
   mdiCog,
+  mdiInformationOutline,
 } from "@mdi/js";
 
 const isRail = ref(true);
@@ -22,6 +23,7 @@ const primaryItems = [
 ];
 
 const bottomItems = [
+  { title: "Information", to: "/info", icon: mdiInformationOutline },
   { title: "Settings", to: "/settings", icon: mdiCog },
 ];
 
