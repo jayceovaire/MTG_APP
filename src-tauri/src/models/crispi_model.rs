@@ -103,6 +103,7 @@ static DRAW_PATTERNS: &[&str] = &[
     r"explore",
     r"exile the top .* of your library. .* you may play",
     r"look at the top .* of your library .* put .* into your hand",
+    r"reveal the top .* of your library .* put .* into your hand",
 ];
 
 static REMOVAL_PATTERNS: &[&str] = &[
@@ -117,12 +118,11 @@ static REMOVAL_PATTERNS: &[&str] = &[
 ];
 
 static TUTOR_PATTERNS: &[&str] = &[
-    r"search your library for a card",
+    r"search your library for .* card",
     r"search your library for an artifact",
     r"search your library for an instant",
     r"search your library for an enchantment",
     r"search your library for a creature",
-    r"search your library for a .* card",
 ];
 
 static PROTECTION_PATTERNS: &[&str] = &[
@@ -171,6 +171,8 @@ static ENGINE_PATTERNS: &[&str] = &[
     r"each upkeep",
     r"each end step",
     r"whenever an opponent",
+    r"whenever [^. ]+ deals combat damage",
+    r"whenever enchanted creature deals combat damage",
 ];
 
 static WINCON_PATTERNS: &[&str] = &[
@@ -180,8 +182,9 @@ static WINCON_PATTERNS: &[&str] = &[
 ];
 
 static FAST_MANA_PATTERNS: &[&str] = &[
-    r"add \{.*\}\{.*\}", 
-    r"add .* mana",
+    r"add (?:\{.\}){2,}", 
+    r"add .* (?:two|three|four|five|six|seven|eight|nine|ten) .* mana",
+    r"add one mana of any color",
 ];
 
 static RECURSION_PATTERNS: &[&str] = &[
@@ -237,11 +240,13 @@ static MASS_DRAW_PATTERNS: &[&str] = &[
     r"draw three or more",
     r"draw cards equal to",
     r"draw x cards",
+    r"reveal .* and put .* into your hand. .* repeat this process",
 ];
 
 static WHEEL_PATTERNS: &[&str] = &[
     r"each player discards .* hand .* draws",
     r"discard your hand .* draw",
+    r"each player shuffles .* hand .* library .* draws",
 ];
 
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RAMP_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
@@ -278,7 +283,7 @@ static MULTI_MANA_LAND_PATTERNS: &[&str] = &[
 static MULTI_COLOR_LAND_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MULTI_COLOR_LAND_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static MULTI_MANA_LAND_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MULTI_MANA_LAND_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 
-static ANY_TUTOR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"search your library for a card").unwrap());
+static ANY_TUTOR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"search your library for .* card").unwrap());
 static FREE_SPELL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"rather than pay this spell's mana cost|without paying its mana cost").unwrap());
 static NON_TAPPING_ACTIVATION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\.)\s*([^:\.]+):").unwrap());
 
@@ -464,10 +469,10 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             roles.insert(Role::WHEEL);
         }
 
-        // Fast Mana Check
+        // Fast Mana Check (0-MV ramp or high-output)
         if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::FAST_MANA);
-        } else if card.mana_value() <= 1 && RAMP_REGEX.iter().any(|re| re.is_match(&normalized)) && !card.is_land() {
+        } else if card.mana_value() == 0 && RAMP_REGEX.iter().any(|re| re.is_match(&normalized)) && !card.is_land() {
             roles.insert(Role::FAST_MANA);
         }
     }
@@ -515,12 +520,12 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
     let is_creature_artifact = card.is_creature() || card.is_artifact();
 
     // Premium criteria
-    let mut is_premium = (mv <= 2 && !roles.is_empty()) ||
-        FREE_SPELL_REGEX.is_match(&oracle_text) ||
+    let mut is_premium = FREE_SPELL_REGEX.is_match(&oracle_text) ||
         roles.contains(&Role::FAST_MANA) ||
         (roles.contains(&Role::TUTOR) && ANY_TUTOR_REGEX.is_match(&oracle_text) && mv <= 2) ||
-        ((roles.contains(&Role::REMOVAL) || roles.contains(&Role::PROTECTION)) && is_inst && mv <= 2) ||
-        (roles.contains(&Role::WINCON) && mv <= 3);
+        ((roles.contains(&Role::REMOVAL) || roles.contains(&Role::PROTECTION)) && is_inst && mv <= 1) ||
+        (roles.contains(&Role::WINCON) && mv <= 2) ||
+        (roles.contains(&Role::ENGINE) && mv <= 2);
 
     // Refinement: For creatures/artifacts, require non-tapping activation or immediate impact
     if is_premium && is_creature_artifact {
@@ -582,11 +587,13 @@ fn detect_archetype(
     turbo_signal: f32,
     midrange_signal: f32,
 ) -> DeckArchetype {
-    if stax_signal >= 8.0 {
+    if stax_signal >= 10.0 {
         DeckArchetype::Stax
+    } else if turbo_signal >= 12.0 {
+        DeckArchetype::Turbo
     } else if commander_engine_signal > 0.0 && turbo_signal > 8.0 {
         DeckArchetype::CommanderEngine
-    } else if turbo_signal > midrange_signal {
+    } else if turbo_signal > 8.0 && turbo_signal > midrange_signal {
         DeckArchetype::Turbo
     } else {
         DeckArchetype::Midrange
@@ -642,16 +649,20 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         }
         if roles.contains(&Role::ENGINE) { engine_count_weighted += weight; }
 
-        if roles.contains(&Role::RITUAL) { explosive_mana_points += 2.5; }
-        if roles.contains(&Role::TREASURE_BURST) { explosive_mana_points += 2.0; }
-        if roles.contains(&Role::SAC_MANA) { explosive_mana_points += 1.8; }
-        if roles.contains(&Role::COST_REDUCTION) { explosive_mana_points += 1.5; }
-        if roles.contains(&Role::FAST_MANA_ONE_SHOT) { explosive_mana_points += 1.8; }
-        if roles.contains(&Role::FAST_MANA) { explosive_mana_points += 1.0; }
+        let mut card_mana_points: f32 = 0.0;
+        if roles.contains(&Role::RITUAL) { card_mana_points = card_mana_points.max(2.5); }
+        if roles.contains(&Role::TREASURE_BURST) { card_mana_points = card_mana_points.max(2.0); }
+        if roles.contains(&Role::SAC_MANA) { card_mana_points = card_mana_points.max(1.8); }
+        if roles.contains(&Role::FAST_MANA_ONE_SHOT) { card_mana_points = card_mana_points.max(1.8); }
+        if roles.contains(&Role::COST_REDUCTION) { card_mana_points = card_mana_points.max(1.5); }
+        if roles.contains(&Role::FAST_MANA) { card_mana_points = card_mana_points.max(1.0); }
+        explosive_mana_points += card_mana_points;
 
-        if roles.contains(&Role::BURST_DRAW) { explosive_draw_points += 1.5; }
-        if roles.contains(&Role::MASS_DRAW) { explosive_draw_points += 2.0; }
-        if roles.contains(&Role::WHEEL) { explosive_draw_points += 2.5; }
+        let mut card_draw_points: f32 = 0.0;
+        if roles.contains(&Role::WHEEL) { card_draw_points = card_draw_points.max(2.5); }
+        if roles.contains(&Role::MASS_DRAW) { card_draw_points = card_draw_points.max(2.0); }
+        if roles.contains(&Role::BURST_DRAW) { card_draw_points = card_draw_points.max(1.5); }
+        explosive_draw_points += card_draw_points;
 
         // Interaction: Removal & Stax
         if roles.contains(&Role::REMOVAL) {
@@ -721,7 +732,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         v if v >= 8.0 => 5,
         v if v >= 5.0 => 4,
         v if v >= 3.0 => 3,
-        v if v >= 1.0 => 2,
+        v if v >= 1.2 => 2,
         _ => 1,
     };
 
@@ -737,19 +748,19 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     // R — Resilience (0-5)
     let mut resilience_score = match resilience_weighted {
-        n if n >= 6.0 => 5,
-        n if n >= 4.0 => 4,
-        n if n >= 2.5 => 3,
-        n if n >= 1.2 => 2,
+        n if n >= 10.0 => 5,
+        n if n >= 7.0 => 4,
+        n if n >= 4.0 => 3,
+        n if n >= 1.5 => 2,
         _ => 1,
     };
 
     // I — Interaction (0-5)
     let mut interaction_score = match interaction_weighted {
-        v if v >= 10.0 => 5,
-        v if v >= 7.0 => 4,
-        v if v >= 4.0 => 3,
-        v if v >= 2.0 => 2,
+        v if v >= 12.0 => 5,
+        v if v >= 8.0 => 4,
+        v if v >= 5.0 => 3,
+        v if v >= 2.5 => 2,
         _ => 1,
     };
 
@@ -781,10 +792,10 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let draw_velocity = (premium_draw_count as f32 * 0.8) + explosive_draw_points;
     
     let explosive_speed_score = match mana_velocity.max(draw_velocity) {
-        v if v >= 18.0 => 5,
-        v if v >= 13.0 => 4,
-        v if v >= 9.0  => 3,
-        v if v >= 5.0  => 2,
+        v if v >= 15.0 => 5,
+        v if v >= 10.0 => 4,
+        v if v >= 6.0  => 3,
+        v if v >= 3.0  => 2,
         _ => 1,
     };
 
@@ -792,8 +803,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     // P — Pivotability (0-5)
     let mut pivotability_score = match pivotability_weighted {
-        n if n >= 6.0 => 5,
-        n if n >= 4.0 => 4,
+        n if n >= 8.0 => 5,
+        n if n >= 5.0 => 4,
         n if n >= 3.0 => 3,
         n if n >= 1.5 => 2,
         _ => 1,
@@ -843,8 +854,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     match archetype {
         DeckArchetype::Turbo => {
             consistency_score = consistency_score.max(4);
-            pivotability_score = pivotability_score.max(4);
-            applied_overrides.push("Turbo Archetype (C>=4, P>=4)");
+            pivotability_score = pivotability_score.max(3);
+            applied_overrides.push("Turbo Archetype (C>=4, P>=3)");
         }
         DeckArchetype::Stax => {
             interaction_score = interaction_score.max(4);
@@ -853,9 +864,9 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         }
         DeckArchetype::CommanderEngine => {
             consistency_score = consistency_score.max(4);
-            resilience_score = resilience_score.max(4);
-            pivotability_score = pivotability_score.max(4);
-            applied_overrides.push("CmdrEngine Archetype (C>=4, R>=4, P>=4)");
+            resilience_score = resilience_score.max(3);
+            pivotability_score = pivotability_score.max(3);
+            applied_overrides.push("CmdrEngine Archetype (C>=4, R>=3, P>=3)");
         }
         DeckArchetype::Midrange => {}
     }
@@ -895,12 +906,14 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     };
 
     let raw_score = (consistency.score + resilience.score + interaction.score + speed.score + pivotability.score) as f32;
+    let gc_bonus = (n_gc as f32 * 0.4).min(6.0);
+    let raw_score = (raw_score + gc_bonus).min(30.0);
     
     // AMV Multiplier (Applied AFTER floors)
     let amv_multiplier = match amv {
-        v if v <= 1.3 => 1.24,
-        v if v <= 1.6 => 1.16,
-        v if v <= 2.0 => 1.06,
+        v if v <= 1.3 => 1.20,
+        v if v <= 1.6 => 1.12,
+        v if v <= 2.0 => 1.05,
         v if v <= 2.4 => 1.02,
         v if v <= 2.8 => 1.00,
         v if v <= 3.0 => 0.94,
@@ -1048,5 +1061,237 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         interaction,
         speed,
         pivotability,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::card_model::{Card, CardType, SuperType};
+
+    fn make_card(name: &str, mv: u8, types: Vec<CardType>, text: &str) -> Card {
+        Card::new(
+            0,
+            "".to_string(),
+            None,
+            name.to_string(),
+            None,
+            mv,
+            types,
+            vec![],
+            vec![],
+            Some(text.to_string()),
+            "legal".to_string(),
+            true,
+            false,
+            None
+        )
+    }
+
+    #[test]
+    fn test_rog_si_archetype() {
+        let rog = make_card("Rograkh", 0, vec![CardType::Creature], "First strike, menace, trample. Partner.");
+        let silas = make_card("Silas Renn", 3, vec![CardType::Creature, CardType::Artifact], "Deathtouch. Whenever Silas Renn deals combat damage to a player, you may cast target artifact card from your graveyard this turn. Partner.");
+        
+        let commanders = vec![rog, silas];
+        
+        let mut mainboard = vec![];
+        // Fast Mana
+        mainboard.push(make_card("Chrome Mox", 0, vec![CardType::Artifact], "Imprint - ... Add one mana of any color."));
+        mainboard.push(make_card("Mox Amber", 0, vec![CardType::Artifact], "Add one mana of any color among legendary..."));
+        mainboard.push(make_card("Mox Opal", 0, vec![CardType::Artifact], "Metalcraft - Add one mana..."));
+        mainboard.push(make_card("Mana Crypt", 0, vec![CardType::Artifact], "Add {C}{C}."));
+        mainboard.push(make_card("Mana Vault", 1, vec![CardType::Artifact], "{T}: Add {C}{C}{C}."));
+        mainboard.push(make_card("Sol Ring", 1, vec![CardType::Artifact], "{T}: Add {C}{C}."));
+        mainboard.push(make_card("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana..."));
+        mainboard.push(make_card("Dark Ritual", 1, vec![CardType::Sorcery], "Add {B}{B}{B}."));
+        mainboard.push(make_card("Lion's Eye Diamond", 0, vec![CardType::Artifact], "Discard your hand, Sacrifice LED: Add {B}{B}{B}."));
+
+        // Tutors (Consistency)
+        mainboard.push(make_card("Demonic Tutor", 2, vec![CardType::Sorcery], "Search your library for a card..."));
+        mainboard.push(make_card("Vampiric Tutor", 1, vec![CardType::Instant], "Search your library for a card..."));
+        mainboard.push(make_card("Mystical Tutor", 1, vec![CardType::Instant], "Search your library for an instant or sorcery..."));
+        mainboard.push(make_card("Imperial Seal", 1, vec![CardType::Sorcery], "Search your library for a card..."));
+        mainboard.push(make_card("Gambit", 1, vec![CardType::Sorcery], "Search your library..."));
+        mainboard.push(make_card("Wishclaw Talisman", 2, vec![CardType::Artifact], "Search..."));
+
+        // Draw (Turbo/Consistency)
+        mainboard.push(make_card("Ad Nauseam", 5, vec![CardType::Instant], "Reveal the top card... repeat this process..."));
+        mainboard.push(make_card("Windfall", 3, vec![CardType::Sorcery], "Each player discards their hand, then draws cards..."));
+        mainboard.push(make_card("Wheel of Fortune", 3, vec![CardType::Sorcery], "Each player discards their hand, then draws seven cards."));
+        mainboard.push(make_card("Rhystic Study", 3, vec![CardType::Enchantment], "Whenever an opponent casts... draw a card..."));
+        mainboard.push(make_card("Mystic Remora", 1, vec![CardType::Enchantment], "Whenever an opponent casts... draw a card..."));
+
+        // Interaction
+        mainboard.push(make_card("Force of Will", 5, vec![CardType::Instant], "Rather than pay this spell's mana cost... counter target spell."));
+        mainboard.push(make_card("Pact of Negation", 0, vec![CardType::Instant], "Counter target spell."));
+        mainboard.push(make_card("Mental Misstep", 1, vec![CardType::Instant], "Rather than pay... counter target spell with mana value 1."));
+        mainboard.push(make_card("Deflecting Swat", 3, vec![CardType::Instant], "If you control a commander, you may cast this spell without paying its mana cost. Change the target..."));
+        mainboard.push(make_card("Deadly Rollick", 4, vec![CardType::Instant], "If you control a commander... exile target creature."));
+        mainboard.push(make_card("Fierce Guardianship", 3, vec![CardType::Instant], "If you control a commander... counter target noncreature spell."));
+
+        // Wincons
+        mainboard.push(make_card("Thassa's Oracle", 2, vec![CardType::Creature], "When Thassa's Oracle enters... win the game."));
+        mainboard.push(make_card("Underworld Breach", 2, vec![CardType::Enchantment], "Each nonland card in your graveyard has escape."));
+        mainboard.push(make_card("Brain Freeze", 2, vec![CardType::Instant], "Target player mills three cards. Storm."));
+
+        // Lands
+        for _ in 0..25 {
+            mainboard.push(make_card("Badlands", 0, vec![CardType::Land], "{T}: Add {B} or {R}."));
+        }
+
+        let evaluation = calculate_crispi(&mainboard, &commanders, 15);
+        
+        println!("RogSi Test - Total Score: {}", evaluation.total_score);
+        println!("RogSi Test - Raw Score: {}", evaluation.raw_score);
+        println!("RogSi Test - Archetype: {:?}", evaluation.archetype);
+        println!("RogSi Test - Interpretation: {}", evaluation.interpretation);
+        println!("RogSi Test - Speed: {}", evaluation.speed.score);
+        println!("RogSi Test - Consistency: {}", evaluation.consistency.score);
+        println!("RogSi Test - Interaction: {}", evaluation.interaction.score);
+
+        assert_eq!(evaluation.archetype, DeckArchetype::Turbo);
+        assert!(evaluation.total_score >= 23.0, "Rog Si should be cEDH Optimized! Score was {}", evaluation.total_score);
+    }
+
+    #[test]
+    fn test_midrange_archetype() {
+        let thrasios = make_card("Thrasios, Triton Hero", 2, vec![CardType::Creature], "{4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card. Partner.");
+        let tymna = make_card("Tymna the Weaver", 3, vec![CardType::Creature], "Lifelink. At the beginning of your postcombat main phase, you may pay X life, where X is the number of opponents that were dealt combat damage by creatures this turn. If you do, draw X cards. Partner.");
+        
+        let commanders = vec![thrasios, tymna];
+        
+        let mut mainboard = vec![];
+        // Typical Midrange pieces (Engines/Efficiency)
+        mainboard.push(make_card("Sylvan Library", 2, vec![CardType::Enchantment], "At the beginning of your draw step, you may draw two additional cards..."));
+        mainboard.push(make_card("Esper Sentinel", 1, vec![CardType::Creature], "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}..."));
+        mainboard.push(make_card("Seedborn Muse", 5, vec![CardType::Creature], "Untap all permanents you control during each other player's untap step."));
+        mainboard.push(make_card("Smothering Tithe", 4, vec![CardType::Enchantment], "Whenever an opponent draws a card, that player may pay {2}. If they don't, you create a Treasure token."));
+        mainboard.push(make_card("Arcane Signet", 2, vec![CardType::Artifact], "{T}: Add one mana of any color in your commander's color identity."));
+        mainboard.push(make_card("Sol Ring", 1, vec![CardType::Artifact], "{T}: Add {C}{C}."));
+        mainboard.push(make_card("Birds of Paradise", 1, vec![CardType::Creature], "{T}: Add one mana of any color."));
+        mainboard.push(make_card("Demonic Tutor", 2, vec![CardType::Sorcery], "Search your library for a card..."));
+        mainboard.push(make_card("Vampiric Tutor", 1, vec![CardType::Instant], "Search your library for a card..."));
+        mainboard.push(make_card("Cyclonic Rift", 2, vec![CardType::Instant], "Return target nonland permanent... Overload {6}{u}."));
+        mainboard.push(make_card("Assassin's Trophy", 2, vec![CardType::Instant], "Destroy target permanent..."));
+        
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+        assert_eq!(evaluation.archetype, DeckArchetype::Midrange);
+    }
+
+    #[test]
+    fn test_kosei_deck() {
+        let kosei = make_card("Kosei, Penitent Warlord", 4, vec![CardType::Creature], "Whenever Kosei deals combat damage to a player, if it's enchanted, equipped, and has a counter on it, you draw cards equal to its power...");
+        let commanders = vec![kosei];
+        
+        let mut mainboard = vec![];
+        // Fast Mana
+        mainboard.push(make_card("Chrome Mox", 0, vec![CardType::Artifact], "Imprint - ... Add one mana of any color."));
+        mainboard.push(make_card("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana..."));
+        mainboard.push(make_card("Mana Vault", 1, vec![CardType::Artifact], "Add {C}{C}{C}."));
+        mainboard.push(make_card("Sol Ring", 1, vec![CardType::Artifact], "Add {C}{C}."));
+
+        // Protection (Resilience)
+        mainboard.push(make_card("Autumn's Veil", 1, vec![CardType::Instant], "Spells you control can't be countered..."));
+        mainboard.push(make_card("Gaea's Gift", 2, vec![CardType::Instant], "Target creature gets +1/+1 and gains reach, trample, hexproof, and indestructible..."));
+        mainboard.push(make_card("Tamiyo's Safekeeping", 1, vec![CardType::Instant], "Target permanent gains hexproof and indestructible..."));
+        mainboard.push(make_card("Vines of Vastwood", 1, vec![CardType::Instant], "Target creature can't be the target of spells..."));
+        mainboard.push(make_card("Silkguard", 1, vec![CardType::Instant], "Any number of target creatures you control get a +1/+1 counter and gain hexproof..."));
+        mainboard.push(make_card("Savage Summoning", 1, vec![CardType::Instant], "This spell can't be countered. The next creature card you cast... gains flash and enters with a +1/+1 counter and can't be countered."));
+        mainboard.push(make_card("Strength of Will", 1, vec![CardType::Instant], "Target creature gains indestructible..."));
+
+        // Removal (Interaction)
+        mainboard.push(make_card("Beast Within", 3, vec![CardType::Instant], "Destroy target permanent..."));
+        mainboard.push(make_card("Krosan Grip", 3, vec![CardType::Instant], "Split second. Destroy target artifact or enchantment."));
+        mainboard.push(make_card("Return to Nature", 2, vec![CardType::Instant], "Destroy target artifact..."));
+        mainboard.push(make_card("Collective Resistance", 2, vec![CardType::Instant], "Destroy target artifact..."));
+
+        // Equipment/Auras (Pivotability/Wincon)
+        mainboard.push(make_card("Blackblade Reforged", 2, vec![CardType::Artifact], "Equipped creature gets +1/+1 for each land you control."));
+        mainboard.push(make_card("Hammer of Nazahn", 4, vec![CardType::Artifact], "Whenever Hammer of Nazahn or another Equipment enters... gain indestructible..."));
+        mainboard.push(make_card("Helm of the Gods", 1, vec![CardType::Artifact], "Equipped creature gets +1/+1 for each enchantment you control."));
+        mainboard.push(make_card("Lavaspur Boots", 1, vec![CardType::Artifact], "Equipped creature gets +1/+0 and gains haste and ward {1}."));
+        mainboard.push(make_card("Swiftfoot Boots", 2, vec![CardType::Artifact], "Equipped creature gets hexproof and haste."));
+        mainboard.push(make_card("Sword of the Animist", 2, vec![CardType::Artifact], "Whenever equipped creature attacks... search for a land..."));
+        
+        // Ramp
+        mainboard.push(make_card("Fyndhorn Elves", 1, vec![CardType::Creature], "{T}: Add {G}."));
+        mainboard.push(make_card("Boreal Druid", 1, vec![CardType::Creature], "{T}: Add {C}."));
+        mainboard.push(make_card("Sakura-Tribe Scout", 1, vec![CardType::Creature], "{T}: Put a land..."));
+        mainboard.push(make_card("Biophagus", 2, vec![CardType::Creature], "{T}: Add one mana..."));
+        mainboard.push(make_card("Emerald Medallion", 2, vec![CardType::Artifact], "Green spells cost {1} less..."));
+
+        // Synergy
+        mainboard.push(make_card("Season of Growth", 2, vec![CardType::Enchantment], "Whenever a creature enters... scry 1. Whenever you cast a spell that targets... draw a card."));
+        mainboard.push(make_card("Snake Umbra", 3, vec![CardType::Enchantment], "Enchanted creature gets +1/+1... draw a card. Totem armor."));
+
+        // Lands (dummy lands)
+        for _ in 0..30 {
+            mainboard.push(make_card("Forest", 0, vec![CardType::Land], "{T}: Add {G}."));
+        }
+
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+        
+        // Use process_card logic manually to see signals
+        let mut explosive_mana_points = 0.0;
+        let mut explosive_draw_points = 0.0;
+        let mut consistency_weighted = 0.0;
+        let mut engine_count_weighted = 0.0;
+        let mut draw_count_weighted = 0.0;
+        let mut stax_signal_weighted = 0.0;
+        let mut fast_mana_count = 0;
+
+        let mut process = |card: &Card| {
+            let roles = infer_roles(card);
+            let tier = classify_card(card, &roles);
+            let weight = tier.weight();
+
+            if roles.contains(&Role::TUTOR) { consistency_weighted += weight; }
+            if roles.contains(&Role::DRAW) { draw_count_weighted += weight; }
+            if roles.contains(&Role::ENGINE) { engine_count_weighted += weight; }
+            if roles.contains(&Role::RITUAL) { explosive_mana_points += 2.5; }
+            if roles.contains(&Role::TREASURE_BURST) { explosive_mana_points += 2.0; }
+            if roles.contains(&Role::SAC_MANA) { explosive_mana_points += 1.8; }
+            if roles.contains(&Role::COST_REDUCTION) { explosive_mana_points += 1.5; }
+            if roles.contains(&Role::FAST_MANA_ONE_SHOT) { explosive_mana_points += 1.8; }
+            if roles.contains(&Role::FAST_MANA) { 
+                explosive_mana_points += 1.0; 
+                fast_mana_count += 1;
+            }
+            if roles.contains(&Role::BURST_DRAW) { explosive_draw_points += 1.5; }
+            if roles.contains(&Role::MASS_DRAW) { explosive_draw_points += 2.0; }
+            if roles.contains(&Role::WHEEL) { explosive_draw_points += 2.5; }
+            if roles.contains(&Role::STAX) { stax_signal_weighted += 1.0; }
+        };
+
+        for c in &mainboard { process(c); }
+        for c in &commanders { process(c); }
+
+        let turbo_signal = explosive_mana_points + explosive_draw_points;
+        let midrange_signal = consistency_weighted + engine_count_weighted + draw_count_weighted;
+        let commander_engine_signal = commanders.iter().filter(|c| {
+            let r = infer_roles(c);
+            r.contains(&Role::ENGINE) || r.contains(&Role::COST_REDUCTION)
+        }).count() as f32;
+
+        println!("Kosei DEBUG: turbo_signal = {}", turbo_signal);
+        println!("Kosei DEBUG: midrange_signal = {}", midrange_signal);
+        println!("Kosei DEBUG: commander_engine_signal = {}", commander_engine_signal);
+        println!("Kosei DEBUG: fast_mana_count = {}", fast_mana_count);
+        
+        println!("Kosei Test - Total Score: {}", evaluation.total_score);
+        println!("Kosei Test - Raw Score: {}", evaluation.raw_score);
+        println!("Kosei Test - AMV: {:.2}", evaluation.total_score / evaluation.final_multiplier / evaluation.raw_score); // Not exact but give idea
+        println!("Kosei Test - Multiplier: {}", evaluation.final_multiplier);
+        println!("Kosei Test - Consistency: {}", evaluation.consistency.score);
+        println!("Kosei Test - Resilience: {}", evaluation.resilience.score);
+        println!("Kosei Test - Interaction: {}", evaluation.interaction.score);
+        println!("Kosei Test - Speed: {}", evaluation.speed.score);
+        println!("Kosei Test - Pivotability: {}", evaluation.pivotability.score);
+        println!("Kosei Test - Interpretation: {}", evaluation.interpretation);
+        println!("Kosei Test - Archetype: {:?}", evaluation.archetype);
+
+        // This is expected to BE TOO HIGH currently, we want it < 19.0
+        assert!(evaluation.total_score < 19.0, "Deck should not be Fringe cEDH! Score was {}", evaluation.total_score);
     }
 }
