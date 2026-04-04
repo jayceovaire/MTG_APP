@@ -108,14 +108,19 @@ Before scoring, detect the deck's archetype to apply specialized adjustments.
 - **Turbo Signal:** `ExplosiveManaPoints + ExplosiveDrawPoints`
 - **Midrange Signal:** `ConsistencyWeighted + EngineWeighted + DrawWeighted`
 - **Stax Signal:** `WeightedStaxSum` (Non-land = 1.0, Land = 0.3)
+- **Voltron Signal:** `WeightedVoltronSum` (Equipment/Aura count)
+- **Group Hug Signal:** `WeightedGroupHugSum` (Symmetrical resource pieces)
 - **Commander Engine Signal:** Number of commanders with `ENGINE` or `COST_REDUCTION` roles.
 
 ### Classification Heuristics
 
-1. **Stax:** `StaxSignal >= 8.0`
-2. **Commander Engine:** `CommanderEngineSignal > 0` AND `TurboSignal > 8.0`
-3. **Turbo:** `TurboSignal > MidrangeSignal * 1.2`
-4. **Midrange:** Default
+1. **Group Hug:** `GroupHugSignal >= 8.0`
+2. **Stax:** `StaxSignal >= 15.0`
+3. **Turbo:** `TurboSignal >= 18.0`
+4. **Voltron:** `VoltronSignal >= 8.0`
+5. **Commander Engine:** `CommanderEngineSignal > 1.0` AND `TurboSignal > 12.0`
+6. **Turbo (Secondary):** `TurboSignal > 12.0` AND `TurboSignal > MidrangeSignal`
+7. **Midrange:** Default
 
 ---
 
@@ -274,13 +279,13 @@ CRISPI detects two-card infinite combos in the decklist and adjusts the score an
 ### Multiplier Rules
 
 - **Max Bonus (per combo):** **+0.20**
-- **Base Bonus:** **+0.15** for combos with total combined mana value ≤3.
-- **Tutor Bonus:** **+0.05** if the deck contains at least one tutor.
+- **Base Bonus:** **+0.02** for combos with total combined mana value ≤3.
+- **Tutor Scaling:** **+0.02** per tutor (capped at **+0.15**).
 - **Mana Value Scaling:** Penalty of **-0.01** per MV for every point above **3** (total combined cost).
 - **Speed Scaling:** Penalty of **-0.02** for each slow component (Sorcery-speed spells, or Tap abilities on creatures without haste).
-- **Minimum Bonus:** Every valid infinite combo grants at least **+0.05** (×1.05).
+- **Minimum Bonus:** Every valid infinite combo grants at least **+0.02** (×1.02).
 - **Additive Bonus:** If multiple separate combos are detected, their bonuses are combined additively: `1.0 + sum(bonuses)`.
-- **Total Cap:** Total combo multiplier is capped at **×1.30** (to prevent score inflation).
+- **Total Cap:** Total combo multiplier is capped at **×1.25** (to allow scaling with multiple combos).
 - **Score Cap:** The final `Total Score` is capped at **25.0**.
 
 ### Final Multiplier Calculation
@@ -324,7 +329,7 @@ These are applied after scoring but before AMV modifier.
 
 | Condition | Category Floor |
 |---|---|
-| Commander is repeatable card advantage engine (e.g. Tymna the Weaver) | Consistency ≥4, Pivotability ≥4 |
+| Commander is repeatable card advantage engine (e.g. Tymna the Weaver) | Consistency ≥4, Pivotability ≥3 |
 | 8+ free interaction spells (e.g. Force of Will) | Interaction = 5, Resilience ≥4 |
 | Compact ≤2 card deterministic win package | Speed = 5, Consistency +1 |
 | 10+ fast mana pieces | Speed = 5 |
@@ -334,9 +339,11 @@ These are applied after scoring but before AMV modifier.
 
 | Archetype | Score Adjustments |
 |---|---|
-| **Turbo** | `Consistency >= 4`, `Pivotability >= 4` |
+| **Turbo** | `Consistency >= 4`, `Pivotability >= 3` |
 | **Stax** | `Interaction >= 4`, `Resilience >= 4` |
-| **Commander Engine** | `Consistency >= 4`, `Resilience >= 4`, `Pivotability >= 4` |
+| **Commander Engine** | `Consistency >= 4`, `Resilience >= 3`, `Pivotability >= 3` |
+| **Voltron** | `Resilience >= 4`, `Pivotability >= 2` |
+| **Group Hug** | `Consistency >= 3`, `Pivotability >= 3` |
 
 Multiple floors and archetype adjustments may apply. Scores are capped at 5.
 
@@ -358,15 +365,15 @@ AMV multiplier is the final step after all category floors and adjustments.
 
 | Deck AMV | Multiplier (M) |
 |---:|---:|
-| ≤1.3 | 1.24 |
-| 1.31–1.6 | 1.16 |
-| 1.61–2.0 | 1.06 |
-| 2.01–2.4 | 1.02 |
+| ≤1.3 | 1.12 |
+| 1.31–1.6 | 1.06 |
+| 1.61–2.0 | 1.02 |
+| 2.01–2.4 | 1.01 |
 | 2.41–2.8 | 1.00 |
-| 2.81–3.0 | 0.94 |
-| 3.01–3.4 | 0.88 |
-| 3.41–3.8 | 0.72 |
-| >3.8 | 0.55 |
+| 2.81–3.0 | 0.92 |
+| 3.01–3.4 | 0.85 |
+| 3.41–3.8 | 0.65 |
+| >3.8 | 0.50 |
 |
 FinalCRISPI = min(RawCRISPI * FinalMultiplier, 25.0)
 

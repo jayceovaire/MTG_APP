@@ -41,6 +41,7 @@ pub enum DeckArchetype {
     Stax,
     CommanderEngine,
     Voltron,
+    GroupHug,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -290,17 +291,22 @@ static IMPULSE_DRAW_PATTERNS: &[&str] = &[
 
 static GROUP_HUG_PATTERNS: &[&str] = &[
     // Everyone draws cards
-    r"each player draws (\d+) cards?",
-    r"each player may draw a card",
+    r"each player draws? (?:.* )?cards?",
+    r"each player may draw (?:.* )?cards?",
+    r"each player's (?:.* )?step",
 
     // Everyone gains resources (mana, lands, counters)
-    r"each player may play an additional land",
-    r"each player adds .* mana",
-    r"all players get .* mana",
+    r"each player may play (?:.* )?lands?",
+    r"each player adds? (?:.* )?mana",
+    r"all players (?:adds?|gets?) (?:.* )?mana",
+    r"each player searches (?:.* )?library",
+    r"each player puts? (?:.* )?onto the battlefield",
+    r"whenever a player (?:.* )?draws?",
+    r"whenever a player (?:.* )?taps? (?:.* )?for mana",
 
     // Everyone gets buffs (counters, creatures)
-    r"all creatures get .* until end of turn",
-    r"each .* gets a \+1/\+1 counter",
+    r"all creatures get (?:.* )?until end of turn",
+    r"each (?:.* )?gets (?:.* )?counter",
 
     // Explicit phrasing for shared benefits
     r"you and each other player may .*",
@@ -603,8 +609,11 @@ fn detect_archetype(
     turbo_signal: f32,
     midrange_signal: f32,
     voltron_signal: f32,
+    group_hug_signal: f32,
 ) -> DeckArchetype {
-    if stax_signal >= 15.0 {
+    if group_hug_signal >= 8.0 {
+        DeckArchetype::GroupHug
+    } else if stax_signal >= 15.0 {
         DeckArchetype::Stax
     } else if turbo_signal >= 18.0 {
         DeckArchetype::Turbo
@@ -631,6 +640,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut fast_mana_count = 0;
     let mut free_interaction_count = 0;
     let mut premium_tutor_count = 0;
+    let mut tutor_count = 0;
     let mut stax_count = 0;
     let mut wincon_count_efficient = 0;
     let mut draw_count_weighted = 0.0;
@@ -658,6 +668,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         // Consistency: Tutors, Draw, Engine
         if roles.contains(&Role::TUTOR) {
             consistency_weighted += weight;
+            tutor_count += 1;
             if tier == QualityTier::Premium && mv <= 2 && ANY_TUTOR_REGEX.is_match(&normalize_text(card.oracle_text().unwrap_or_default())) {
                 premium_tutor_count += 1;
             }
@@ -786,7 +797,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         is_engine || is_cost_reducer
     }).count() as f32;
 
-    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal);
+    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal, group_hug_signal);
 
     let amv = if non_land_count > 0 { total_mv / non_land_count as f32 } else { 0.0 };
 
@@ -941,6 +952,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             pivotability_score = pivotability_score.max(2);
             applied_overrides.push("Voltron Archetype (R>=4, P>=2)");
         }
+        DeckArchetype::GroupHug => {
+            consistency_score = consistency_score.max(3);
+            pivotability_score = pivotability_score.max(3);
+            applied_overrides.push("GroupHug Archetype (C>=3, P>=3)");
+        }
         DeckArchetype::Midrange => {}
     }
 
@@ -1008,10 +1024,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut total_bonus = 0.0;
     let mut any_combo_found = false;
     
-    let has_tutor = all_deck_cards.iter().any(|c| {
-        let roles = infer_roles(c);
-        roles.contains(&Role::TUTOR)
-    });
+    // Tutor influence: scales with the number of tutors
+    let tutor_influence = (tutor_count as f32 * 0.02).min(0.15);
     
     for combo in TWO_CARD_COMBOS {
         let norm_a = normalize_card_name(combo.card_a);
@@ -1037,11 +1051,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
                 };
                 detected_combos.push(format!("{} + {}{}", combo.card_a, combo.card_b, effects_str));
                 
-                let mut combo_bonus = 0.12; // Base bonus for MV <= 3
-                
-                if has_tutor {
-                    combo_bonus += 0.05;
-                }
+                let mut combo_bonus = 0.02 + tutor_influence; // Reduced base bonus (0.02) + tutor scaling
                 
                 let total_mv = (card_a.mana_value() + card_b.mana_value()) as f32;
                 let mv_penalty = (total_mv - 3.0).max(0.0) * 0.01;
@@ -1070,7 +1080,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
                 combo_bonus -= speed_penalty;
                 
                 // Cap and floor per combo
-                combo_bonus = combo_bonus.clamp(0.05, 0.20);
+                combo_bonus = combo_bonus.clamp(0.02, 0.20);
                 
                 total_bonus += combo_bonus;
             }
@@ -1078,7 +1088,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     }
     
     if any_combo_found {
-        combo_multiplier = (1.0 + total_bonus).min(1.30);
+        combo_multiplier = (1.0 + total_bonus).min(1.25);
     }
     
     let mut commander_mv_penalty = 0.0;
@@ -1399,5 +1409,42 @@ mod tests {
         // No commander: 0.0
         let eval_none = calculate_crispi(&mainboard, &vec![], 0);
         assert_eq!(eval_none.commander_mv_penalty, 0.0);
+    }
+
+    #[test]
+    fn test_group_hug_archetype() {
+        let phelddagrif = make_card("Phelddagrif", 4, vec![CardType::Creature], "{G}: Target opponent puts a 1/1 green Hippo creature token onto the battlefield. {W}: Target opponent gains 2 life. {U}: Target opponent may draw a card.");
+        let commanders = vec![phelddagrif];
+        
+        let mut mainboard = vec![];
+        // Symmetrical resource pieces (Group Hug)
+        mainboard.push(make_card("Temple Bell", 3, vec![CardType::Artifact], "{T}: Each player draws a card."));
+        mainboard.push(make_card("Dictate of Kruphix", 3, vec![CardType::Enchantment], "At the beginning of each player's draw step, that player draws an additional card."));
+        mainboard.push(make_card("Rites of Flourishing", 3, vec![CardType::Enchantment], "Each player may play an additional land on each of their turns. Each player draws an additional card..."));
+        mainboard.push(make_card("Collective Voyage", 1, vec![CardType::Sorcery], "Each player searches their library for basic land cards and puts them onto the battlefield..."));
+        mainboard.push(make_card("Veteran Explorer", 1, vec![CardType::Creature], "When Veteran Explorer dies, each player searches their library for up to two basic land cards and puts them onto the battlefield..."));
+        mainboard.push(make_card("Zhur-Taa Ancient", 5, vec![CardType::Creature], "Whenever a player taps a land for mana, that player adds one mana..."));
+        mainboard.push(make_card("Heartbeat of Spring", 3, vec![CardType::Enchantment], "Whenever a player taps a land for mana, that player adds one mana..."));
+        mainboard.push(make_card("Minds Aglow", 1, vec![CardType::Sorcery], "Each player may pay {X}. Then each player draws cards equal to the total amount of {X} paid."));
+        mainboard.push(make_card("Howling Mine", 2, vec![CardType::Artifact], "Each player draws an additional card...")); // Simplified for test
+        
+        // Add some lands
+        for _ in 0..30 {
+            mainboard.push(make_card("Forest", 0, vec![CardType::Land], "{T}: Add {G}."));
+        }
+
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+        
+        println!("Group Hug Test - Total Score: {}", evaluation.total_score);
+        println!("Group Hug Test - Signal: {}", evaluation.group_hug_signal);
+        println!("Group Hug Test - Archetype: {:?}", evaluation.archetype);
+        println!("Group Hug Test - Consistency Score: {}", evaluation.consistency.score);
+        println!("Group Hug Test - Pivotability Score: {}", evaluation.pivotability.score);
+
+        assert_eq!(evaluation.archetype, DeckArchetype::GroupHug);
+        assert!(evaluation.group_hug_signal >= 8.0);
+        // Floors should apply: Consistency >= 3, Pivotability >= 3
+        assert!(evaluation.consistency.score >= 3);
+        assert!(evaluation.pivotability.score >= 3);
     }
 }

@@ -97,6 +97,19 @@ const archetypes = [
     ],
     strategy: "Build up one unstoppable creature and protect it at all costs.",
   },
+  {
+    title: "Group Hug",
+    icon: mdiSwapHorizontal,
+    color: "pink",
+    definition: "Symmetrical strategy focusing on providing resources to all players.",
+    traits: [
+      "Symmetrical card draw and mana generation",
+      "Focus on political and mutually beneficial effects",
+      "Signal Floor: ≥ 8.0 Group Hug signal",
+      "Wins through accumulation of resources or deck-specific wincons",
+    ],
+    strategy: "Accelerate the game for everyone while building a superior resource base or political standing.",
+  },
 ];
 
 const dimensions = [
@@ -156,6 +169,7 @@ const floorLogic = [
       { condition: "Stax Archetype", effect: "Interaction ≥ 4, Resilience ≥ 4", color: "deep-orange" },
       { condition: "Commander Engine Archetype", effect: "Consistency ≥ 4, Resilience ≥ 3, Pivotability ≥ 3", color: "purple" },
       { condition: "Voltron Archetype", effect: "Resilience ≥ 4, Pivotability ≥ 2", color: "green" },
+      { condition: "Group Hug Archetype", effect: "Consistency ≥ 3, Pivotability ≥ 3", color: "pink" },
     ]
   }
 ];
@@ -397,16 +411,16 @@ const scoringBonuses = [
               <h3 class="text-h6 mb-2">Multiplier Logic</h3>
               <v-list density="compact">
                 <v-list-item>
-                  <v-list-item-title>Base Bonus (per combo): <span class="text-primary font-weight-bold">+0.15x</span></v-list-item-title>
-                  <v-list-item-subtitle>Standard bonus for efficient combos (MV ≤ 3).</v-list-item-subtitle>
+                  <v-list-item-title>Base Bonus (per combo): <span class="text-primary font-weight-bold">+0.02x</span></v-list-item-title>
+                  <v-list-item-subtitle>Reduced starting bonus for efficient combos (MV ≤ 3).</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
-                  <v-list-item-title>Tutor Synergy: <span class="text-primary font-weight-bold">+0.05x</span></v-list-item-title>
-                  <v-list-item-subtitle>Applied if the deck contains at least one tutor.</v-list-item-subtitle>
+                  <v-list-item-title>Tutor Scaling: <span class="text-primary font-weight-bold">+0.02x per tutor</span></v-list-item-title>
+                  <v-list-item-subtitle>Scales with the number of tutors, capped at +0.15x.</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
-                  <v-list-item-title>Total Multiplier Cap: <span class="text-primary font-weight-bold">1.30x</span></v-list-item-title>
-                  <v-list-item-subtitle>The maximum total bonus from all detected combos.</v-list-item-subtitle>
+                  <v-list-item-title>Total Multiplier Cap: <span class="text-primary font-weight-bold">1.25x</span></v-list-item-title>
+                  <v-list-item-subtitle>Reduces the ceiling for high-density combo strategies.</v-list-item-subtitle>
                 </v-list-item>
               </v-list>
             </v-col>
@@ -429,7 +443,7 @@ const scoringBonuses = [
             </v-col>
           </v-row>
           <v-alert type="info" variant="tonal" border="start" density="comfortable" class="mt-4">
-            A single combo bonus is clamped between <strong>0.05x</strong> and <strong>0.20x</strong> after penalties.
+            A single combo bonus is clamped between <strong>0.02x</strong> and <strong>0.20x</strong> after penalties.
           </v-alert>
         </v-card>
       </v-col>
