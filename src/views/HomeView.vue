@@ -132,25 +132,6 @@ async function handleFetchImages() {
         </v-btn>
       </section>
 
-      <section class="command-reference">
-        <h2>Recent Cached Image</h2>
-        <p v-if="!recentImage && !imageError && !isFetching">No images found in cache.</p>
-        <div v-if="isFetching" class="d-flex align-center gap-2">
-          <v-progress-circular indeterminate size="24" width="2"></v-progress-circular>
-          <span>Fetching images...</span>
-        </div>
-        <div v-if="recentImage" class="image-container">
-          <img :src="recentImage" alt="Recent Cached Card" class="recent-card-img" />
-        </div>
-        <div v-if="imageError" class="command-error">
-          <strong>Image load error:</strong>
-          <span>{{ imageError }}</span>
-        </div>
-        <v-btn class="mt-2" @click="handleFetchImages" size="small" :disabled="isFetching">
-          Refresh / Fetch Missing Images
-        </v-btn>
-      </section>
-
     </div>
   </v-container>
 </template>

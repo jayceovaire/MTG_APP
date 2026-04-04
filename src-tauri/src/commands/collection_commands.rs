@@ -49,7 +49,19 @@ fn scryfall_db_path() -> Result<PathBuf, String> {
 
 fn open_scryfall_db() -> Result<Connection, String> {
     let db_path = scryfall_db_path()?;
-    let db_uri = format!("file:{}?mode=ro&immutable=1", db_path.to_string_lossy().replace('\\', "/"));
+    let path_str = db_path.to_string_lossy();
+    let path_str = path_str.strip_prefix(r"\\?\").unwrap_or(&path_str);
+    let path_str = path_str.replace('\\', "/");
+
+    // Standardize URI construction for both Windows and Unix local/UNC paths.
+    // UNC paths like //server/share should be file://server/share.
+    // Absolute local paths like C:/path or /home/user should be file:///C:/path or file:///home/user.
+    let db_uri = if path_str.starts_with("//") && !path_str.starts_with("///") {
+        format!("file:{}?mode=ro&immutable=1", path_str)
+    } else {
+        format!("file:///{}?mode=ro&immutable=1", path_str.trim_start_matches('/'))
+    };
+
     Connection::open_with_flags(
         db_uri,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
