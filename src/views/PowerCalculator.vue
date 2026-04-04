@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { getDecksCommand, getDeckCommand } from "../api/deckCommands.js";
 import { evaluateDeckRolesCommand } from "../api/crispiCommands.js";
 import DeckTile from "../components/DeckTile.vue";
@@ -65,6 +65,37 @@ const hgPopSuccesses = ref(10);
 const hgSampleSize = ref(7);
 const hgSampleSuccesses = ref(1);
 const hgResult = ref(null);
+const hgCardType = ref("Any");
+const hgCrispiRole = ref("Any");
+
+const cardTypes = ["Any", "Creature", "Instant", "Sorcery", "Enchantment", "Artifact", "Land", "Planeswalker", "Battle", "Tribal"];
+const crispiRoles = computed(() => {
+  if (!crispiResults.value) return ["Any"];
+  const allRoles = new Set();
+  crispiResults.value.card_evaluations.forEach(card => {
+    card.roles.forEach(role => allRoles.add(role));
+  });
+  return ["Any", ...Array.from(allRoles).sort()];
+});
+
+watch([hgCardType, hgCrispiRole, crispiResults], () => {
+  if (!crispiResults.value) return;
+
+  const libraryCards = crispiResults.value.card_evaluations.filter(c => !c.is_commander);
+  hgPopSize.value = libraryCards.length;
+
+  const matches = libraryCards.filter(card => {
+    const typeMatch = hgCardType.value === "Any" || card.card_types.includes(hgCardType.value);
+    const roleMatch = hgCrispiRole.value === "Any" || card.roles.includes(hgCrispiRole.value);
+    return typeMatch && roleMatch;
+  });
+
+  hgPopSuccesses.value = matches.length;
+  
+  if (hgResult.value) {
+    calculateHypergeometric();
+  }
+}, { immediate: true });
 
 function calculateHypergeometric() {
   const N = hgPopSize.value;
@@ -478,11 +509,29 @@ async function runMonteCarlo() {
           <v-row>
             <v-col cols="12" md="4">
               <v-card variant="flat" border class="pa-4">
+                <h3 class="text-h6 mb-4">Selection Criteria</h3>
+                <v-select
+                  v-model="hgCardType"
+                  :items="cardTypes"
+                  label="Card Type"
+                  density="compact"
+                  class="mb-2"
+                  variant="outlined"
+                ></v-select>
+                <v-select
+                  v-model="hgCrispiRole"
+                  :items="crispiRoles"
+                  label="CRISPI Role"
+                  density="compact"
+                  class="mb-4"
+                  variant="outlined"
+                ></v-select>
+
                 <h3 class="text-h6 mb-4">Parameters</h3>
-                <v-text-field v-model.number="hgPopSize" label="Population Size" persistent-hint hint="Cards in your deck / library you are drawing from" type="number" density="compact" class="mb-4"></v-text-field>
-                <v-text-field v-model.number="hgPopSuccesses" label="Successes in population" persistent-hint hint="Number of cards you want that is in the deck / library" type="number" density="compact" class="mb-4"></v-text-field>
-                <v-text-field v-model.number="hgSampleSize" label="Sample Size" persistent-hint hint="Number of cards we are drawing ex. cards in opening hand" type="number" density="compact" class="mb-4"></v-text-field>
-                <v-text-field v-model.number="hgSampleSuccesses" label="Successes in Sample" persistent-hint hint="Number of wanted cards you want to draw" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgPopSize" label="Population Size (N)" persistent-hint hint="Total cards in library (auto-calculated)" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgPopSuccesses" label="Successes in population (K)" persistent-hint hint="Matches for selected criteria (auto-calculated)" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgSampleSize" label="Sample Size (n)" persistent-hint hint="Cards to draw (e.g., 7 for opening hand)" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgSampleSuccesses" label="Successes in Sample (k)" persistent-hint hint="Wanted number of cards to draw" type="number" density="compact" class="mb-4"></v-text-field>
                 <v-btn color="primary" block @click="calculateHypergeometric" class="mt-2">Calculate</v-btn>
               </v-card>
             </v-col>

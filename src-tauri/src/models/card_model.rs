@@ -243,6 +243,10 @@ impl Card {
         false
     }
 
+    pub fn card_type(&self) -> &[CardType] {
+        &self.card_type
+    }
+
     pub fn get_name(&self) -> &str {
         &self.name
     }

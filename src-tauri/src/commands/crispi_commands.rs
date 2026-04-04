@@ -1,4 +1,5 @@
 use crate::models::crispi_model::{self, Role, CrispiEvaluation};
+use crate::models::card_model::{self, CardType};
 use crate::state::AppState;
 use tauri::State;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,8 @@ pub struct CardRoles {
     pub card_name: String,
     pub roles: Vec<Role>,
     pub tier: crispi_model::QualityTier,
+    pub card_types: Vec<CardType>,
+    pub is_commander: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -48,7 +51,8 @@ pub fn evaluate_deck_roles(state: State<'_, AppState>, deck_id: u64) -> Result<D
     let mut card_evaluations = Vec::new();
     let mut role_counts = HashMap::new();
 
-    for card in &all_cards {
+    for (i, card) in all_cards.iter().enumerate() {
+        let is_commander = i < commanders.len();
         let roles_set = crispi_model::infer_roles(card);
         let tier = crispi_model::classify_card(card, &roles_set);
         let weight = tier.weight();
@@ -65,6 +69,8 @@ pub fn evaluate_deck_roles(state: State<'_, AppState>, deck_id: u64) -> Result<D
             card_name: card.get_name().to_string(),
             roles,
             tier,
+            card_types: card.card_type().to_vec(),
+            is_commander,
         });
     }
 
