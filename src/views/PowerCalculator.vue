@@ -302,8 +302,9 @@ async function runMonteCarlo() {
                   <v-chip size="small" variant="outlined" color="primary">
                     Land Score: {{ crispiResults.crispi.land_score.toFixed(2) }}
                   </v-chip>
-                  <v-chip size="small" variant="outlined" :color="crispiResults.crispi.commander_mv_penalty > 0 ? 'warning' : 'primary'">
-                    Cmdr Penalty: -{{ crispiResults.crispi.commander_mv_penalty.toFixed(2) }}
+                  <v-chip size="small" variant="outlined" :color="crispiResults.crispi.commander_mv_penalty > 0 ? 'warning' : 'success'">
+                    Cmdr {{ crispiResults.crispi.commander_mv_penalty > 0 ? 'Penalty' : 'Bonus' }}: 
+                    {{ crispiResults.crispi.commander_mv_penalty > 0 ? '-' : '+' }}{{ Math.abs(crispiResults.crispi.commander_mv_penalty).toFixed(2) }}
                   </v-chip>
                 </div>
                 

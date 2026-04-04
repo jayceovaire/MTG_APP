@@ -93,7 +93,7 @@ const dimensions = [
 const structuralMetrics = [
   { name: "Role Score", desc: "A normalized measure of the deck's raw role coverage (Raw Score / 25.0)." },
   { name: "Land Score", desc: "Measures the adequacy of the land count, normalized against a standard 38-land baseline." },
-  { name: "Commander MV Penalty", desc: "A penalty applied based on the total mana value of your commanders, reflecting the cost of accessing the command zone." },
+  { name: "Commander MV Adjustment", desc: "A dynamic weight based on the mana value of your commanders. MV 4+ results in a penalty, while MV 3 and lower provides a score bonus." },
 ];
 
 const brackets = [
@@ -144,7 +144,7 @@ const floorLogic = [
 
 const scoringBonuses = [
   { name: "Game Changer Count (GC)", impact: "+0.4 per GC", desc: "Direct addition to raw score (max +6.0). Reflects high-impact cards that can single-handedly shift game momentum." },
-  { name: "CMDR MV Penalty", impact: "-0.05 per MV", desc: "Deduction based on total Commander mana value. Reflects the resource tax of accessing your command zone strategy." },
+  { name: "CMDR MV Adjustment", impact: "Dynamic Bonus/Penalty", desc: "MV 4+ commanders scale up a penalty (0.25 per MV above 3), while MV 3 and lower grant a score bonus (0.15 per MV below 3.5)." },
   { name: "Land Balance", impact: "0.0 to 1.0", desc: "A structural health score based on land count relative to a 38-land baseline. This is factored into the role score." },
 ];
 </script>

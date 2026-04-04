@@ -219,9 +219,16 @@ static SAC_MANA_PATTERNS: &[&str] = &[
 ];
 
 static COST_REDUCTION_PATTERNS: &[&str] = &[
-    r"cost .* less to cast",
-    r"rather than pay its mana cost",
-    r"you may pay .* rather than pay",
+    // Generic "reduce cost" of other spells or permanents
+    r"(?:other )?spells? you cast cost .* less",
+    r"target spell costs .* less to cast",
+    r"you may pay .* rather than pay .* for another spell",
+    r"reduce the cost of target .* by .*",
+    r"spells? you control cost .* less",
+    r"creature spells? you control cost .* less",
+    r"artifact spells? you control cost .* less",
+    r"enchantment spells? you control cost .* less",
+    r"planeswalker spells? you control cost .* less",
 ];
 
 static FAST_MANA_ONE_SHOT_PATTERNS: &[&str] = &[
@@ -1008,10 +1015,20 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         combo_multiplier = (1.0 + total_bonus).min(1.30);
     }
     
-    let final_multiplier = amv_multiplier * combo_multiplier;
-    let total_score = (raw_score * final_multiplier).min(25.0);
+    let commander_mv_penalty = commanders.iter().map(|c| {
+        let mv = c.mana_value() as f32;
+        if mv > 3.0 {
+            // Negative weight (penalty): scales up
+            (mv - 2.0) * 0.25 
+        } else {
+            // Positive weight (bonus): 3 and lower
+            (mv - 3.5) * 0.15
+        }
+    }).sum::<f32>();
 
-    let commander_mv_penalty = commanders.iter().map(|c| c.mana_value() as f32).sum::<f32>() * 0.05;
+    let final_multiplier = amv_multiplier * combo_multiplier;
+    let total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
+
     let land_count = mainboard.iter().filter(|c| c.is_land()).count();
     let land_score = (land_count as f32 / 38.0).min(1.0);
     let role_score = raw_score / 25.0;
@@ -1293,5 +1310,43 @@ mod tests {
 
         // This is expected to BE TOO HIGH currently, we want it < 19.0
         assert!(evaluation.total_score < 19.0, "Deck should not be Fringe cEDH! Score was {}", evaluation.total_score);
+    }
+
+    #[test]
+    fn test_commander_mv_penalty() {
+        let rog = make_card("Rograkh", 0, vec![CardType::Creature], "Partner.");
+        let silas = make_card("Silas Renn", 3, vec![CardType::Creature], "Partner.");
+        let thrasios = make_card("Thrasios", 2, vec![CardType::Creature], "Partner.");
+        let kraum = make_card("Kraum", 5, vec![CardType::Creature], "Partner.");
+        let etali = make_card("Etali", 7, vec![CardType::Creature], "");
+        let kosei = make_card("Kosei", 4, vec![CardType::Creature], "");
+
+        // Rog/Silas (0 + 3 = 3) -> Bonus
+        // Penalty = (0 - 3.5)*0.15 + (3 - 3.5)*0.15 = -0.525 - 0.075 = -0.6
+        let mainboard = vec![];
+        let eval_rog_si = calculate_crispi(&mainboard, &vec![rog, silas.clone()], 0);
+        assert!(eval_rog_si.commander_mv_penalty < 0.0);
+        assert_eq!(eval_rog_si.commander_mv_penalty, -0.6);
+
+        // Thrasios/Tymna (2 + 3 = 5)
+        // Penalty = (2 - 3.5)*0.15 + (3 - 3.5)*0.15 = -0.225 - 0.075 = -0.3
+        let tymna = make_card("Tymna", 3, vec![CardType::Creature], "Partner.");
+        let eval_thras_tymna = calculate_crispi(&mainboard, &vec![thrasios, tymna], 0);
+        assert_eq!(eval_thras_tymna.commander_mv_penalty, -0.3);
+
+        // Kosei (4)
+        // Penalty = (4 - 3.0)*0.25 = 0.25
+        let eval_kosei = calculate_crispi(&mainboard, &vec![kosei], 0);
+        assert_eq!(eval_kosei.commander_mv_penalty, 0.25);
+
+        // Kraum/Silas (5 + 3 = 8)
+        // Penalty = (5 - 3.0)*0.25 + (3 - 3.5)*0.15 = 0.5 - 0.075 = 0.425
+        let eval_kraum_silas = calculate_crispi(&mainboard, &vec![kraum.clone(), silas.clone()], 0);
+        assert_eq!(eval_kraum_silas.commander_mv_penalty, 0.425);
+
+        // Etali (7)
+        // Penalty = (7 - 3.0)*0.25 = 1.0
+        let eval_etali = calculate_crispi(&mainboard, &vec![etali], 0);
+        assert_eq!(eval_etali.commander_mv_penalty, 1.0);
     }
 }
