@@ -64,6 +64,7 @@ const hgPopSize = ref(99);
 const hgPopSuccesses = ref(10);
 const hgSampleSize = ref(7);
 const hgSampleSuccesses = ref(1);
+const hgTargetTurn = ref(1);
 const hgResult = ref(null);
 const hgCardType = ref("Any");
 const hgCrispiRole = ref("Any");
@@ -76,6 +77,10 @@ const crispiRoles = computed(() => {
     card.roles.forEach(role => allRoles.add(role));
   });
   return ["Any", ...Array.from(allRoles).sort()];
+});
+
+watch(hgTargetTurn, (turn) => {
+  hgSampleSize.value = 7 + (turn - 1);
 });
 
 watch([hgCardType, hgCrispiRole, crispiResults], () => {
@@ -146,6 +151,7 @@ function calculateHypergeometric() {
 
 // Monte Carlo Tool State
 const mcSimulations = ref(10000);
+const mcTargetCount = ref(1);
 const mcResults = ref(null);
 const isSimulating = ref(false);
 
@@ -174,6 +180,15 @@ function getTierColor(tier) {
     case "Slow": return "amber-darken-2";
     default: return "grey";
   }
+}
+
+function getMcColor(prob) {
+  if (prob === undefined || prob === null) return '';
+  const p = parseFloat(prob);
+  if (p > 75) return 'bg-green-lighten-4 text-green-darken-4 font-weight-bold';
+  if (p <= 50) return 'bg-red-lighten-4 text-red-darken-4';
+  if (p > 50 && p <= 75) return 'bg-amber-lighten-4 text-amber-darken-4';
+  return '';
 }
 
 async function runMonteCarlo() {
@@ -229,14 +244,18 @@ async function runMonteCarlo() {
       }
       
       // Check roles in hand
-      const rolesInHand = new Set();
+      const roleCountsInHand = {};
       hand.forEach(card => {
         const cardRoles = cardRolesMap[card.name] || [];
-        cardRoles.forEach(r => rolesInHand.add(r));
+        cardRoles.forEach(r => {
+          roleCountsInHand[r] = (roleCountsInHand[r] || 0) + 1;
+        });
       });
       
-      rolesInHand.forEach(role => {
-        roleByTurn[role][turn]++;
+      roles.forEach(role => {
+        if ((roleCountsInHand[role] || 0) >= mcTargetCount.value) {
+          roleByTurn[role][turn]++;
+        }
       });
     }
   }
@@ -470,14 +489,27 @@ async function runMonteCarlo() {
         <!-- Monte Carlo Tool -->
         <v-window-item value="montecarlo">
           <v-card variant="flat" border class="pa-4">
-            <div class="d-flex justify-space-between align-center mb-6">
+            <div class="d-flex justify-space-between align-end mb-6">
               <div>
                 <h3 class="text-h6">Draw Consistency Simulation</h3>
-                <p class="text-body-2 text-medium-emphasis">Probability of having at least one card of a role by turn X.</p>
+                <p class="text-body-2 text-medium-emphasis">Probability of having at least <strong>{{ mcTargetCount }}</strong> card(s) of a role by turn X.</p>
               </div>
-              <v-btn color="primary" @click="runMonteCarlo" :loading="isSimulating">
-                Run Simulation
-              </v-btn>
+              <div class="d-flex align-center gap-4">
+                <v-text-field
+                  v-model.number="mcTargetCount"
+                  label="Target Count"
+                  type="number"
+                  density="compact"
+                  variant="outlined"
+                  min="1"
+                  max="10"
+                  hide-details
+                  style="width: 120px"
+                ></v-text-field>
+                <v-btn color="primary" @click="runMonteCarlo" :loading="isSimulating" height="40">
+                  Run Simulation
+                </v-btn>
+              </div>
             </div>
 
             <div v-if="mcResults" class="mc-results-table overflow-x-auto">
@@ -491,7 +523,7 @@ async function runMonteCarlo() {
                 <tbody>
                   <tr v-for="(probs, role) in mcResults" :key="role">
                     <td class="text-left pa-2 font-weight-medium">{{ role }}</td>
-                    <td v-for="t in 10" :key="t" class="text-center pa-2">
+                    <td v-for="t in 10" :key="t" :class="['text-center pa-2', getMcColor(probs[t])]">
                       {{ probs[t] }}%
                     </td>
                   </tr>
@@ -528,9 +560,10 @@ async function runMonteCarlo() {
                 ></v-select>
 
                 <h3 class="text-h6 mb-4">Parameters</h3>
-                <v-text-field v-model.number="hgPopSize" label="Population Size (N)" persistent-hint hint="Total cards in library (auto-calculated)" type="number" density="compact" class="mb-4"></v-text-field>
-                <v-text-field v-model.number="hgPopSuccesses" label="Successes in population (K)" persistent-hint hint="Matches for selected criteria (auto-calculated)" type="number" density="compact" class="mb-4"></v-text-field>
-                <v-text-field v-model.number="hgSampleSize" label="Sample Size (n)" persistent-hint hint="Cards to draw (e.g., 7 for opening hand)" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgTargetTurn" label="Target Turn" persistent-hint hint="Turn for sample size (Turn 1 = 7 cards)" type="number" density="compact" class="mb-4" min="1"></v-text-field>
+                <v-text-field v-model.number="hgPopSize" label="Population Size (N)" persistent-hint hint="Total cards in library" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgPopSuccesses" label="Successes in population (K)" persistent-hint hint="Matches for selected criteria" type="number" density="compact" class="mb-4"></v-text-field>
+                <v-text-field v-model.number="hgSampleSize" label="Sample Size (n)" persistent-hint hint="Total cards to draw" type="number" density="compact" class="mb-4"></v-text-field>
                 <v-text-field v-model.number="hgSampleSuccesses" label="Successes in Sample (k)" persistent-hint hint="Wanted number of cards to draw" type="number" density="compact" class="mb-4"></v-text-field>
                 <v-btn color="primary" block @click="calculateHypergeometric" class="mt-2">Calculate</v-btn>
               </v-card>
@@ -615,5 +648,6 @@ async function runMonteCarlo() {
 
 .mc-results-table td, .mc-results-table th {
   min-width: 60px;
+  border: 1px solid rgba(0,0,0,0.05);
 }
 </style>

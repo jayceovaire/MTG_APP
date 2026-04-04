@@ -344,6 +344,7 @@ These are applied after scoring but before AMV modifier.
 | **Commander Engine** | `Consistency >= 4`, `Resilience >= 3`, `Pivotability >= 3` |
 | **Voltron** | `Resilience >= 4`, `Pivotability >= 2` |
 | **Group Hug** | `Consistency >= 3`, `Pivotability >= 3` |
+| **Midrange** | `Consistency >= 3`, `Resilience >= 3`, `Interaction >= 3`, `Pivotability >= 2` |
 
 Multiple floors and archetype adjustments may apply. Scores are capped at 5.
 

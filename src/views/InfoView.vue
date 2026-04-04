@@ -170,6 +170,7 @@ const floorLogic = [
       { condition: "Commander Engine Archetype", effect: "Consistency ≥ 4, Resilience ≥ 3, Pivotability ≥ 3", color: "purple" },
       { condition: "Voltron Archetype", effect: "Resilience ≥ 4, Pivotability ≥ 2", color: "green" },
       { condition: "Group Hug Archetype", effect: "Consistency ≥ 3, Pivotability ≥ 3", color: "pink" },
+      { condition: "Midrange Archetype", effect: "Consistency ≥ 3, Resilience ≥ 3, Interaction ≥ 3, Pivotability ≥ 2", color: "blue-grey" },
     ]
   }
 ];

@@ -957,7 +957,13 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             pivotability_score = pivotability_score.max(3);
             applied_overrides.push("GroupHug Archetype (C>=3, P>=3)");
         }
-        DeckArchetype::Midrange => {}
+        DeckArchetype::Midrange => {
+            consistency_score = consistency_score.max(3);
+            resilience_score = resilience_score.max(3);
+            interaction_score = interaction_score.max(3);
+            pivotability_score = pivotability_score.max(2);
+            applied_overrides.push("Midrange Archetype (C>=3, R>=3, I>=3, P>=2)");
+        }
     }
 
     let override_text = if !applied_overrides.is_empty() {
