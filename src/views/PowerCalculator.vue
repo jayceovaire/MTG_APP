@@ -295,7 +295,7 @@ async function runMonteCarlo() {
                 </div>
 
                 <!-- Structural Metrics Row -->
-                <div class="d-flex justify-center flex-wrap gap-4 mb-4">
+                <div class="d-flex justify-center flex-wrap gap-4 mb-2">
                   <v-chip size="small" variant="outlined" color="primary">
                     Role Score: {{ crispiResults.crispi.role_score.toFixed(2) }}
                   </v-chip>
@@ -305,6 +305,28 @@ async function runMonteCarlo() {
                   <v-chip size="small" variant="outlined" :color="crispiResults.crispi.commander_mv_penalty > 0 ? 'warning' : 'success'">
                     Cmdr {{ crispiResults.crispi.commander_mv_penalty > 0 ? 'Penalty' : 'Bonus' }}: 
                     {{ crispiResults.crispi.commander_mv_penalty > 0 ? '-' : '+' }}{{ Math.abs(crispiResults.crispi.commander_mv_penalty).toFixed(2) }}
+                  </v-chip>
+                </div>
+
+                <!-- Archetype Signals Row -->
+                <div class="d-flex justify-center flex-wrap gap-2 mb-4">
+                  <v-chip size="x-small" variant="tonal" color="amber" v-if="crispiResults.crispi.turbo_signal >= 1.0">
+                    Turbo: {{ crispiResults.crispi.turbo_signal.toFixed(1) }}
+                  </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="blue" v-if="crispiResults.crispi.midrange_signal >= 1.0">
+                    Midrange: {{ crispiResults.crispi.midrange_signal.toFixed(1) }}
+                  </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="deep-orange" v-if="crispiResults.crispi.stax_signal >= 1.0">
+                    Stax: {{ crispiResults.crispi.stax_signal.toFixed(1) }}
+                  </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="green" v-if="crispiResults.crispi.voltron_signal >= 1.0">
+                    Voltron: {{ crispiResults.crispi.voltron_signal.toFixed(1) }}
+                  </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="pink" v-if="crispiResults.crispi.group_hug_signal >= 1.0">
+                    Group Hug: {{ crispiResults.crispi.group_hug_signal.toFixed(1) }}
+                  </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="purple" v-if="crispiResults.crispi.commander_engine_signal > 0">
+                    CmdrEngine: {{ crispiResults.crispi.commander_engine_signal.toFixed(1) }}
                   </v-chip>
                 </div>
                 

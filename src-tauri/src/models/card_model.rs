@@ -146,6 +146,18 @@ impl Card {
         self.card_type.contains(&CardType::Land)
     }
 
+    pub fn is_equipment(&self) -> bool {
+        self.sub_type
+            .iter()
+            .any(|subtype| subtype.eq_ignore_ascii_case("Equipment"))
+    }
+
+    pub fn is_aura(&self) -> bool {
+        self.sub_type
+            .iter()
+            .any(|subtype| subtype.eq_ignore_ascii_case("Aura"))
+    }
+
     pub fn is_vehicle(&self) -> bool {
         self.sub_type
             .iter()

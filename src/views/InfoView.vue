@@ -25,6 +25,10 @@ const glossary = [
   { term: "Stax", icon: mdiShieldLock, color: "deep-orange", desc: "Resource denial. Slows down the entire table." },
   { term: "Protection", icon: mdiShieldCheck, color: "green", desc: "Hexproof, Indestructible, or recursion. Increases deck Resilience." },
   { term: "Wincons", icon: mdiSeal, color: "success", desc: "Cards that directly lead to winning. Compact wincons boost Speed." },
+  { term: "Voltron Piece", icon: mdiShieldCheck, color: "green", desc: "Equipments, Auras, or stat-boosting spells. Core of the Voltron strategy." },
+  { term: "Looting", icon: mdiSwapHorizontal, color: "light-blue", desc: "Draw then discard effects. Good for deck filtering and graveyard strategies." },
+  { term: "Impulse Draw", icon: mdiLibraryOutline, color: "deep-purple", desc: "Exiling cards to play them temporarily. Red's primary form of card advantage." },
+  { term: "Group Hug", icon: mdiSwapHorizontal, color: "pink", desc: "Symmetrical effects that benefit all players. Common in casual and political decks." },
 ];
 
 const archetypes = [
@@ -36,7 +40,7 @@ const archetypes = [
     traits: [
       "Extensive use of low-cost fast mana and rituals",
       "High density of burst draw and mass draw effects",
-      "Signal Floor: ≥ 12.0 Speed (Explosive Mana + Draw)",
+      "Signal Floor: ≥ 18.0 Speed (Explosive Mana + Draw)",
       "Designed to attempt a win in the early game (Turns 1-4)",
     ],
     strategy: "Win before opponents can establish interaction or board state.",
@@ -62,7 +66,7 @@ const archetypes = [
     traits: [
       "Presence of resource denial and taxing effects",
       "High Resilience to protect permanents",
-      "Signal Floor: ≥ 10.0 Stax signal",
+      "Signal Floor: ≥ 15.0 Stax signal",
       "Wins by establishing a lock and exhausting opponents",
     ],
     strategy: "Force the game to your speed; win while others are resource-starved.",
@@ -76,15 +80,28 @@ const archetypes = [
       "Commander serves as a primary source of card advantage or efficiency",
       "Relies on Command Zone access for core strategy",
       "High Consistency through repeatable effects",
-      "Signal Floor: Commander provides card-based engine signal",
+      "Signal Floor: Commander provides card-based engine signal (> 1.0 signal for Partners)",
     ],
     strategy: "Protect the Commander and leverage the Command Zone for infinite value.",
+  },
+  {
+    title: "Voltron",
+    icon: mdiShieldCheck,
+    color: "green",
+    definition: "Aggressive strategy focusing on enhancing a single creature, usually the Commander.",
+    traits: [
+      "High density of Equipment and Aura cards",
+      "Focus on Protection and Resilience to keep the threat alive",
+      "Signal Floor: ≥ 8.0 Voltron signal (Equipment/Aura count)",
+      "Wins through massive combat damage from a single source",
+    ],
+    strategy: "Build up one unstoppable creature and protect it at all costs.",
   },
 ];
 
 const dimensions = [
   { name: "Consistency (C)", icon: mdiBullseyeArrow, desc: "Weights Tutors, Draw, and Engines. Thresholds: 1.2, 3.0, 5.0, 8.0.", color: "blue" },
-  { name: "Resilience (R)", icon: mdiShieldCheck, desc: "Weights Protection and Recursion. Thresholds: 1.5, 4.0, 7.0, 10.0.", color: "green" },
+  { name: "Resilience (R)", icon: mdiShieldCheck, desc: "Weights Protection and Recursion. Thresholds: 2.0, 5.0, 9.0, 13.0.", color: "green" },
   { name: "Interaction (I)", icon: mdiGestureTap, desc: "Weights Removal and Stax. Thresholds: 2.5, 5.0, 8.0, 12.0.", color: "red" },
   { name: "Speed (S)", icon: mdiSpeedometer, desc: "Calculated from estimated win turn (Efficiency) and high-velocity signals (Explosive Mana and Draw).", color: "amber" },
   { name: "Pivotability (P)", icon: mdiScaleBalance, desc: "Weights multi-role cards. Thresholds: 1.5, 3.0, 5.0, 8.0.", color: "purple" },
@@ -127,8 +144,8 @@ const floorLogic = [
       { condition: "8+ Free Interaction Spells", effect: "Interaction = 5, Resilience ≥ 4", color: "red" },
       { condition: "5+ Premium Tutors (≤ 2 MV)", effect: "Consistency = 5", color: "blue" },
       { condition: "10+ Fast Mana Pieces", effect: "Speed = 5", color: "amber" },
-      { condition: "Compact Win Package (Efficient wincons ≥ 2)", effect: "Speed = 5, Consistency +1", color: "success" },
-      { condition: "Commander is a Card Advantage Engine", effect: "Consistency ≥ 4, Pivotability ≥ 4", color: "purple" },
+      { condition: "Compact Win Package (Efficient wincons ≥ 2)", effect: "Speed = 5, Consistency +1", color: "green" },
+      { condition: "Commander is a Card Advantage Engine", effect: "Consistency ≥ 4, Pivotability ≥ 3", color: "purple" },
     ]
   },
   {
@@ -138,6 +155,7 @@ const floorLogic = [
       { condition: "Turbo Archetype", effect: "Consistency ≥ 4, Pivotability ≥ 3", color: "amber" },
       { condition: "Stax Archetype", effect: "Interaction ≥ 4, Resilience ≥ 4", color: "deep-orange" },
       { condition: "Commander Engine Archetype", effect: "Consistency ≥ 4, Resilience ≥ 3, Pivotability ≥ 3", color: "purple" },
+      { condition: "Voltron Archetype", effect: "Resilience ≥ 4, Pivotability ≥ 2", color: "green" },
     ]
   }
 ];
@@ -495,15 +513,15 @@ const scoringBonuses = [
               </tr>
             </thead>
             <tbody>
-              <tr><td>≤ 1.3</td><td class="font-weight-bold">1.20x</td><td class="text-success">+20% Bonus</td></tr>
-              <tr><td>≤ 1.6</td><td class="font-weight-bold">1.12x</td><td class="text-success">+12% Bonus</td></tr>
-              <tr><td>≤ 2.0</td><td class="font-weight-bold">1.05x</td><td class="text-success">+5% Bonus</td></tr>
-              <tr><td>≤ 2.4</td><td class="font-weight-bold">1.02x</td><td class="text-success">+2% Bonus</td></tr>
+              <tr><td>≤ 1.3</td><td class="font-weight-bold">1.12x</td><td class="text-success">+12% Bonus</td></tr>
+              <tr><td>≤ 1.6</td><td class="font-weight-bold">1.06x</td><td class="text-success">+6% Bonus</td></tr>
+              <tr><td>≤ 2.0</td><td class="font-weight-bold">1.02x</td><td class="text-success">+2% Bonus</td></tr>
+              <tr><td>≤ 2.4</td><td class="font-weight-bold">1.01x</td><td class="text-success">+1% Bonus</td></tr>
               <tr><td>2.5 – 2.8</td><td class="font-weight-bold">1.00x</td><td class="text-medium-emphasis">Neutral</td></tr>
-              <tr><td>≤ 3.0</td><td class="font-weight-bold">0.94x</td><td class="text-error">-6% Penalty</td></tr>
-              <tr><td>≤ 3.4</td><td class="font-weight-bold">0.88x</td><td class="text-error">-12% Penalty</td></tr>
-              <tr><td>≤ 3.8</td><td class="font-weight-bold">0.72x</td><td class="text-error">-28% Penalty</td></tr>
-              <tr><td>> 3.8</td><td class="font-weight-bold">0.55x</td><td class="text-error">-45% Penalty</td></tr>
+              <tr><td>≤ 3.0</td><td class="font-weight-bold">0.92x</td><td class="text-error">-8% Penalty</td></tr>
+              <tr><td>≤ 3.4</td><td class="font-weight-bold">0.85x</td><td class="text-error">-15% Penalty</td></tr>
+              <tr><td>≤ 3.8</td><td class="font-weight-bold">0.65x</td><td class="text-error">-35% Penalty</td></tr>
+              <tr><td>> 3.8</td><td class="font-weight-bold">0.50x</td><td class="text-error">-50% Penalty</td></tr>
             </tbody>
           </v-table>
         </v-card>

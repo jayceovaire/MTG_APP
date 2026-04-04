@@ -1,4 +1,5 @@
 use crate::models::card_model::Card;
+use crate::models::combos::TWO_CARD_COMBOS;
 use serde::{Deserialize, Serialize};
 use regex::Regex;
 use once_cell::sync::Lazy;
@@ -27,6 +28,10 @@ pub enum Role {
     BURST_DRAW,
     MASS_DRAW,
     WHEEL,
+    VOLTRON_PIECE,
+    LOOTING,
+    IMPULSE_DRAW,
+    GROUP_HUG,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,6 +40,7 @@ pub enum DeckArchetype {
     Midrange,
     Stax,
     CommanderEngine,
+    Voltron,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -62,10 +68,16 @@ pub struct CrispiDimension {
     pub justification: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CrispiEvaluation {
     pub total_score: f32,
     pub raw_score: f32,
+    pub turbo_signal: f32,
+    pub midrange_signal: f32,
+    pub stax_signal: f32,
+    pub voltron_signal: f32,
+    pub group_hug_signal: f32,
+    pub commander_engine_signal: f32,
     pub amv_multiplier: f32,
     pub combo_multiplier: f32,
     pub final_multiplier: f32,
@@ -95,7 +107,7 @@ static RAMP_PATTERNS: &[&str] = &[
 ];
 
 static DRAW_PATTERNS: &[&str] = &[
-    r"draw .* card",
+    r"draw .* cards?",
     r"whenever you draw",
     r"whenever an opponent .* draws",
     r"investigate",
@@ -166,13 +178,14 @@ static STAX_PATTERNS: &[&str] = &[
 ];
 
 static ENGINE_PATTERNS: &[&str] = &[
-    r"whenever you",
-    r"at the beginning of",
+    r"whenever you (draw|gain .* counters|create .* token|untap)",
+    r"at the beginning of your upkeep",
     r"each upkeep",
     r"each end step",
-    r"whenever an opponent",
+    r"whenever an opponent (loses life|sacrifices|discards|draws)",
     r"whenever [^. ]+ deals combat damage",
     r"whenever enchanted creature deals combat damage",
+    r"exile .*: .*",  // optional repeatable activated engines
 ];
 
 static WINCON_PATTERNS: &[&str] = &[
@@ -189,10 +202,13 @@ static FAST_MANA_PATTERNS: &[&str] = &[
 
 static RECURSION_PATTERNS: &[&str] = &[
     r"return .* from your graveyard",
-    r"put .* from your graveyard",
+    r"put .* from your graveyard",                       // usually to battlefield
     r"cast .* from your graveyard",
-    r"exile .* from your graveyard",
     r"rebound",
+    r"flashback",                                       // instants/sorceries
+    r"(?:persist|undying)",                             // creatures returning
+    r"may return .* to .* from your graveyard",        // optional recursion
+    r"return .* onto the battlefield from your graveyard",
 ];
 
 static RITUAL_PATTERNS: &[&str] = &[
@@ -239,21 +255,74 @@ static FAST_MANA_ONE_SHOT_PATTERNS: &[&str] = &[
 
 static BURST_DRAW_PATTERNS: &[&str] = &[
     r"draw two cards",
+    r"draw a card for each",
     r"draw card for each",
     r"draw cards for each",
+    r"draw a card, then",            // often phrased as "draw a card, then …"
 ];
 
 static MASS_DRAW_PATTERNS: &[&str] = &[
     r"draw three or more",
     r"draw cards equal to",
+    r"draw \d+ cards",               // numeric draws
     r"draw x cards",
-    r"reveal .* and put .* into your hand. .* repeat this process",
+    r"reveal .* and put .* into your hand\. .* repeat this process",
+    r"each player draws .* cards?",  // wheel-like effects
+    r"draw your entire library",
 ];
 
+static LOOTING_PATTERNS: &[&str] = &[
+    r"draw (\d+) cards? and discard (\d+) cards?",     // Classic loot (e.g., "draw 2, discard 1")
+    r"draw (\d+) cards? then discard (\d+) cards?",    // Alternative phrasing
+    r"discard (\d+) cards? then draw (\d+) cards?",    // Backwards loot phrasing
+    r"draw a card, then discard a card",              // Single card loot
+    r"draw two cards, then discard a card",           // Common looting variant
+];
+
+static IMPULSE_DRAW_PATTERNS: &[&str] = &[
+    r"look at the top (\d+) cards?",                      // e.g., "look at the top 4 cards"
+    r"reveal the top (\d+) cards?",                       // reveal + selection
+    r"choose (\d+) cards? to put into your hand",         // "choose 1 to draw"
+    r"put the rest on the bottom of your library",        // finishing the look-and-draw effect
+    r"may put any number of them into your hand",         // selection variant
+    r"you may reveal .* and put .* into your hand",       // modern variant (Throne of Eldraine style)
+];
+
+static GROUP_HUG_PATTERNS: &[&str] = &[
+    // Everyone draws cards
+    r"each player draws (\d+) cards?",
+    r"each player may draw a card",
+
+    // Everyone gains resources (mana, lands, counters)
+    r"each player may play an additional land",
+    r"each player adds .* mana",
+    r"all players get .* mana",
+
+    // Everyone gets buffs (counters, creatures)
+    r"all creatures get .* until end of turn",
+    r"each .* gets a \+1/\+1 counter",
+
+    // Explicit phrasing for shared benefits
+    r"you and each other player may .*",
+    r"for each player, .*",
+];
 static WHEEL_PATTERNS: &[&str] = &[
     r"each player discards .* hand .* draws",
     r"discard your hand .* draw",
     r"each player shuffles .* hand .* library .* draws",
+];
+
+static VOLTRON_PIECE_PATTERNS: &[&str] = &[
+    r"(equipped|enchanted) creature gets \+\d{2,}/\+\d{2,}", // only significant boosts
+    r"(equipped|enchanted) creature has (double strike|trample|lifelink|deathtouch|flying|unblockable|can't be blocked)",
+    r"put (\d+/\d+|2 or more) counters on (equipped|enchanted) creature",
+    r"equip\s*\{[^\}]+\}",  // matches 'Equip {1}', 'Equip {2}{W}', etc.
+    r"enchanted creature gets \+\d+/\+\d+", // optional for aura support
+];
+
+static MULTI_MANA_PRODUCER_PATTERNS: &[&str] = &[
+    r"add (?:\{.\}){2,}", 
+    r"add .* (?:two|three|four|five|six|seven|eight|nine|ten) .* mana",
 ];
 
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RAMP_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
@@ -272,9 +341,14 @@ static TREASURE_BURST_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| TREASURE_BURST_PATT
 static SAC_MANA_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| SAC_MANA_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static COST_REDUCTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| COST_REDUCTION_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static FAST_MANA_ONE_SHOT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| FAST_MANA_ONE_SHOT_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static MULTI_MANA_PRODUCER_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MULTI_MANA_PRODUCER_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static BURST_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| BURST_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static MASS_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MASS_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static WHEEL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| WHEEL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static VOLTRON_PIECE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| VOLTRON_PIECE_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static LOOTING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| LOOTING_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static IMPULSE_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| IMPULSE_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static GROUP_HUG_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| GROUP_HUG_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 
 static MULTI_COLOR_LAND_PATTERNS: &[&str] = &[
     r"add \{.\} or \{.\}",
@@ -315,95 +389,16 @@ pub fn normalize_card_name(name: &str) -> String {
         .join(" ")
 }
 
-struct TwoCardComboDef {
-    card_a: &'static str,
-    card_b: &'static str,
-    effects: &'static [&'static str],
-    prereqs: u8,
-}
-
-static TWO_CARD_COMBOS: &[TwoCardComboDef] = &[
-    TwoCardComboDef { card_a: "Demonic Consultation", card_b: "Thassa's Oracle", effects: &[], prereqs: 0 },
-    TwoCardComboDef { card_a: "Exquisite Blood", card_b: "Sanguine Bond", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Tainted Pact", card_b: "Thassa's Oracle", effects: &[], prereqs: 1 },
-    TwoCardComboDef { card_a: "Exquisite Blood", card_b: "Vito, Thorn of the Dusk Rose", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Dramatic Reversal", card_b: "Isochron Scepter", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Twinflame", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bloodthirsty Conqueror", card_b: "Vito, Thorn of the Dusk Rose", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Niv-Mizzet, Parun", card_b: "Curiosity", effects: &["draw", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Gravecrawler", card_b: "Phyrexian Altar", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bloodthirsty Conqueror", card_b: "Sanguine Bond", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Chatterfang, Squirrel General", card_b: "Pitiless Plunderer", effects: &["mana", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Exquisite Blood", card_b: "Enduring Tenacity", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bloodchief Ascension", card_b: "Mindcrank", effects: &["mill", "lifegain"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Basalt Monolith", card_b: "Forsaken Monument", effects: &["mana"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Exquisite Blood", card_b: "Marauding Blight-Priest", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Peregrin Took", card_b: "Nuka-Cola Vending Machine", effects: &["draw", "mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Molten Duplication", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bruvac the Grandiloquent", card_b: "Maddening Cacophony", effects: &["mill"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Rings of Brighthearth", card_b: "Basalt Monolith", effects: &["mana"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Felidar Guardian", card_b: "Restoration Angel", effects: &["ETB", "LTB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Walking Ballista", card_b: "Heliod, Sun-Crowned", effects: &["damage", "lifegain"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Peregrine Drake", card_b: "Deadeye Navigator", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "The Reaver Cleaver", card_b: "Aggravated Assault", effects: &["mana", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Niv-Mizzet, Parun", card_b: "Ophidian Eye", effects: &["draw", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bloodthirsty Conqueror", card_b: "Marauding Blight-Priest", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Squee, the Immortal", card_b: "Food Chain", effects: &["mana", "ETB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Blasphemous Act", card_b: "Repercussion", effects: &["damage"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Niv-Mizzet, Parun", card_b: "Tandem Lookout", effects: &["draw", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Peregrin Took", card_b: "Experimental Confectioner", effects: &["draw"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Staff of Domination", card_b: "Priest of Titania", effects: &["draw", "mana"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Sword of Feast and Famine", card_b: "Aggravated Assault", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Blowfly Infestation", card_b: "Nest of Scarabs", effects: &["ETB", "LTB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Saw in Half", effects: &["ETB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Kiki-Jiki, Mirror Breaker", card_b: "Zealous Conscripts", effects: &["ETB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Staff of Domination", card_b: "Elvish Archdruid", effects: &["draw", "mana"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Staff of Domination", card_b: "Marwyn, the Nurturer", effects: &["draw", "mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Heat Shimmer", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Niv-Mizzet, the Firemind", card_b: "Curiosity", effects: &["draw", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Ashaya, Soul of the Wild", card_b: "Quirion Ranger", effects: &["ETB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Scurry Oak", card_b: "Ivy Lane Denizen", effects: &["ETB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Godo, Bandit Warlord", card_b: "Helm of the Host", effects: &["ETB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Blowfly Infestation", card_b: "Hapatra, Vizier of Poisons", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Staff of Domination", card_b: "Circle of Dreams Druid", effects: &["draw", "mana"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Combat Celebrant", card_b: "Helm of the Host", effects: &["ETB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bruvac the Grandiloquent", card_b: "Traumatize", effects: &["mill"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Storm-Kiln Artist", card_b: "Haze of Rage", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Basalt Monolith", card_b: "Forensic Gadgeteer", effects: &["mana"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Exquisite Blood", card_b: "Starscape Cleric", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Malcolm, Keen-Eyed Navigator", card_b: "Glint-Horn Buccaneer", effects: &["damage", "draw"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Kaalia of the Vast", card_b: "Master of Cruelties", effects: &[], prereqs: 1 },
-    TwoCardComboDef { card_a: "Karn, the Great Creator", card_b: "Mycosynth Lattice", effects: &[], prereqs: 0 },
-    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Electroduplicate", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Ondu Spiritdancer", card_b: "Secret Arcade // Dusty Parlor", effects: &["ETB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Neheb, the Eternal", card_b: "Aggravated Assault", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Aggravated Assault", card_b: "Selvala, Heart of the Wilds", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Devoted Druid", card_b: "Swift Reconfiguration", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Savage Ventmaw", card_b: "Aggravated Assault", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Cut Your Losses", card_b: "Fraying Sanity", effects: &["mill"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Satya, Aetherflux Genius", card_b: "Lightning Runner", effects: &["ETB", "LTB"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Bloodthirsty Conqueror", card_b: "Starscape Cleric", effects: &["lifegain", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Priest of Titania", effects: &["mana"], prereqs: 3 },
-    TwoCardComboDef { card_a: "Bloom Tender", card_b: "Freed from the Real", effects: &["mana"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Duskmantle Guildmage", card_b: "Mindcrank", effects: &["mill", "damage"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Rosie Cotton of South Lane", card_b: "Scurry Oak", effects: &["ETB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Bruvac the Grandiloquent", card_b: "Cut Your Losses", effects: &["mill"], prereqs: 1 },
-    TwoCardComboDef { card_a: "Mycosynth Lattice", card_b: "Vandalblast", effects: &[], prereqs: 0 },
-    TwoCardComboDef { card_a: "Solphim, Mayhem Dominus", card_b: "Heartless Hidetsugu", effects: &["damage"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Eternal Scourge", card_b: "Food Chain", effects: &["mana", "ETB"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Chain of Smog", card_b: "Witherbloom Apprentice", effects: &["lifegain"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Staff of Domination", card_b: "Selvala, Heart of the Wilds", effects: &["draw", "mana"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Combat Celebrant", card_b: "Kiki-Jiki, Mirror Breaker", effects: &["ETB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Elvish Archdruid", effects: &["mana"], prereqs: 3 },
-    TwoCardComboDef { card_a: "Abdel Adrian, Gorion's Ward", card_b: "Animate Dead", effects: &["ETB"], prereqs: 5 },
-    TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Marwyn, the Nurturer", effects: &["mana"], prereqs: 2 },
-];
 
 pub fn infer_roles(card: &Card) -> HashSet<Role> {
     let mut roles = HashSet::new();
 
     if card.is_land() {
         roles.insert(Role::LAND);
+    }
+
+    if card.is_equipment() || card.is_aura() {
+        roles.insert(Role::VOLTRON_PIECE);
     }
     
     if let Some(oracle_text) = card.oracle_text() {
@@ -474,6 +469,20 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         }
         if WHEEL_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::WHEEL);
+        }
+
+        if VOLTRON_PIECE_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::VOLTRON_PIECE);
+        }
+
+        if LOOTING_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::LOOTING);
+        }
+        if IMPULSE_DRAW_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::IMPULSE_DRAW);
+        }
+        if GROUP_HUG_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::GROUP_HUG);
         }
 
         // Fast Mana Check (0-MV ramp or high-output)
@@ -593,14 +602,17 @@ fn detect_archetype(
     commander_engine_signal: f32,
     turbo_signal: f32,
     midrange_signal: f32,
+    voltron_signal: f32,
 ) -> DeckArchetype {
-    if stax_signal >= 10.0 {
+    if stax_signal >= 15.0 {
         DeckArchetype::Stax
-    } else if turbo_signal >= 12.0 {
+    } else if turbo_signal >= 18.0 {
         DeckArchetype::Turbo
-    } else if commander_engine_signal > 0.0 && turbo_signal > 8.0 {
+    } else if voltron_signal >= 8.0 {
+        DeckArchetype::Voltron
+    } else if commander_engine_signal > 1.0 && turbo_signal > 12.0 {
         DeckArchetype::CommanderEngine
-    } else if turbo_signal > 8.0 && turbo_signal > midrange_signal {
+    } else if turbo_signal > 12.0 && turbo_signal > midrange_signal {
         DeckArchetype::Turbo
     } else {
         DeckArchetype::Midrange
@@ -627,6 +639,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut explosive_mana_points = 0.0;
     let mut explosive_draw_points = 0.0;
     let mut stax_signal_weighted = 0.0;
+    let mut voltron_signal_weighted = 0.0;
+    let mut group_hug_signal_weighted = 0.0;
 
     let mut process_card = |card: &Card| {
         let roles = infer_roles(card);
@@ -648,7 +662,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
                 premium_tutor_count += 1;
             }
         }
-        if roles.contains(&Role::DRAW) { 
+        if roles.contains(&Role::DRAW) || roles.contains(&Role::LOOTING) || roles.contains(&Role::IMPULSE_DRAW) { 
             draw_count_weighted += weight; 
             if tier == QualityTier::Premium {
                 premium_draw_count += 1;
@@ -658,17 +672,47 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
         let mut card_mana_points: f32 = 0.0;
         if roles.contains(&Role::RITUAL) { card_mana_points = card_mana_points.max(2.5); }
-        if roles.contains(&Role::TREASURE_BURST) { card_mana_points = card_mana_points.max(2.0); }
-        if roles.contains(&Role::SAC_MANA) { card_mana_points = card_mana_points.max(1.8); }
-        if roles.contains(&Role::FAST_MANA_ONE_SHOT) { card_mana_points = card_mana_points.max(1.8); }
-        if roles.contains(&Role::COST_REDUCTION) { card_mana_points = card_mana_points.max(1.5); }
-        if roles.contains(&Role::FAST_MANA) { card_mana_points = card_mana_points.max(1.0); }
+        if roles.contains(&Role::TREASURE_BURST) { 
+            let is_permanent = !card.is_instant() && !card.is_sorcery();
+            let tb_weight = if !is_permanent { 2.0 } else { 0.5 };
+            card_mana_points = card_mana_points.max(tb_weight); 
+        }
+        if roles.contains(&Role::SAC_MANA) { 
+            let sac_weight = if mv <= 1 { 1.5 } else { 0.5 };
+            card_mana_points = card_mana_points.max(sac_weight); 
+        }
+        if roles.contains(&Role::FAST_MANA_ONE_SHOT) { card_mana_points = card_mana_points.max(1.5); }
+        if roles.contains(&Role::COST_REDUCTION) { 
+            let cr_weight = if mv <= 1 { 1.5 } else { 0.3 };
+            card_mana_points = card_mana_points.max(cr_weight); 
+        }
+        if roles.contains(&Role::FAST_MANA) { 
+            // 0-MV artifact or multi-mana producer
+            let is_multi = card.oracle_text().map(|t| MULTI_MANA_PRODUCER_REGEX.iter().any(|re| re.is_match(&normalize_text(t)))).unwrap_or(false);
+            let fm_weight = if mv == 0 { 1.5 } else if is_multi && mv <= 1 { 1.0 } else if is_multi { 0.5 } else { 0.0 };
+            card_mana_points = card_mana_points.max(fm_weight); 
+        }
         explosive_mana_points += card_mana_points;
 
         let mut card_draw_points: f32 = 0.0;
+        let is_spell = card.is_instant() || card.is_sorcery();
         if roles.contains(&Role::WHEEL) { card_draw_points = card_draw_points.max(2.5); }
-        if roles.contains(&Role::MASS_DRAW) { card_draw_points = card_draw_points.max(2.0); }
-        if roles.contains(&Role::BURST_DRAW) { card_draw_points = card_draw_points.max(1.5); }
+        if roles.contains(&Role::MASS_DRAW) { 
+            let mass_weight = if is_spell { 2.0 } else { 0.5 };
+            card_draw_points = card_draw_points.max(mass_weight); 
+        }
+        if roles.contains(&Role::BURST_DRAW) { 
+            let burst_weight = if is_spell { 1.5 } else { 0.3 };
+            card_draw_points = card_draw_points.max(burst_weight); 
+        }
+        if roles.contains(&Role::LOOTING) {
+            let loot_weight = if is_spell { 0.8 } else { 0.2 };
+            card_draw_points = card_draw_points.max(loot_weight);
+        }
+        if roles.contains(&Role::IMPULSE_DRAW) {
+            let impulse_weight = if is_spell { 1.2 } else { 0.3 };
+            card_draw_points = card_draw_points.max(impulse_weight);
+        }
         explosive_draw_points += card_draw_points;
 
         // Interaction: Removal & Stax
@@ -716,6 +760,14 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
                 pivotability_weighted += weight;
             }
         }
+
+        if roles.contains(&Role::VOLTRON_PIECE) {
+            voltron_signal_weighted += weight;
+        }
+
+        if roles.contains(&Role::GROUP_HUG) {
+            group_hug_signal_weighted += weight;
+        }
     };
 
     for card in mainboard { process_card(card); }
@@ -725,12 +777,16 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let turbo_signal = explosive_mana_points + explosive_draw_points;
     let midrange_signal = (consistency_weighted as f32) + (engine_count_weighted as f32) + (draw_count_weighted as f32);
     let stax_signal = stax_signal_weighted;
+    let voltron_signal = voltron_signal_weighted;
+    let group_hug_signal = group_hug_signal_weighted;
     let commander_engine_signal = commanders.iter().filter(|c| {
         let r = infer_roles(c);
-        r.contains(&Role::ENGINE) || r.contains(&Role::COST_REDUCTION)
+        let is_engine = r.contains(&Role::ENGINE) && (r.contains(&Role::DRAW) || r.contains(&Role::TUTOR));
+        let is_cost_reducer = r.contains(&Role::COST_REDUCTION);
+        is_engine || is_cost_reducer
     }).count() as f32;
 
-    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal);
+    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal);
 
     let amv = if non_land_count > 0 { total_mv / non_land_count as f32 } else { 0.0 };
 
@@ -755,10 +811,10 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     // R — Resilience (0-5)
     let mut resilience_score = match resilience_weighted {
-        n if n >= 10.0 => 5,
-        n if n >= 7.0 => 4,
-        n if n >= 4.0 => 3,
-        n if n >= 1.5 => 2,
+        n if n >= 13.0 => 5,
+        n if n >= 9.0 => 4,
+        n if n >= 5.0 => 3,
+        n if n >= 2.0 => 2,
         _ => 1,
     };
 
@@ -823,12 +879,17 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     // 1. Command zone card advantage engine
     let cz_engine = commanders.iter().any(|c| {
         let roles = infer_roles(c);
-        roles.contains(&Role::ENGINE) && (roles.contains(&Role::DRAW) || roles.contains(&Role::TUTOR))
+        let tier = classify_card(c, &roles);
+        let oracle = c.oracle_text().unwrap_or_default().to_lowercase();
+        let is_combat_engine = oracle.contains("deals combat damage");
+        
+        roles.contains(&Role::ENGINE) && (roles.contains(&Role::DRAW) || roles.contains(&Role::TUTOR)) &&
+        (tier == QualityTier::Premium || (tier == QualityTier::Efficient && !is_combat_engine))
     });
     if cz_engine {
         consistency_score = consistency_score.max(4);
-        pivotability_score = pivotability_score.max(4);
-        applied_overrides.push("CZ Engine (C>=4, P>=4)");
+        pivotability_score = pivotability_score.max(3);
+        applied_overrides.push("CZ Engine (C>=4, P>=3)");
     }
     
     // 2. 8+ free interaction spells
@@ -875,6 +936,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             pivotability_score = pivotability_score.max(3);
             applied_overrides.push("CmdrEngine Archetype (C>=4, R>=3, P>=3)");
         }
+        DeckArchetype::Voltron => {
+            resilience_score = resilience_score.max(4);
+            pivotability_score = pivotability_score.max(2);
+            applied_overrides.push("Voltron Archetype (R>=4, P>=2)");
+        }
         DeckArchetype::Midrange => {}
     }
 
@@ -918,15 +984,15 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     
     // AMV Multiplier (Applied AFTER floors)
     let amv_multiplier = match amv {
-        v if v <= 1.3 => 1.20,
-        v if v <= 1.6 => 1.12,
-        v if v <= 2.0 => 1.05,
-        v if v <= 2.4 => 1.02,
+        v if v <= 1.3 => 1.12,
+        v if v <= 1.6 => 1.06,
+        v if v <= 2.0 => 1.02,
+        v if v <= 2.4 => 1.01,
         v if v <= 2.8 => 1.00,
-        v if v <= 3.0 => 0.94,
-        v if v <= 3.4 => 0.88,
-        v if v <= 3.8 => 0.72,
-        _ => 0.55,
+        v if v <= 3.0 => 0.92,
+        v if v <= 3.4 => 0.85,
+        v if v <= 3.8 => 0.65,
+        _ => 0.50,
     };
     
     // --- Two-Card Infinite Combo Detection ---
@@ -971,7 +1037,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
                 };
                 detected_combos.push(format!("{} + {}{}", combo.card_a, combo.card_b, effects_str));
                 
-                let mut combo_bonus = 0.15; // Base bonus for MV <= 3
+                let mut combo_bonus = 0.12; // Base bonus for MV <= 3
                 
                 if has_tutor {
                     combo_bonus += 0.05;
@@ -1015,16 +1081,19 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         combo_multiplier = (1.0 + total_bonus).min(1.30);
     }
     
-    let commander_mv_penalty = commanders.iter().map(|c| {
-        let mv = c.mana_value() as f32;
-        if mv > 3.0 {
-            // Negative weight (penalty): scales up
-            (mv - 2.0) * 0.25 
-        } else {
-            // Positive weight (bonus): 3 and lower
-            (mv - 3.5) * 0.15
-        }
-    }).sum::<f32>();
+    let mut commander_mv_penalty = 0.0;
+    if !commanders.is_empty() {
+        commander_mv_penalty = commanders.iter().map(|c| {
+            let mv = c.mana_value() as f32;
+            if mv > 3.0 {
+                // Negative weight (penalty): scales up
+                (mv - 3.0) * 0.25 
+            } else {
+                // Positive weight (bonus): 3 and lower
+                (mv - 3.5) * 0.15
+            }
+        }).sum::<f32>();
+    }
 
     let final_multiplier = amv_multiplier * combo_multiplier;
     let total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
@@ -1063,6 +1132,12 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     CrispiEvaluation {
         total_score,
         raw_score,
+        turbo_signal,
+        midrange_signal,
+        stax_signal,
+        voltron_signal,
+        group_hug_signal,
+        commander_engine_signal,
         amv_multiplier,
         combo_multiplier,
         final_multiplier,
@@ -1087,6 +1162,13 @@ mod tests {
     use crate::models::card_model::{Card, CardType, SuperType};
 
     fn make_card(name: &str, mv: u8, types: Vec<CardType>, text: &str) -> Card {
+        let mut sub_types = vec![];
+        if name.to_lowercase().contains("equipment") || text.to_lowercase().contains("equipped creature") {
+            sub_types.push("Equipment".to_string());
+        }
+        if name.to_lowercase().contains("aura") || text.to_lowercase().contains("enchanted creature") {
+            sub_types.push("Aura".to_string());
+        }
         Card::new(
             0,
             "".to_string(),
@@ -1096,7 +1178,7 @@ mod tests {
             mv,
             types,
             vec![],
-            vec![],
+            sub_types,
             Some(text.to_string()),
             "legal".to_string(),
             true,
@@ -1230,6 +1312,9 @@ mod tests {
         mainboard.push(make_card("Lavaspur Boots", 1, vec![CardType::Artifact], "Equipped creature gets +1/+0 and gains haste and ward {1}."));
         mainboard.push(make_card("Swiftfoot Boots", 2, vec![CardType::Artifact], "Equipped creature gets hexproof and haste."));
         mainboard.push(make_card("Sword of the Animist", 2, vec![CardType::Artifact], "Whenever equipped creature attacks... search for a land..."));
+        mainboard.push(make_card("Argentum Armor", 6, vec![CardType::Artifact], "Equipped creature gets +6/+6. Whenever equipped creature attacks, destroy target permanent."));
+        mainboard.push(make_card("Hydra's Growth", 3, vec![CardType::Enchantment], "Enchanted creature gets +1/+1. At the beginning of your upkeep, double the number of +1/+1 counters on enchanted creature."));
+        mainboard.push(make_card("Bear Umbra", 4, vec![CardType::Enchantment], "Enchanted creature gets +2/+2 and has \"Whenever this creature attacks, untap all lands you control.\" Totem armor."));
         
         // Ramp
         mainboard.push(make_card("Fyndhorn Elves", 1, vec![CardType::Creature], "{T}: Add {G}."));
@@ -1249,53 +1334,6 @@ mod tests {
 
         let evaluation = calculate_crispi(&mainboard, &commanders, 0);
         
-        // Use process_card logic manually to see signals
-        let mut explosive_mana_points = 0.0;
-        let mut explosive_draw_points = 0.0;
-        let mut consistency_weighted = 0.0;
-        let mut engine_count_weighted = 0.0;
-        let mut draw_count_weighted = 0.0;
-        let mut stax_signal_weighted = 0.0;
-        let mut fast_mana_count = 0;
-
-        let mut process = |card: &Card| {
-            let roles = infer_roles(card);
-            let tier = classify_card(card, &roles);
-            let weight = tier.weight();
-
-            if roles.contains(&Role::TUTOR) { consistency_weighted += weight; }
-            if roles.contains(&Role::DRAW) { draw_count_weighted += weight; }
-            if roles.contains(&Role::ENGINE) { engine_count_weighted += weight; }
-            if roles.contains(&Role::RITUAL) { explosive_mana_points += 2.5; }
-            if roles.contains(&Role::TREASURE_BURST) { explosive_mana_points += 2.0; }
-            if roles.contains(&Role::SAC_MANA) { explosive_mana_points += 1.8; }
-            if roles.contains(&Role::COST_REDUCTION) { explosive_mana_points += 1.5; }
-            if roles.contains(&Role::FAST_MANA_ONE_SHOT) { explosive_mana_points += 1.8; }
-            if roles.contains(&Role::FAST_MANA) { 
-                explosive_mana_points += 1.0; 
-                fast_mana_count += 1;
-            }
-            if roles.contains(&Role::BURST_DRAW) { explosive_draw_points += 1.5; }
-            if roles.contains(&Role::MASS_DRAW) { explosive_draw_points += 2.0; }
-            if roles.contains(&Role::WHEEL) { explosive_draw_points += 2.5; }
-            if roles.contains(&Role::STAX) { stax_signal_weighted += 1.0; }
-        };
-
-        for c in &mainboard { process(c); }
-        for c in &commanders { process(c); }
-
-        let turbo_signal = explosive_mana_points + explosive_draw_points;
-        let midrange_signal = consistency_weighted + engine_count_weighted + draw_count_weighted;
-        let commander_engine_signal = commanders.iter().filter(|c| {
-            let r = infer_roles(c);
-            r.contains(&Role::ENGINE) || r.contains(&Role::COST_REDUCTION)
-        }).count() as f32;
-
-        println!("Kosei DEBUG: turbo_signal = {}", turbo_signal);
-        println!("Kosei DEBUG: midrange_signal = {}", midrange_signal);
-        println!("Kosei DEBUG: commander_engine_signal = {}", commander_engine_signal);
-        println!("Kosei DEBUG: fast_mana_count = {}", fast_mana_count);
-        
         println!("Kosei Test - Total Score: {}", evaluation.total_score);
         println!("Kosei Test - Raw Score: {}", evaluation.raw_score);
         println!("Kosei Test - AMV: {:.2}", evaluation.total_score / evaluation.final_multiplier / evaluation.raw_score); // Not exact but give idea
@@ -1307,8 +1345,11 @@ mod tests {
         println!("Kosei Test - Pivotability: {}", evaluation.pivotability.score);
         println!("Kosei Test - Interpretation: {}", evaluation.interpretation);
         println!("Kosei Test - Archetype: {:?}", evaluation.archetype);
+        println!("Kosei Test - Voltron Signal: {}", evaluation.voltron_signal);
 
-        // This is expected to BE TOO HIGH currently, we want it < 19.0
+        // Assert Voltron Archetype
+        assert_eq!(evaluation.archetype, DeckArchetype::Voltron);
+        // This is expected to be under 19.0 now
         assert!(evaluation.total_score < 19.0, "Deck should not be Fringe cEDH! Score was {}", evaluation.total_score);
     }
 
@@ -1339,6 +1380,12 @@ mod tests {
         let eval_kosei = calculate_crispi(&mainboard, &vec![kosei], 0);
         assert_eq!(eval_kosei.commander_mv_penalty, 0.25);
 
+        // Gitrog (5)
+        // Penalty = (5 - 3.0)*0.25 = 0.50
+        let gitrog = make_card("The Gitrog Monster", 5, vec![CardType::Creature], "");
+        let eval_gitrog = calculate_crispi(&mainboard, &vec![gitrog], 0);
+        assert_eq!(eval_gitrog.commander_mv_penalty, 0.50);
+
         // Kraum/Silas (5 + 3 = 8)
         // Penalty = (5 - 3.0)*0.25 + (3 - 3.5)*0.15 = 0.5 - 0.075 = 0.425
         let eval_kraum_silas = calculate_crispi(&mainboard, &vec![kraum.clone(), silas.clone()], 0);
@@ -1348,5 +1395,9 @@ mod tests {
         // Penalty = (7 - 3.0)*0.25 = 1.0
         let eval_etali = calculate_crispi(&mainboard, &vec![etali], 0);
         assert_eq!(eval_etali.commander_mv_penalty, 1.0);
+
+        // No commander: 0.0
+        let eval_none = calculate_crispi(&mainboard, &vec![], 0);
+        assert_eq!(eval_none.commander_mv_penalty, 0.0);
     }
 }

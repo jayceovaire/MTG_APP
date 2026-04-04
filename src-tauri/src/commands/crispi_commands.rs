@@ -12,7 +12,7 @@ pub struct CardRoles {
     pub tier: crispi_model::QualityTier,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DeckRoleEvaluation {
     pub deck_id: u64,
     pub card_evaluations: Vec<CardRoles>,
