@@ -69,6 +69,7 @@ const emit = defineEmits([
   "remove-partner",
   "favorite-card",
   "add-to-package",
+  "hover-card",
 ]);
 const hasContextActions = computed(() => (
   props.canSetCommander ||
@@ -120,6 +121,7 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
       'deck-card-row--illegal': illegalInCommander,
       'deck-card-row--game-changer': isGameChanger && !illegalInCommander,
     }"
+    @mouseenter="$emit('hover-card', card)"
   >
     <div
       class="deck-card-row__count"

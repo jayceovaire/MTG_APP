@@ -12,7 +12,9 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "mtg_app",
+        "url": "index.html",
         "width": 800,
         "height": 600
       }

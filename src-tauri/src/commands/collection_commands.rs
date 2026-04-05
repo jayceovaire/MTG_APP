@@ -484,8 +484,29 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
 }
 
 #[tauri::command]
-pub fn get_card(name: String) -> Result<Option<Card>, String> {
-    card_from_db_by_name(&name, 0)
+pub async fn get_card(app: AppHandle, name: String) -> Result<Option<Card>, String> {
+    let mut card_opt = card_from_db_by_name(&name, 0)?;
+    
+    if let Some(ref mut card) = card_opt {
+        let cache_dir = app.path().local_data_dir()
+            .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
+            .join("mtg_app")
+            .join("card_images");
+
+        if !cache_dir.exists() {
+            std::fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache directory: {e}"))?;
+        }
+
+        let client = reqwest::Client::builder()
+            .user_agent("MTG_App/0.1.0 (contact: support@mtg_app.local)")
+            .build()
+            .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
+
+        let _ = crate::commands::image_commands::process_card(card, &cache_dir, &client).await;
+        crate::commands::image_commands::convert_card_image_to_base64(card);
+    }
+    
+    Ok(card_opt)
 }
 
 #[tauri::command]
@@ -648,16 +669,7 @@ pub async fn get_random_card(app: AppHandle) -> Result<Option<Card>, String> {
 
         let _ = crate::commands::image_commands::process_card(card, &cache_dir, &client).await;
 
-        // Convert the local path to a base64 data URI to ensure it displays correctly in the frontend.
-        // This bypasses any potential asset protocol issues on Windows while remaining safe
-        // because the card is re-fetched from the database when added to the collection.
-        let image_path = card.get_image().to_string();
-        if !image_path.is_empty() {
-            if let Ok(bytes) = std::fs::read(&image_path) {
-                let b64 = crate::commands::image_commands::b64_encode(&bytes);
-                card.set_image(format!("data:image/png;base64,{}", b64));
-            }
-        }
+        crate::commands::image_commands::convert_card_image_to_base64(card);
     }
 
     Ok(card_opt)

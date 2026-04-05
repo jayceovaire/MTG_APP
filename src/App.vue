@@ -1,11 +1,15 @@
 <script setup>
 import SideNavBar from "./components/SideNavBar.vue";
+import { useRoute } from "vue-router";
+import { computed } from "vue";
 
+const route = useRoute();
+const isCardViewer = computed(() => route.path === "/card-viewer");
 </script>
 
 <template>
   <v-app>
-    <SideNavBar />
+    <SideNavBar v-if="!isCardViewer" />
     <v-main>
       <router-view />
     </v-main>

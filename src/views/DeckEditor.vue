@@ -2,7 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   mdiAlertCircleOutline,
   mdiCardsOutline,
@@ -14,6 +15,7 @@ import {
   mdiGaugeFull,
   mdiCancel,
   mdiChevronLeft,
+  mdiMagnify,
 } from "@mdi/js";
 import {
   addCardToDeckCommand,
@@ -96,6 +98,41 @@ function normalizeDeckId(value) {
 
 function goBack() {
   router.back();
+}
+
+function handleHoverCard(card) {
+  emit("hover-card", card);
+}
+
+async function openCardViewer() {
+  try {
+    const allWindows = await WebviewWindow.getAll();
+    const existing = allWindows.find((w) => w.label === "card-viewer");
+
+    if (existing) {
+      await existing.show();
+      await existing.unminimize();
+      await existing.setFocus();
+    } else {
+      const viewer = new WebviewWindow("card-viewer", {
+        url: window.location.origin + "/#/card-viewer",
+        title: "Card Viewer",
+        width: 1000,
+        height: 600,
+        center: true,
+      });
+
+      viewer.once("tauri://created", () => {
+        console.log("Card Viewer window created");
+      });
+
+      viewer.once("tauri://error", (e) => {
+        console.error("Card Viewer window error:", e);
+      });
+    }
+  } catch (error) {
+    console.error("Failed to open card viewer:", error);
+  }
 }
 
 async function loadDeck() {
@@ -1512,6 +1549,7 @@ onUnmounted(() => {
                 @remove-partner="handleRemovePartner(entry.card.id, entry.card.name)"
                 @remove-commander="handleRemoveCommander(entry.card.name)"
                 @add-to-package="handleAddToPackage(entry.card.name)"
+                @hover-card="handleHoverCard"
               />
             </div>
             <p v-else class="empty-copy">No commander selected yet.</p>
@@ -1524,6 +1562,17 @@ onUnmounted(() => {
               <div class="d-flex align-center flex-grow-1">
                 <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
                 <h2 class="ml-2">Mainboard</h2>
+                <v-btn
+                  variant="text"
+                  size="small"
+                  class="ml-4"
+                  @click="openCardViewer"
+                >
+                  <template #prepend>
+                    <v-icon :icon="mdiMagnify" size="18"></v-icon>
+                  </template>
+                  Card Viewer
+                </v-btn>
               </div>
               <div class="d-flex align-center bg-amber-darken-4 px-2 py-1 rounded-pill" v-if="deck.game_changer_count > 0">
                 <v-icon :icon="mdiGaugeFull" size="16" color="amber-lighten-2"></v-icon>
@@ -1558,6 +1607,7 @@ onUnmounted(() => {
                     @set-commander="handleSetCommander(entry.card.id, entry.card.name)"
                     @set-partner="handleSetPartner(entry.card.id, entry.card.name)"
                     @add-to-package="handleAddToPackage(entry.card.name)"
+                    @hover-card="handleHoverCard"
                   />
                 </div>
               </section>

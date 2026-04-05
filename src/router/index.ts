@@ -10,6 +10,7 @@ import PowerCalculator from "../views/PowerCalculator.vue";
 import Roast from "../views/Roast.vue";
 import Settings from "../views/Settings.vue";
 import InfoView from "../views/InfoView.vue";
+import CardViewer from "../views/CardViewer.vue";
 
 const routes = [
     { path: "/", component: HomeView },
@@ -22,7 +23,7 @@ const routes = [
     {path: "/roast", component: Roast},
     {path: "/settings", component: Settings},
     {path: "/info", component: InfoView},
-
+    { path: "/card-viewer", component: CardViewer },
 ]
 
 export const router = createRouter({

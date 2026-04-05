@@ -486,3 +486,13 @@ pub(crate) fn b64_encode(input: &[u8]) -> String {
     }
     result
 }
+
+pub(crate) fn convert_card_image_to_base64(card: &mut Card) {
+    let image_path = card.get_image().to_string();
+    if !image_path.is_empty() && !image_path.starts_with("data:") && !image_path.starts_with("http") {
+        if let Ok(bytes) = std::fs::read(&image_path) {
+            let b64 = b64_encode(&bytes);
+            card.set_image(format!("data:image/png;base64,{}", b64));
+        }
+    }
+}
