@@ -351,10 +351,10 @@ async function runMonteCarlo() {
 
                 <!-- Structural Metrics Row -->
                 <div class="d-flex justify-center flex-wrap gap-4 mb-2">
-                  <v-chip size="small" variant="outlined" color="primary">
+                  <v-chip size="small" variant="outlined" :color="crispiResults.crispi.role_score > 1.0 ? 'success' : crispiResults.crispi.role_score < 1.0 ? 'warning' : 'primary'">
                     Role Score: {{ crispiResults.crispi.role_score.toFixed(2) }}
                   </v-chip>
-                  <v-chip size="small" variant="outlined" color="primary">
+                  <v-chip size="small" variant="outlined" :color="crispiResults.crispi.land_score > 1.0 ? 'warning' : crispiResults.crispi.land_score < 1.0 ? 'error' : 'success'">
                     Land Score: {{ crispiResults.crispi.land_score.toFixed(2) }}
                   </v-chip>
                   <v-chip size="small" variant="outlined" :color="crispiResults.crispi.commander_mv_penalty > 0 ? 'warning' : 'success'">

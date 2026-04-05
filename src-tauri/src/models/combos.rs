@@ -41,7 +41,7 @@ pub static TWO_CARD_COMBOS: &[TwoCardComboDef] = &[
     TwoCardComboDef { card_a: "Staff of Domination", card_b: "Priest of Titania", effects: &["draw", "mana"], prereqs: 2 },
     TwoCardComboDef { card_a: "Sword of Feast and Famine", card_b: "Aggravated Assault", effects: &["mana"], prereqs: 1 },
     TwoCardComboDef { card_a: "Blowfly Infestation", card_b: "Nest of Scarabs", effects: &["ETB", "LTB"], prereqs: 0 },
-    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Saw in Half", effects: &["ETB"], prereqs: 1 },
+    TwoCardComboDef { card_a: "Dualcaster Mage", card_b: "Saw in Half", effects: &["infinite ETB, infinite hasted creatures"], prereqs: 1 },
     TwoCardComboDef { card_a: "Kiki-Jiki, Mirror Breaker", card_b: "Zealous Conscripts", effects: &["ETB"], prereqs: 0 },
     TwoCardComboDef { card_a: "Staff of Domination", card_b: "Elvish Archdruid", effects: &["draw", "mana"], prereqs: 2 },
     TwoCardComboDef { card_a: "Staff of Domination", card_b: "Marwyn, the Nurturer", effects: &["draw", "mana"], prereqs: 1 },

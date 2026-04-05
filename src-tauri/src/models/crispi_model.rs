@@ -732,6 +732,67 @@ fn detect_archetype(
     }
 }
 
+fn combinations(n: usize, k: usize) -> f64 {
+    if k > n {
+        return 0.0;
+    }
+    if k == 0 || k == n {
+        return 1.0;
+    }
+
+    let k = k.min(n - k);
+    let mut result = 1.0;
+    for i in 1..=k {
+        result *= (n - k + i) as f64 / i as f64;
+    }
+    result
+}
+
+fn hypergeometric_at_least(population: usize, successes: usize, draws: usize, target: usize) -> f32 {
+    if population == 0 || draws == 0 || successes == 0 || target > draws {
+        return 0.0;
+    }
+
+    let draws = draws.min(population);
+    let max_hits = successes.min(draws);
+    if target > max_hits {
+        return 0.0;
+    }
+
+    let denominator = combinations(population, draws);
+    if denominator == 0.0 {
+        return 0.0;
+    }
+
+    let mut total = 0.0;
+    for hits in target..=max_hits {
+        total += combinations(successes, hits) * combinations(population - successes, draws - hits) / denominator;
+    }
+    total as f32
+}
+
+fn derive_bracket(n_gc: u32, any_combo_found: bool, total_score: f32, amv: f32) -> u8 {
+    let mut bracket = if n_gc == 0 {
+        2
+    } else if n_gc <= 3 {
+        3
+    } else {
+        4
+    };
+
+    if any_combo_found {
+        bracket = bracket.max(4);
+    }
+
+    if bracket == 2 && total_score <= 8.0 && amv > 3.5 {
+        1
+    } else if total_score >= 24.0 {
+        5
+    } else {
+        bracket
+    }
+}
+
 pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> CrispiEvaluation {
     let mut total_mv = 0.0;
     let mut non_land_count = 0;
@@ -1172,7 +1233,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut any_combo_found = false;
     
     // Tutor influence: scales with the number of tutors
-    let tutor_influence = (tutor_count as f32 * 0.02).min(0.15);
+    let tutor_influence = (tutor_count as f32 * 0.01).min(0.15);
     
     for combo in TWO_CARD_COMBOS {
         let norm_a = normalize_card_name(combo.card_a);
@@ -1374,10 +1435,55 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         final_multiplier *= 1.05;
     }
 
-    let total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
-
     let land_count = mainboard.iter().filter(|c| c.is_land()).count();
-    let land_score = (land_count as f32 / 38.0).min(1.0);
+    let provisional_total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
+    let provisional_bracket = derive_bracket(n_gc, any_combo_found, provisional_total_score, amv);
+    let key_turn = if provisional_bracket >= 5 {
+        3
+    } else if provisional_bracket >= 4 {
+        5
+    } else {
+        8
+    };
+    let land_drop_score = (2..=key_turn)
+        .map(|turn| {
+            let cards_seen = 7 + (turn - 1);
+            hypergeometric_at_least(99, land_count, cards_seen, turn)
+        })
+        .sum::<f32>() / (key_turn - 1) as f32;
+
+    let nonland_mana_source_count = mainboard.iter().filter(|card| {
+        if card.is_land() {
+            return false;
+        }
+        let roles = infer_roles(card);
+        (card.is_artifact() && (roles.contains(&Role::RAMP) || roles.contains(&Role::FAST_MANA))) ||
+        roles.contains(&Role::RITUAL) ||
+        roles.contains(&Role::TREASURE_BURST) ||
+        roles.contains(&Role::SAC_MANA) ||
+        roles.contains(&Role::FAST_MANA_ONE_SHOT)
+    }).count();
+    let mana_source_count = land_count + nonland_mana_source_count;
+    let flood_threshold = key_turn + 2;
+    let flood_risk = hypergeometric_at_least(99, mana_source_count, 7 + (key_turn - 1), flood_threshold);
+
+    let commander_selection = commanders.iter().any(|card| {
+        let roles = infer_roles(card);
+        roles.contains(&Role::DRAW) ||
+        roles.contains(&Role::TUTOR) ||
+        roles.contains(&Role::LOOTING) ||
+        roles.contains(&Role::IMPULSE_DRAW)
+    });
+    let deck_selection_density = ((tutor_count as f32) + draw_count_weighted).min(12.0) / 12.0;
+    let flood_mitigation = (1.0
+        - if commander_selection { 0.25 } else { 0.0 }
+        - deck_selection_density * 0.45)
+        .clamp(0.35, 1.0);
+    let flood_penalty = ((flood_risk - 0.35).max(0.0) * 0.30 * flood_mitigation).min(0.12);
+    let land_score = land_drop_score + ((flood_risk - 0.35).max(0.0) * flood_mitigation);
+    final_multiplier *= 1.0 - flood_penalty;
+
+    let total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
     let role_score = raw_score / 25.0;
 
     let interpretation = match total_score {
@@ -1389,23 +1495,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     }.to_string();
 
     // Bracket Calculation
-    let mut bracket = if n_gc == 0 {
-        2
-    } else if n_gc <= 3 {
-        3
-    } else {
-        4
-    };
-
-    if any_combo_found {
-        bracket = bracket.max(4);
-    }
-
-    if bracket == 2 && total_score <= 8.0 && amv > 3.5 {
-        bracket = 1;
-    } else if total_score >= 24.0 {
-        bracket = 5;
-    }
+    let bracket = derive_bracket(n_gc, any_combo_found, total_score, amv);
 
     CrispiEvaluation {
         total_score,
