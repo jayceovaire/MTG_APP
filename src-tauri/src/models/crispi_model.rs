@@ -1830,4 +1830,35 @@ mod tests {
         assert!(evaluation.detected_combos.iter().any(|c| c.contains("Underworld Breach") && c.contains("Lion's Eye Diamond") && c.contains("Brain Freeze")));
         assert!(evaluation.combo_multiplier > 1.0);
     }
+
+    #[test]
+    fn test_hoarding_broodlord_combo() {
+        let mut mainboard = vec![];
+        mainboard.push(make_card("Hoarding Broodlord", 8, vec![CardType::Creature], "Convoke. When Hoarding Broodlord enters the battlefield, search your library for a card, exile it face down, then shuffle. For as long as that card remains exiled, you may play it. Spells you cast from exile have convoke."));
+        mainboard.push(make_card("Saw in Half", 3, vec![CardType::Instant], "Destroy target creature. If that creature is destroyed this way, its controller creates two tokens that are copies of it, except their base power is half that creature's base power and their base toughness is half that creature's base toughness, each rounded up."));
+        mainboard.push(make_card("Sacrifice", 1, vec![CardType::Instant], "As an additional cost to cast Sacrifice, sacrifice a creature. Add an amount of {B} equal to the sacrificed creature's mana value."));
+        mainboard.push(make_card("Burnt Offering", 1, vec![CardType::Instant], "As an additional cost to cast Burnt Offering, sacrifice a creature. Add an amount of {B} or {R} equal to the sacrificed creature's mana value."));
+        mainboard.push(make_card("Culling the Weak", 1, vec![CardType::Instant], "As an additional cost to cast Culling the Weak, sacrifice a creature. Add {B}{B}{B}{B}."));
+
+        // Prereqs: 3. 5 + 3 = 8.
+        // We have 5 cards already. We need 3 more to have 8 total.
+        for i in 0..3 {
+            mainboard.push(make_card(&format!("Filler {}", i), 1, vec![CardType::Creature], ""));
+        }
+
+        let commanders = vec![];
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+        println!("Hoarding Broodlord Test (Mainboard, 8 cards, Prereqs OK) - Detected: {:?}", evaluation.detected_combos);
+        assert!(evaluation.detected_combos.iter().any(|c| c.contains("Hoarding Broodlord") && c.contains("Saw in Half") && c.contains("Sacrifice")));
+        assert!(evaluation.detected_combos.iter().any(|c| c.contains("Hoarding Broodlord") && c.contains("Saw in Half") && c.contains("Burnt Offering")));
+        assert!(evaluation.detected_combos.iter().any(|c| c.contains("Hoarding Broodlord") && c.contains("Saw in Half") && c.contains("Culling the Weak")));
+
+        // Now with Hoarding Broodlord as Commander
+        let hb = mainboard.remove(0);
+        let commanders_hb = vec![hb];
+        let evaluation_cmdr = calculate_crispi(&mainboard, &commanders_hb, 0);
+        println!("Hoarding Broodlord Test (Commander) - Detected: {:?}", evaluation_cmdr.detected_combos);
+        assert!(evaluation_cmdr.detected_combos.iter().any(|c| c.contains("Hoarding Broodlord") && c.contains("Saw in Half") && c.contains("Sacrifice")));
+    }
 }

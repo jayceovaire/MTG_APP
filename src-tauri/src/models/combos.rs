@@ -99,13 +99,13 @@ pub static TWO_CARD_COMBOS: &[TwoCardComboDef] = &[
     TwoCardComboDef { card_a: "Selvala, Explorer Returned", card_b: "Staff of Domination", effects: &["mana", "draw"], prereqs: 2 },
     TwoCardComboDef { card_a: "Solphim, Mayhem Dominus", card_b: "Heartless Hidetsugu", effects: &["damage"], prereqs: 0 },
     TwoCardComboDef { card_a: "Eternal Scourge", card_b: "Food Chain", effects: &["mana", "ETB"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Chain of Smog", card_b: "Witherbloom Apprentice", effects: &["lifegain"], prereqs: 2 },
+    TwoCardComboDef { card_a: "Chain of Smog", card_b: "Witherbloom Apprentice", effects: &["infinite life gain / life loss"], prereqs: 0 },
     TwoCardComboDef { card_a: "Staff of Domination", card_b: "Selvala, Heart of the Wilds", effects: &["draw", "mana"], prereqs: 2 },
     TwoCardComboDef { card_a: "Combat Celebrant", card_b: "Kiki-Jiki, Mirror Breaker", effects: &["ETB"], prereqs: 0 },
     TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Elvish Archdruid", effects: &["mana"], prereqs: 3 },
     TwoCardComboDef { card_a: "Abdel Adrian, Gorion's Ward", card_b: "Animate Dead", effects: &["ETB"], prereqs: 5 },
     TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Marwyn, the Nurturer", effects: &["mana"], prereqs: 2 },
-    TwoCardComboDef { card_a: "Cultivator Colossus", card_b: "Abundance", effects: &["Play all lands from deck", "Infinite Landfall"], prereqs: 2},
+    TwoCardComboDef { card_a: "Cultivator Colossus", card_b: "Abundance", effects: &["Play all lands from deck", "Infinite Landfall"], prereqs: 1},
 
 ];
 
@@ -120,8 +120,9 @@ pub struct ThreeCardComboDef {
 }
 
 pub static THREE_CARD_COMBOS: &[ThreeCardComboDef] = &[
-    ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Lion's Eye Diamond", card_c: "Brain Freeze", effects: &["infinite mill"], prereqs: 3 },
-    ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Grinding Station", card_c: "Paradise Mantle", effects: &["infinite self mill"], prereqs: 3},
-    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Sacrifice", effects: &["Free Double Tutor/Cast"], prereqs: 3},
-    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Burnt Offering", effects: &["Free Double Tutor/Cast"], prereqs: 3},
+    ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Lion's Eye Diamond", card_c: "Brain Freeze", effects: &["infinite mill"], prereqs: 2},
+    ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Grinding Station", card_c: "Paradise Mantle", effects: &["infinite self mill"], prereqs: 2},
+    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Sacrifice", effects: &["Free Double Tutor/Cast"], prereqs: 2},
+    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Burnt Offering", effects: &["Free Double Tutor/Cast"], prereqs: 2},
+    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Culling the Weak", effects: &["Free Double Tutor/Cast"], prereqs: 3},
 ];

@@ -77,6 +77,11 @@ pub static CEDH_STAPLES: Lazy<HashSet<String>> = Lazy::new(|| {
         "Squee the Immortal",
         "Dualcaster Mage",
         "Twinflame",
+        "Hoarding Broodlord",
+        "Saw in Half",
+        "Burnt Offering",
+        "Sacrifice",
+        "Culling the Weak",
 
     ]
     .iter()
