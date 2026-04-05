@@ -122,6 +122,6 @@ pub struct ThreeCardComboDef {
 pub static THREE_CARD_COMBOS: &[ThreeCardComboDef] = &[
     ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Lion's Eye Diamond", card_c: "Brain Freeze", effects: &["infinite mill"], prereqs: 3 },
     ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Grinding Station", card_c: "Paradise Mantle", effects: &["infinite self mill"], prereqs: 3},
-
-
+    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Sacrifice", effects: &["Free Double Tutor/Cast"], prereqs: 3},
+    ThreeCardComboDef { card_a: "Saw in Half", card_b: "Hoarding Broodlord", card_c: "Burnt Offering", effects: &["Free Double Tutor/Cast"], prereqs: 3},
 ];

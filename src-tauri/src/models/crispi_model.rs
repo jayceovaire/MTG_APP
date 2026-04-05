@@ -1,5 +1,5 @@
 use crate::models::card_model::Card;
-use crate::models::combos::TWO_CARD_COMBOS;
+use crate::models::combos::{TWO_CARD_COMBOS, THREE_CARD_COMBOS};
 use crate::models::cedh_staples::CEDH_STAPLES;
 use serde::{Deserialize, Serialize};
 use regex::Regex;
@@ -1233,6 +1233,64 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             }
         }
     }
+
+    // --- Three-Card Infinite Combo Detection ---
+    for combo in THREE_CARD_COMBOS {
+        let norm_a = normalize_card_name(combo.card_a);
+        let norm_b = normalize_card_name(combo.card_b);
+        let norm_c = normalize_card_name(combo.card_c);
+        
+        if card_map.contains_key(&norm_a) && card_map.contains_key(&norm_b) && card_map.contains_key(&norm_c) {
+            let card_a = card_map.get(&norm_a).unwrap();
+            let card_b = card_map.get(&norm_b).unwrap();
+            let card_c = card_map.get(&norm_c).unwrap();
+            
+            let mut prereqs_met = true;
+            if combo.prereqs > 0 {
+                if non_land_count < (5 + combo.prereqs as usize) {
+                    prereqs_met = false;
+                }
+            }
+            
+            if prereqs_met {
+                any_combo_found = true;
+                let effects_str = if combo.effects.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({})", combo.effects.join(", "))
+                };
+                detected_combos.push(format!("{} + {} + {}{}", combo.card_a, combo.card_b, combo.card_c, effects_str));
+                
+                let mut combo_bonus = 0.02 + tutor_influence;
+                
+                let total_mv = (card_a.mana_value() + card_b.mana_value() + card_c.mana_value()) as f32;
+                let mv_penalty = (total_mv - 4.0).max(0.0) * 0.01; // MV penalty starts slightly higher for 3-card
+                combo_bonus -= mv_penalty;
+                
+                // Speed Penalty
+                let mut speed_penalty = 0.0;
+                let cards = [card_a, card_b, card_c];
+                for card in cards {
+                    let oracle = card.oracle_text().unwrap_or_default().to_lowercase();
+                    let is_inst = is_instant_speed(card);
+                    
+                    if !is_inst && card.is_sorcery() {
+                        speed_penalty += 0.02;
+                    }
+                    
+                    if (card.is_creature() || card.is_artifact()) && !has_non_tapping_activation(&oracle) {
+                        if card.is_creature() && !oracle.contains("haste") {
+                            speed_penalty += 0.02;
+                        }
+                    }
+                }
+                combo_bonus -= speed_penalty;
+                
+                combo_bonus = combo_bonus.clamp(0.02, 0.20);
+                total_bonus += combo_bonus;
+            }
+        }
+    }
     
     if any_combo_found {
         combo_multiplier = (1.0 + total_bonus).min(1.25);
@@ -1268,6 +1326,16 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         if card_map.contains_key(&norm_a) && card_map.contains_key(&norm_b) {
             combo_card_names.insert(norm_a);
             combo_card_names.insert(norm_b);
+        }
+    }
+    for combo in THREE_CARD_COMBOS {
+        let norm_a = normalize_card_name(combo.card_a);
+        let norm_b = normalize_card_name(combo.card_b);
+        let norm_c = normalize_card_name(combo.card_c);
+        if card_map.contains_key(&norm_a) && card_map.contains_key(&norm_b) && card_map.contains_key(&norm_c) {
+            combo_card_names.insert(norm_a);
+            combo_card_names.insert(norm_b);
+            combo_card_names.insert(norm_c);
         }
     }
 
@@ -1739,5 +1807,27 @@ mod tests {
         // Floors should apply: Consistency >= 4, Pivotability >= 3
         assert!(evaluation.consistency.score >= 4);
         assert!(evaluation.pivotability.score >= 3);
+    }
+
+    #[test]
+    fn test_three_card_combo() {
+        let mut mainboard = vec![];
+        mainboard.push(make_card("Underworld Breach", 2, vec![CardType::Enchantment], "Each nonland card in your graveyard has escape."));
+        mainboard.push(make_card("Lion's Eye Diamond", 0, vec![CardType::Artifact], "{T}, Discard your hand, Sacrifice Lion's Eye Diamond: Add three mana of any one color. Activate only as a mana ability."));
+        mainboard.push(make_card("Brain Freeze", 2, vec![CardType::Instant], "Storm. Target player mills three cards."));
+        
+        // Add enough non-land cards to meet prereqs (prereqs: 3 for this combo)
+        // logic: if non_land_count < (5 + combo.prereqs) { met = false; }
+        // 5 + 3 = 8.
+        for i in 0..5 {
+            mainboard.push(make_card(&format!("Filler {}", i), 1, vec![CardType::Creature], ""));
+        }
+        
+        let commanders = vec![];
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+        
+        println!("Three-Card Combo Test - Detected: {:?}", evaluation.detected_combos);
+        assert!(evaluation.detected_combos.iter().any(|c| c.contains("Underworld Breach") && c.contains("Lion's Eye Diamond") && c.contains("Brain Freeze")));
+        assert!(evaluation.combo_multiplier > 1.0);
     }
 }

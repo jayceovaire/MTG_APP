@@ -274,16 +274,16 @@ Measures ability to change plans mid-game.
 
 ---
 
-## 🔶 Two-Card Infinite Combo Detection (New)
+## 🔶 Infinite Combo Detection (New)
 
-CRISPI detects two-card infinite combos in the decklist and adjusts the score and bracket accordingly.
+CRISPI detects two and three-card infinite combos in the decklist and adjusts the score and bracket accordingly.
 
 ### Multiplier Rules
 
 - **Max Bonus (per combo):** **+0.20**
-- **Base Bonus:** **+0.02** for combos with total combined mana value ≤3.
+- **Base Bonus:** **+0.02** for combos with total combined mana value ≤3 (two-card) or ≤4 (three-card).
 - **Tutor Scaling:** **+0.02** per tutor (capped at **+0.15**).
-- **Mana Value Scaling:** Penalty of **-0.01** per MV for every point above **3** (total combined cost).
+- **Mana Value Scaling:** Penalty of **-0.01** per MV for every point above **3** (two-card) or **4** (three-card) (total combined cost).
 - **Speed Scaling:** Penalty of **-0.02** for each slow component (Sorcery-speed spells, or Tap abilities on creatures without haste).
 - **Minimum Bonus:** Every valid infinite combo grants at least **+0.02** (×1.02).
 - **Additive Bonus:** If multiple separate combos are detected, their bonuses are combined additively: `1.0 + sum(bonuses)`.
@@ -299,7 +299,7 @@ The AMV multiplier and Combo multiplier are combined into a `Final Multiplier`:
 
 ### Bracket Override
 
-Detecting any valid two-card infinite combo overrides lower brackets up to **Bracket 4**.
+Detecting any valid infinite combo overrides lower brackets up to **Bracket 4**.
 
 ### Two-Card Combo List (Examples)
 
@@ -333,7 +333,7 @@ These are applied after scoring but before AMV modifier.
 |---|---|
 | Commander is repeatable card advantage engine (e.g. Tymna the Weaver) | Consistency ≥4, Pivotability ≥3 |
 | 8+ free interaction spells (e.g. Force of Will) | Interaction = 5, Resilience ≥4 |
-| Compact ≤2 card deterministic win package | Speed = 5, Consistency +1 |
+| Compact ≤3 card deterministic win package | Speed = 5, Consistency +1 |
 | 10+ fast mana pieces | Speed = 5 |
 | 5+ premium ≤2 MV tutors | Consistency = 5 |
 
@@ -409,7 +409,7 @@ FinalCRISPI = min(RawCRISPI * FinalMultiplier, 25.0)
 | Condition | Final Bracket |
 |---|---|
 | Base Bracket 2, CRISPI 0–8, AMV >3.5 | 1 |
-| **Two-Card Infinite Combo Detected** | **Min Bracket 4** |
+| **Infinite Combo Detected** | **Min Bracket 4** |
 | FinalCRISPI ≥24 | 5 |
 
 ---

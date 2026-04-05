@@ -408,7 +408,7 @@ const scoringBonuses = [
       </v-col>
     </v-row>
 
-    <!-- Two-Card Infinite Combos -->
+    <!-- Infinite Combos -->
     <v-row class="mb-8 mt-4">
       <v-col cols="12">
         <h2 class="text-h4 mb-4 d-flex align-center">
@@ -420,7 +420,7 @@ const scoringBonuses = [
       <v-col cols="12">
         <v-card variant="outlined" class="pa-4">
           <p class="mb-4 text-body-1">
-            CRISPI automatically detects two-card infinite combos. Finding a valid combo significantly increases your deck's power score and ensures it is placed in <strong>Bracket 4</strong> or higher.
+            CRISPI automatically detects two and three-card infinite combos. Finding a valid combo significantly increases your deck's power score and ensures it is placed in <strong>Bracket 4</strong> or higher.
           </p>
           <v-row>
             <v-col cols="12" md="6">
@@ -445,7 +445,7 @@ const scoringBonuses = [
               <v-list density="compact">
                 <v-list-item>
                   <v-list-item-title>Mana Value Penalty: <span class="text-error font-weight-bold">-0.01x per MV</span></v-list-item-title>
-                  <v-list-item-subtitle>Applied for each point of combined Mana Value over 3.</v-list-item-subtitle>
+                  <v-list-item-subtitle>Applied for each point of combined Mana Value over 3 (two-card) or 4 (three-card).</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>Speed Penalty (Sorcery): <span class="text-error font-weight-bold">-0.02x</span></v-list-item-title>
@@ -490,7 +490,7 @@ const scoringBonuses = [
           ></v-expansion-panel>
           <v-expansion-panel
             title="Why did my score jump after adding a combo?"
-            text="Deterministic two-card infinite combos are significant power multipliers. CRISPI detects these automatically. Having a compact win condition that requires minimal setup is the most direct way to move into higher power brackets."
+            text="Deterministic infinite combos are significant power multipliers. CRISPI detects these automatically. Having a compact win condition that requires minimal setup is the most direct way to move into higher power brackets."
           ></v-expansion-panel>
         </v-expansion-panels>
       </v-col>
