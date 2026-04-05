@@ -245,7 +245,7 @@ static ENGINE_PATTERNS: &[&str] = &[
     r"at the beginning of your upkeep",
     r"each upkeep",
     r"each end step",
-    r"whenever an opponent (loses life|sacrifices|discards|draws)",
+    r"whenever an opponent draws.*(you draw|create|add \{|\buntap\b|investigate|treasure|clue|food|blood|search your library|return .* from your graveyard)",
     r"whenever [^. ]+ deals combat damage",
     r"whenever enchanted creature deals combat damage",
     r"exile .*: .*",  // optional repeatable activated engines
@@ -621,11 +621,12 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
     let mv = card.mana_value();
     let is_inst = is_instant_speed(card);
     let is_creature_artifact = card.is_creature() || card.is_artifact();
+    let is_delayed_tutor = roles.contains(&Role::TUTOR) && oracle_text.contains("suspend");
 
     // Premium criteria
     let mut is_premium = FREE_SPELL_REGEX.is_match(&oracle_text) ||
         roles.contains(&Role::FAST_MANA) ||
-        (roles.contains(&Role::TUTOR) && ANY_TUTOR_REGEX.is_match(&oracle_text) && mv <= 2) ||
+        (roles.contains(&Role::TUTOR) && !is_delayed_tutor && ANY_TUTOR_REGEX.is_match(&oracle_text) && mv <= 2) ||
         ((roles.contains(&Role::REMOVAL) || roles.contains(&Role::PROTECTION)) && is_inst && mv <= 1) ||
         (roles.contains(&Role::WINCON) && mv <= 2) ||
         (roles.contains(&Role::MASS_REMOVAL) && mv <= 3) ||
@@ -646,6 +647,10 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
 
     if is_premium {
         return QualityTier::Premium;
+    }
+
+    if is_delayed_tutor {
+        return QualityTier::Slow;
     }
 
     // Slow criteria: MV >= 4 and no combo/fast-mana/tutor/mass-removal
