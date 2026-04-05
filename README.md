@@ -8,8 +8,10 @@ A desktop application for Magic: The Gathering card collection and deck building
 - **CRISPI v2 Power Evaluation:** A sophisticated power-level scoring framework (Consistency, Resilience, Interaction, Speed, Pivotability) that uses:
   - Global efficiency rules based on mana value (MV).
   - Non-linear AMV multipliers for high-curve penalties.
+  - Role-based classification (Protection, Recursion, Engines, Wincons, etc.) with strict logic for utility lands.
   - Integration with "Game Changers" (high-impact cards) for accurate bracket-based tiering.
-- **Monte Carlo Simulations:** Real-time probability calculations for drawing specific card roles across turn-by-turn simulations.
+- **Monte Carlo & Hypergeometric Simulations:** Real-time probability calculations for drawing specific card roles across turn-by-turn simulations and opening hand scenarios.
+- **Polished UI:** User-friendly role names (e.g., "FAST MANA" instead of "FAST_MANA") and dynamic role distribution charts.
 - **Targeted Image Caching:** 
   - Automated, background image fetching for specific decks, packages, or individual card searches.
   - Scryfall API compliance with a global 100ms rate limiter and 10 requests-per-second cap.
@@ -118,8 +120,9 @@ For more detailed information on internal frameworks, refer to:
 
 ## 🧪 Tests
 
-- TODO: Automated tests for Rust backend.
-- TODO: Automated tests for Vue frontend.
+- **Rust Backend:** Unit tests for `crispi_model` (role inference, archetypes, and land engine logic) are implemented and passing.
+  - Run via: `cd src-tauri ; cargo test`
+- **Vue Frontend:** TODO: Add automated component/view tests.
 
 ## 📄 License
 
