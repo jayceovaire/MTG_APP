@@ -1,5 +1,6 @@
 use crate::models::card_model::Card;
 use crate::models::combos::TWO_CARD_COMBOS;
+use crate::models::cedh_staples::CEDH_STAPLES;
 use serde::{Deserialize, Serialize};
 use regex::Regex;
 use once_cell::sync::Lazy;
@@ -33,6 +34,8 @@ pub enum Role {
     IMPULSE_DRAW,
     GROUP_HUG,
     MASS_REMOVAL,
+    COMBO_PIECE,
+    ENGINE_WIN,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -269,6 +272,12 @@ static RECURSION_PATTERNS: &[&str] = &[
     r"(?:persist|undying)",                             // creatures returning
     r"may return .* to .* from your graveyard",        // optional recursion
     r"return .* onto the battlefield from your graveyard",
+    r"return .* to the battlefield from your graveyard",
+    r"return .* to the battlefield from exile",
+    r"return .* to the battlefield from .*",
+    r"when (this|that|target) creature dies, return it to the battlefield",
+    r"dies, return it to the battlefield",
+    r"gains .* when .* dies, return it to the battlefield",
 ];
 
 static RITUAL_PATTERNS: &[&str] = &[
@@ -872,6 +881,31 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal, group_hug_signal);
 
+    // --- Archetype Coherence Calculation ---
+    let signals = [
+        turbo_signal,
+        midrange_signal,
+        stax_signal,
+        commander_engine_signal,
+    ];
+
+    let max_signal = signals.iter().cloned().fold(0.0, f32::max);
+    let sum_signal: f32 = signals.iter().sum();
+
+    let focus_ratio = if sum_signal > 0.0 {
+        max_signal / sum_signal
+    } else { 0.0 };
+
+    let magnitude = max_signal;
+
+    let coherence_multiplier = match (focus_ratio, magnitude) {
+        (r, m) if r >= 0.45 && m >= 35.0 => 1.10,
+        (r, m) if r >= 0.40 && m >= 25.0 => 1.04,
+        (r, m) if r >= 0.35 && m >= 18.0 => 0.98,
+        (r, _) if r < 0.35 => 0.90,
+        _ => 1.0,
+    };
+
     let amv = if non_land_count > 0 { total_mv / non_land_count as f32 } else { 0.0 };
 
     // C — Consistency (0-5)
@@ -1184,7 +1218,60 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         }).sum::<f32>();
     }
 
-    let final_multiplier = amv_multiplier * combo_multiplier;
+    let mut final_multiplier = amv_multiplier * combo_multiplier;
+    final_multiplier *= coherence_multiplier;
+
+    // --- Win Line Density and cEDH Staples Calculation ---
+    let mut win_pieces_count = 0;
+    let mut staple_hits = 0;
+    let mut total_tutors_count = 0;
+    let mut total_recursion_count = 0;
+
+    let mut combo_card_names: HashSet<String> = HashSet::new();
+    for combo in TWO_CARD_COMBOS {
+        let norm_a = normalize_card_name(combo.card_a);
+        let norm_b = normalize_card_name(combo.card_b);
+        if card_map.contains_key(&norm_a) && card_map.contains_key(&norm_b) {
+            combo_card_names.insert(norm_a);
+            combo_card_names.insert(norm_b);
+        }
+    }
+
+    for card in &all_deck_cards {
+        let roles = infer_roles(card);
+        let norm_name = normalize_card_name(card.get_name());
+
+        if roles.contains(&Role::WINCON) || roles.contains(&Role::ENGINE_WIN) || combo_card_names.contains(&norm_name) {
+            win_pieces_count += 1;
+        }
+        if roles.contains(&Role::TUTOR) {
+            total_tutors_count += 1;
+        }
+        if roles.contains(&Role::RECURSION) {
+            total_recursion_count += 1;
+        }
+        if CEDH_STAPLES.contains(&norm_name) {
+            staple_hits += 1;
+        }
+    }
+
+    let win_density = win_pieces_count as f32
+        + total_tutors_count as f32 * 0.7
+        + total_recursion_count as f32 * 0.5;
+
+    let win_gate = match win_density {
+        d if d >= 18.0 => 1.08,
+        d if d >= 12.0 => 1.02,
+        d if d >= 7.0  => 0.95,
+        _              => 0.82,
+    };
+
+    final_multiplier *= win_gate;
+
+    if staple_hits >= 6 {
+        final_multiplier *= 1.05;
+    }
+
     let total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
 
     let land_count = mainboard.iter().filter(|c| c.is_land()).count();
