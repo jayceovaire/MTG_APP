@@ -36,6 +36,7 @@ pub enum Role {
     MASS_REMOVAL,
     COMBO_PIECE,
     ENGINE_WIN,
+    INFECT,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,6 +47,7 @@ pub enum DeckArchetype {
     CommanderEngine,
     Voltron,
     GroupHug,
+    Infect,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -81,6 +83,7 @@ pub struct CrispiEvaluation {
     pub midrange_signal: f32,
     pub stax_signal: f32,
     pub voltron_signal: f32,
+    pub infect_signal: f32,
     pub group_hug_signal: f32,
     pub commander_engine_signal: f32,
     pub amv_multiplier: f32,
@@ -188,7 +191,7 @@ static MASS_REMOVAL_PATTERNS: &[&str] = &[
     r"exile .* you don't control",
 
     // Classic wording used on many wipes
-    r"for each creature",
+    r"(destroy|exile|sacrifice).*for each creature|for each creature.*(destroy|exile|sacrifice)",
 ];
 
 static TUTOR_PATTERNS: &[&str] = &[
@@ -399,6 +402,13 @@ static MULTI_MANA_PRODUCER_PATTERNS: &[&str] = &[
     r"add .* (?:two|three|four|five|six|seven|eight|nine|ten) .* mana",
 ];
 
+static INFECT_PATTERNS: &[&str] = &[
+    r"\binfect\b",
+    r"\btoxic\b",
+    r"\bproliferate\b",
+    r"poison counter",
+];
+
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RAMP_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
@@ -424,6 +434,7 @@ static VOLTRON_PIECE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| VOLTRON_PIECE_PATTER
 static LOOTING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| LOOTING_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static IMPULSE_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| IMPULSE_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static GROUP_HUG_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| GROUP_HUG_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static INFECT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| INFECT_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 
 static MULTI_COLOR_LAND_PATTERNS: &[&str] = &[
     r"add \{.\} or \{.\}",
@@ -570,6 +581,9 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         if GROUP_HUG_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::GROUP_HUG);
         }
+        if INFECT_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::INFECT);
+        }
 
         // Fast Mana Check (0-MV ramp or high-output)
         if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized)) {
@@ -697,8 +711,11 @@ fn detect_archetype(
     midrange_signal: f32,
     voltron_signal: f32,
     group_hug_signal: f32,
+    infect_signal: f32,
 ) -> DeckArchetype {
-    if stax_signal >= 15.0 && stax_signal > turbo_signal && stax_signal > midrange_signal {
+    if infect_signal >= 8.0 && infect_signal > turbo_signal && infect_signal > midrange_signal {
+        DeckArchetype::Infect
+    } else if stax_signal >= 15.0 && stax_signal > turbo_signal && stax_signal > midrange_signal {
         DeckArchetype::Stax
     } else if group_hug_signal >= 8.0 && group_hug_signal > midrange_signal {
         DeckArchetype::GroupHug
@@ -738,6 +755,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut stax_signal_weighted = 0.0;
     let mut voltron_signal_weighted = 0.0;
     let mut group_hug_signal_weighted = 0.0;
+    let mut infect_signal_weighted = 0.0;
 
     let mut process_card = |card: &Card| {
         let roles = infer_roles(card);
@@ -866,6 +884,10 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         if roles.contains(&Role::GROUP_HUG) {
             group_hug_signal_weighted += weight;
         }
+
+        if roles.contains(&Role::INFECT) {
+            infect_signal_weighted += weight;
+        }
     };
 
     for card in mainboard { process_card(card); }
@@ -877,6 +899,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let stax_signal = stax_signal_weighted;
     let voltron_signal = voltron_signal_weighted;
     let group_hug_signal = group_hug_signal_weighted;
+    let infect_signal = infect_signal_weighted;
     let commander_engine_signal = commanders.iter().filter(|c| {
         let r = infer_roles(c);
         let is_engine = r.contains(&Role::ENGINE) && (r.contains(&Role::DRAW) || r.contains(&Role::TUTOR));
@@ -884,7 +907,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         is_engine || is_cost_reducer
     }).count() as f32;
 
-    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal, group_hug_signal);
+    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal, group_hug_signal, infect_signal);
 
     // --- Archetype Coherence Calculation ---
     let signals = [
@@ -892,6 +915,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         midrange_signal,
         stax_signal,
         commander_engine_signal,
+        infect_signal,
     ];
 
     let max_signal = signals.iter().cloned().fold(0.0, f32::max);
@@ -1076,6 +1100,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             pivotability_score = pivotability_score.max(2);
             applied_overrides.push("Midrange Archetype (C>=3, R>=3, I>=3, P>=2)");
         }
+        DeckArchetype::Infect => {
+            consistency_score = consistency_score.max(4);
+            pivotability_score = pivotability_score.max(3);
+            applied_overrides.push("Infect Archetype (C>=4, P>=3)");
+        }
     }
 
     let override_text = if !applied_overrides.is_empty() {
@@ -1118,14 +1147,14 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     
     // AMV Multiplier (Applied AFTER floors)
     let amv_multiplier = match amv {
-        v if v <= 1.3 => 1.12,
-        v if v <= 1.6 => 1.06,
-        v if v <= 2.0 => 1.02,
-        v if v <= 2.4 => 1.01,
-        v if v <= 2.8 => 1.00,
-        v if v <= 3.0 => 0.92,
-        v if v <= 3.4 => 0.85,
-        v if v <= 3.8 => 0.65,
+        v if v <= 1.5 => 1.08,
+        v if v <= 1.8 => 1.04,
+        v if v <= 2.5 => 1.02,
+        v if v <= 2.8 => 1.01,
+        v if v <= 3.0 => 1.00,
+        v if v <= 3.4 => 0.92,
+        v if v <= 3.8 => 0.85,
+        v if v <= 4.0 => 0.65,
         _ => 0.50,
     };
     
@@ -1317,6 +1346,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         midrange_signal,
         stax_signal,
         voltron_signal,
+        infect_signal,
         group_hug_signal,
         commander_engine_signal,
         amv_multiplier,
@@ -1670,6 +1700,44 @@ mod tests {
         assert!(evaluation.group_hug_signal >= 8.0);
         // Floors should apply: Consistency >= 3, Pivotability >= 3
         assert!(evaluation.consistency.score >= 3);
+        assert!(evaluation.pivotability.score >= 3);
+    }
+
+    #[test]
+    fn test_infect_archetype() {
+        let atraxa = make_card("Atraxa, Praetors' Voice", 4, vec![CardType::Creature], "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.");
+        let commanders = vec![atraxa];
+
+        let mut mainboard = vec![];
+        // Infect/Toxic/Poison/Proliferate pieces
+        mainboard.push(make_card("Glistener Elf", 1, vec![CardType::Creature], "Infect"));
+        mainboard.push(make_card("Blighted Agent", 2, vec![CardType::Creature], "Infect. Blighted Agent can't be blocked."));
+        mainboard.push(make_card("Skithiryx, the Blight Dragon", 5, vec![CardType::Creature], "Flying. Infect. {B}: Skithiryx gains haste until end of turn."));
+        mainboard.push(make_card("Venerated Rotpriest", 1, vec![CardType::Creature], "Toxic 1. Whenever a creature you control becomes the target of a spell, target opponent gets a poison counter."));
+        mainboard.push(make_card("Bloated Contaminator", 3, vec![CardType::Creature], "Trample. Toxic 1. Whenever Bloated Contaminator deals combat damage to a player, proliferate."));
+        mainboard.push(make_card("Contaminant Grafter", 3, vec![CardType::Creature], "Trample. Toxic 1. Whenever one or more creatures you control deal combat damage to a player, proliferate."));
+        mainboard.push(make_card("Evolution Sage", 3, vec![CardType::Creature], "Whenever a land enters the battlefield under your control, proliferate."));
+        mainboard.push(make_card("Infectious Bite", 2, vec![CardType::Sorcery], "Target creature you control deals damage equal to its power to target creature you don't control. Each opponent gets a poison counter."));
+        mainboard.push(make_card("Flux Channeler", 3, vec![CardType::Creature], "Whenever you cast a noncreature spell, proliferate."));
+        mainboard.push(make_card("Vraska's Fall", 2, vec![CardType::Sorcery], "Each opponent sacrifices a creature or planeswalker and gets a poison counter."));
+
+        // Add some lands
+        for _ in 0..30 {
+            mainboard.push(make_card("Forest", 0, vec![CardType::Land], "{T}: Add {G}."));
+        }
+
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+        println!("Infect Test - Total Score: {}", evaluation.total_score);
+        println!("Infect Test - Signal: {}", evaluation.infect_signal);
+        println!("Infect Test - Archetype: {:?}", evaluation.archetype);
+        println!("Infect Test - Consistency Score: {}", evaluation.consistency.score);
+        println!("Infect Test - Pivotability Score: {}", evaluation.pivotability.score);
+
+        assert_eq!(evaluation.archetype, DeckArchetype::Infect);
+        assert!(evaluation.infect_signal >= 8.0);
+        // Floors should apply: Consistency >= 4, Pivotability >= 3
+        assert!(evaluation.consistency.score >= 4);
         assert!(evaluation.pivotability.score >= 3);
     }
 }

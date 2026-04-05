@@ -71,7 +71,13 @@ pub static CEDH_STAPLES: Lazy<HashSet<String>> = Lazy::new(|| {
         "Tataru Taru",
         "Valley Floodcaller",
         "Borne Upon a Wind",
-        
+        "Food Chain",
+        "Eternal Scourge",
+        "Misthollow Griffin",
+        "Squee the Immortal",
+        "Dualcaster Mage",
+        "Twinflame",
+
     ]
     .iter()
     .map(|&s| super::crispi_model::normalize_card_name(s))

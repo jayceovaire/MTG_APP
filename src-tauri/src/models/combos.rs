@@ -105,4 +105,23 @@ pub static TWO_CARD_COMBOS: &[TwoCardComboDef] = &[
     TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Elvish Archdruid", effects: &["mana"], prereqs: 3 },
     TwoCardComboDef { card_a: "Abdel Adrian, Gorion's Ward", card_b: "Animate Dead", effects: &["ETB"], prereqs: 5 },
     TwoCardComboDef { card_a: "Umbral Mantle", card_b: "Marwyn, the Nurturer", effects: &["mana"], prereqs: 2 },
+    TwoCardComboDef { card_a: "Cultivator Colossus", card_b: "Abundance", effects: &["Play all lands from deck", "Infinite Landfall"], prereqs: 2},
+
+];
+
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ThreeCardComboDef {
+    pub card_a: &'static str,
+    pub card_b: &'static str,
+    pub card_c: &'static str,
+    pub effects: &'static [&'static str],
+    pub prereqs: u8,
+}
+
+pub static THREE_CARD_COMBOS: &[ThreeCardComboDef] = &[
+    ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Lion's Eye Diamond", card_c: "Brain Freeze", effects: &["infinite mill"], prereqs: 3 },
+    ThreeCardComboDef { card_a: "Underworld Breach", card_b: "Grinding Station", card_c: "Paradise Mantle", effects: &["infinite self mill"], prereqs: 3},
+
+
 ];

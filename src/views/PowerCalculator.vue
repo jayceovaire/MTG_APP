@@ -380,6 +380,9 @@ async function runMonteCarlo() {
                   <v-chip size="x-small" variant="tonal" color="pink" v-if="crispiResults.crispi.group_hug_signal >= 1.0">
                     Group Hug: {{ crispiResults.crispi.group_hug_signal.toFixed(1) }}
                   </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="light-green-darken-4" v-if="crispiResults.crispi.infect_signal >= 1.0">
+                    Infect: {{ crispiResults.crispi.infect_signal.toFixed(1) }}
+                  </v-chip>
                   <v-chip size="x-small" variant="tonal" color="purple" v-if="crispiResults.crispi.commander_engine_signal > 0">
                     CmdrEngine: {{ crispiResults.crispi.commander_engine_signal.toFixed(1) }}
                   </v-chip>

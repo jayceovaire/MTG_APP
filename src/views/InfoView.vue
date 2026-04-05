@@ -29,6 +29,7 @@ const glossary = [
   { term: "Looting", icon: mdiSwapHorizontal, color: "light-blue", desc: "Draw then discard effects. Good for deck filtering and graveyard strategies." },
   { term: "Impulse Draw", icon: mdiLibraryOutline, color: "deep-purple", desc: "Exiling cards to play them temporarily. Red's primary form of card advantage." },
   { term: "Group Hug", icon: mdiSwapHorizontal, color: "pink", desc: "Symmetrical effects that benefit all players. Common in casual and political decks." },
+  { term: "Infect", icon: mdiSeal, color: "light-green-darken-4", desc: "Cards that utilize poison counters, infect, toxic, and proliferate to win." },
 ];
 
 const archetypes = [
@@ -110,6 +111,19 @@ const archetypes = [
     ],
     strategy: "Accelerate the game for everyone while building a superior resource base or political standing.",
   },
+  {
+    title: "Infect",
+    icon: mdiSeal,
+    color: "light-green-darken-4",
+    definition: "Aggressive or Combo strategy focusing on winning through poison counters.",
+    traits: [
+      "High density of cards with Infect or Toxic",
+      "Frequent use of Proliferate to accelerate poison accumulation",
+      "Signal Floor: ≥ 8.0 Infect signal",
+      "Wins by reaching 10 poison counters on opponents",
+    ],
+    strategy: "Apply poison quickly and use proliferate or unblockable threats to finish the job.",
+  },
 ];
 
 const dimensions = [
@@ -170,6 +184,7 @@ const floorLogic = [
       { condition: "Commander Engine Archetype", effect: "Consistency ≥ 4, Resilience ≥ 3, Pivotability ≥ 3", color: "purple" },
       { condition: "Voltron Archetype", effect: "Resilience ≥ 4, Pivotability ≥ 2", color: "green" },
       { condition: "Group Hug Archetype", effect: "Consistency ≥ 3, Pivotability ≥ 3", color: "pink" },
+      { condition: "Infect Archetype", effect: "Consistency ≥ 4, Pivotability ≥ 3", color: "light-green-darken-4" },
       { condition: "Midrange Archetype", effect: "Consistency ≥ 3, Resilience ≥ 3, Interaction ≥ 3, Pivotability ≥ 2", color: "blue-grey" },
     ]
   }
@@ -528,15 +543,15 @@ const scoringBonuses = [
               </tr>
             </thead>
             <tbody>
-              <tr><td>≤ 1.3</td><td class="font-weight-bold">1.12x</td><td class="text-success">+12% Bonus</td></tr>
-              <tr><td>≤ 1.6</td><td class="font-weight-bold">1.06x</td><td class="text-success">+6% Bonus</td></tr>
+              <tr><td>≤ 1.5</td><td class="font-weight-bold">1.08x</td><td class="text-success">+8% Bonus</td></tr>
+              <tr><td>≤ 1.8</td><td class="font-weight-bold">1.04x</td><td class="text-success">+4% Bonus</td></tr>
               <tr><td>≤ 2.0</td><td class="font-weight-bold">1.02x</td><td class="text-success">+2% Bonus</td></tr>
               <tr><td>≤ 2.4</td><td class="font-weight-bold">1.01x</td><td class="text-success">+1% Bonus</td></tr>
               <tr><td>2.5 – 2.8</td><td class="font-weight-bold">1.00x</td><td class="text-medium-emphasis">Neutral</td></tr>
               <tr><td>≤ 3.0</td><td class="font-weight-bold">0.92x</td><td class="text-error">-8% Penalty</td></tr>
               <tr><td>≤ 3.4</td><td class="font-weight-bold">0.85x</td><td class="text-error">-15% Penalty</td></tr>
               <tr><td>≤ 3.8</td><td class="font-weight-bold">0.65x</td><td class="text-error">-35% Penalty</td></tr>
-              <tr><td>> 3.8</td><td class="font-weight-bold">0.50x</td><td class="text-error">-50% Penalty</td></tr>
+              <tr><td>> 4.0</td><td class="font-weight-bold">0.50x</td><td class="text-error">-50% Penalty</td></tr>
             </tbody>
           </v-table>
         </v-card>
