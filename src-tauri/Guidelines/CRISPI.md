@@ -105,22 +105,18 @@ Before scoring, detect the deck's archetype to apply specialized adjustments.
 
 ### Archetype Signals
 
-- **Turbo Signal:** `ExplosiveManaPoints + ExplosiveDrawPoints`
+- **Turbo Signal:** `ExplosiveManaPoints + ExplosiveDrawPoints` (Floor: 18.0)
 - **Midrange Signal:** `ConsistencyWeighted + EngineWeighted + DrawWeighted`
-- **Stax Signal:** `WeightedStaxSum` (Non-land = 1.0, Land = 0.3)
-- **Voltron Signal:** `WeightedVoltronSum` (Equipment/Aura count)
-- **Group Hug Signal:** `WeightedGroupHugSum` (Symmetrical resource pieces)
-- **Commander Engine Signal:** Number of commanders with `ENGINE` or `COST_REDUCTION` roles.
+- **Stax Signal:** `WeightedStaxSum` (Non-land = 1.0, Land = 0.3) (Floor: 15.0)
+- **Voltron Signal:** `WeightedVoltronSum` (Equipment/Aura count) (Floor: 8.0)
+- **Group Hug Signal:** `WeightedGroupHugSum` (Floor: 8.0)
 
-### Classification Heuristics
+### Classification Rule
 
-1. **Group Hug:** `GroupHugSignal >= 8.0`
-2. **Stax:** `StaxSignal >= 15.0`
-3. **Turbo:** `TurboSignal >= 18.0`
-4. **Voltron:** `VoltronSignal >= 8.0`
-5. **Commander Engine:** `CommanderEngineSignal > 1.0` AND `TurboSignal > 12.0`
-6. **Turbo (Secondary):** `TurboSignal > 12.0` AND `TurboSignal > MidrangeSignal`
-7. **Midrange:** Default
+1. If multiple signals are above their floors, the **highest signal wins**.
+2. If no signal is above its floor, the deck defaults to **Midrange**.
+3. **Commander Engine** is a secondary classification triggered if the Commander provides significant card advantage (>1.0 signal for Partners) AND the Turbo signal > 12.0, provided it's the highest signal.
+4. If `TurboSignal > 12.0` and it's higher than `MidrangeSignal`, it can also be classified as **Turbo**.
 
 ---
 
@@ -167,10 +163,16 @@ Measures recovery and protection from disruption.
 - Recursion ≤3 MV counts fully
 - If the deck **cannot function without its commander**, **Resilience is capped at 2**
 
-### Considerations
-- Protection, recursion, wipe recovery
-- Independence from commander
-- Resistance to hate/stax
+### Scoring Thresholds (Weighted Value)
+
+| Score | Weighted Value |
+|---:|---|
+| 5 | ≥ 10.0 |
+| 4 | ≥ 7.0 |
+| 3 | ≥ 4.0 |
+| 2 | ≥ 1.5 |
+| 1 | < 1.5 |
+| 0 | 0.0 |
 
 ---
 

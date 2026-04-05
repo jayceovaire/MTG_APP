@@ -180,6 +180,7 @@ static STAX_PATTERNS: &[&str] = &[
 
 static ENGINE_PATTERNS: &[&str] = &[
     r"whenever you (draw|gain .* counters|create .* token|untap)",
+    r"whenever (?:.* )?enters the battlefield",
     r"at the beginning of your upkeep",
     r"each upkeep",
     r"each end step",
@@ -376,6 +377,7 @@ static NON_TAPPING_ACTIVATION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:
 
 static RE_REMINDER: Lazy<Regex> = Lazy::new(|| Regex::new(r"\(.*?\)").unwrap());
 static RE_SPACES: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").unwrap());
+static LAND_ENGINE_VERBS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(whenever|for each|you may pay|return|draw|copy|cast|sacrifice).*").unwrap());
 
 pub fn normalize_text(text: &str) -> String {
     let mut normalized = text.to_lowercase();
@@ -443,7 +445,13 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         }
 
         if ENGINE_REGEX.iter().any(|re| re.is_match(&normalized)) {
-            roles.insert(Role::ENGINE);
+            if card.is_land() {
+                if LAND_ENGINE_VERBS_REGEX.is_match(&normalized) {
+                    roles.insert(Role::ENGINE);
+                }
+            } else {
+                roles.insert(Role::ENGINE);
+            }
         }
         if WINCON_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::WINCON);
@@ -611,16 +619,16 @@ fn detect_archetype(
     voltron_signal: f32,
     group_hug_signal: f32,
 ) -> DeckArchetype {
-    if group_hug_signal >= 8.0 {
-        DeckArchetype::GroupHug
-    } else if stax_signal >= 15.0 {
+    if stax_signal >= 15.0 && stax_signal > turbo_signal && stax_signal > midrange_signal {
         DeckArchetype::Stax
-    } else if turbo_signal >= 18.0 {
-        DeckArchetype::Turbo
-    } else if voltron_signal >= 8.0 {
+    } else if group_hug_signal >= 8.0 && group_hug_signal > midrange_signal {
+        DeckArchetype::GroupHug
+    } else if voltron_signal >= 8.0 && voltron_signal > turbo_signal && voltron_signal > midrange_signal {
         DeckArchetype::Voltron
-    } else if commander_engine_signal > 1.0 && turbo_signal > 12.0 {
+    } else if commander_engine_signal > 1.0 && turbo_signal > 12.0 && turbo_signal > midrange_signal {
         DeckArchetype::CommanderEngine
+    } else if turbo_signal >= 18.0 && turbo_signal >= midrange_signal {
+        DeckArchetype::Turbo
     } else if turbo_signal > 12.0 && turbo_signal > midrange_signal {
         DeckArchetype::Turbo
     } else {
@@ -755,7 +763,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             }
         }
         if roles.contains(&Role::RECURSION) {
-            resilience_weighted += weight;
+            resilience_weighted += weight * 0.8; // Recursion is slightly less reactive than protection
         }
 
         // Speed: Fast Mana, Efficient Wincons
@@ -822,10 +830,10 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     // R — Resilience (0-5)
     let mut resilience_score = match resilience_weighted {
-        n if n >= 13.0 => 5,
-        n if n >= 9.0 => 4,
-        n if n >= 5.0 => 3,
-        n if n >= 2.0 => 2,
+        n if n >= 10.0 => 5,
+        n if n >= 7.0 => 4,
+        n if n >= 4.0 => 3,
+        n if n >= 1.5 => 2,
         _ => 1,
     };
 
@@ -1201,6 +1209,59 @@ mod tests {
             false,
             None
         )
+    }
+
+    #[test]
+    fn test_ancient_tomb_is_not_engine() {
+        let tomb = make_card(
+            "Ancient Tomb",
+            0,
+            vec![CardType::Land],
+            "{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you."
+        );
+        
+        let roles = infer_roles(&tomb);
+        assert!(!roles.contains(&Role::ENGINE), "Ancient Tomb should not be an Engine. Roles found: {:?}", roles);
+    }
+
+    #[test]
+    fn test_gemstone_caverns_is_not_engine() {
+        let gemstone_caverns = make_card(
+            "Gemstone Caverns",
+            0,
+            vec![CardType::Land],
+            "If Gemstone Caverns is in your opening hand and you're not the starting player, you may begin the game with Gemstone Caverns on the battlefield with a luck counter on it. If you do, exile a card from your hand. {T}: Add {C}. If Gemstone Caverns has a luck counter on it, instead add one mana of any color."
+        );
+        
+        let roles = infer_roles(&gemstone_caverns);
+        assert!(!roles.contains(&Role::ENGINE), "Gemstone Caverns should not be an Engine. Roles found: {:?}", roles);
+        assert!(roles.contains(&Role::LAND), "Should be a Land");
+    }
+
+    #[test]
+    fn test_field_of_the_dead_is_engine() {
+        let field = make_card(
+            "Field of the Dead",
+            0,
+            vec![CardType::Land],
+            "Field of the Dead enters the battlefield tapped. Whenever Field of the Dead or another land enters the battlefield under your control, if you control seven or more lands with different names, create a 2/2 black Zombie creature token. {T}: Add {C}."
+        );
+        
+        let roles = infer_roles(&field);
+        assert!(roles.contains(&Role::ENGINE), "Field of the Dead should be an Engine. Roles found: {:?}", roles);
+    }
+
+    #[test]
+    fn test_valakut_the_molten_pinnacle_is_engine() {
+        let valakut = make_card(
+            "Valakut, the Molten Pinnacle",
+            0,
+            vec![CardType::Land],
+            "Valakut, the Molten Pinnacle enters the battlefield tapped. Whenever a Mountain enters the battlefield under your control, if you control at least five other Mountains, you may have Valakut deal 3 damage to any target. {T}: Add {R}."
+        );
+        
+        let roles = infer_roles(&valakut);
+        assert!(roles.contains(&Role::ENGINE), "Valakut should be an Engine because it has 'whenever'. Roles found: {:?}", roles);
     }
 
     #[test]

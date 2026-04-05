@@ -114,7 +114,7 @@ const archetypes = [
 
 const dimensions = [
   { name: "Consistency (C)", icon: mdiBullseyeArrow, desc: "Weights Tutors, Draw, and Engines. Thresholds: 1.2, 3.0, 5.0, 8.0.", color: "blue" },
-  { name: "Resilience (R)", icon: mdiShieldCheck, desc: "Weights Protection and Recursion. Thresholds: 2.0, 5.0, 9.0, 13.0.", color: "green" },
+  { name: "Resilience (R)", icon: mdiShieldCheck, desc: "Weights Protection and Recursion. Thresholds: 1.5, 4.0, 7.0, 10.0.", color: "green" },
   { name: "Interaction (I)", icon: mdiGestureTap, desc: "Weights Removal and Stax. Thresholds: 2.5, 5.0, 8.0, 12.0.", color: "red" },
   { name: "Speed (S)", icon: mdiSpeedometer, desc: "Calculated from estimated win turn (Efficiency) and high-velocity signals (Explosive Mana and Draw).", color: "amber" },
   { name: "Pivotability (P)", icon: mdiScaleBalance, desc: "Weights multi-role cards. Thresholds: 1.5, 3.0, 5.0, 8.0.", color: "purple" },

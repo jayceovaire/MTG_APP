@@ -69,6 +69,11 @@ const hgResult = ref(null);
 const hgCardType = ref("Any");
 const hgCrispiRole = ref("Any");
 
+function formatRole(role) {
+  if (!role) return "";
+  return role.replace(/_/g, " ");
+}
+
 const cardTypes = ["Any", "Creature", "Instant", "Sorcery", "Enchantment", "Artifact", "Land", "Planeswalker", "Battle", "Tribal"];
 const crispiRoles = computed(() => {
   if (!crispiResults.value) return ["Any"];
@@ -76,7 +81,7 @@ const crispiRoles = computed(() => {
   crispiResults.value.card_evaluations.forEach(card => {
     card.roles.forEach(role => allRoles.add(role));
   });
-  return ["Any", ...Array.from(allRoles).sort()];
+  return ["Any", ...Array.from(allRoles).sort()].map(role => ({ title: formatRole(role), value: role }));
 });
 
 watch(hgTargetTurn, (turn) => {
@@ -443,7 +448,7 @@ async function runMonteCarlo() {
                 <div v-else-if="crispiResults">
                   <div v-for="role in sortedRoles" :key="role" class="mb-3">
                     <div class="d-flex justify-space-between align-center mb-1">
-                      <span class="text-subtitle-2">{{ role }}</span>
+                      <span class="text-subtitle-2">{{ formatRole(role) }}</span>
                       <span class="font-weight-bold">{{ crispiResults.role_counts[role].toFixed(1) }}</span>
                     </div>
                     <v-progress-linear 
@@ -464,7 +469,7 @@ async function runMonteCarlo() {
                   <v-expansion-panel
                     v-for="role in sortedRoles"
                     :key="role"
-                    :title="`${role} (${(crispiResults?.role_counts[role] || 0).toFixed(1)})`"
+                    :title="`${formatRole(role)} (${(crispiResults?.role_counts[role] || 0).toFixed(1)})`"
                   >
                     <v-expansion-panel-text>
                       <v-list density="compact">
@@ -522,7 +527,7 @@ async function runMonteCarlo() {
                 </thead>
                 <tbody>
                   <tr v-for="(probs, role) in mcResults" :key="role">
-                    <td class="text-left pa-2 font-weight-medium">{{ role }}</td>
+                    <td class="text-left pa-2 font-weight-medium">{{ formatRole(role) }}</td>
                     <td v-for="t in 10" :key="t" :class="['text-center pa-2', getMcColor(probs[t])]">
                       {{ probs[t] }}%
                     </td>
@@ -553,6 +558,8 @@ async function runMonteCarlo() {
                 <v-select
                   v-model="hgCrispiRole"
                   :items="crispiRoles"
+                  item-title="title"
+                  item-value="value"
                   label="CRISPI Role"
                   density="compact"
                   class="mb-4"
