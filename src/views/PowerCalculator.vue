@@ -204,16 +204,6 @@ async function runMonteCarlo() {
   // Check probability of having at least 1 card of each role by each turn.
   
   const mainboard = [...selectedDeck.value.cards];
-  const commanders = [];
-  if (selectedDeck.value.commander) {
-    if (selectedDeck.value.commander.Single) {
-      commanders.push(selectedDeck.value.commander.Single);
-    } else if (selectedDeck.value.commander.Partner) {
-      commanders.push(selectedDeck.value.commander.Partner[0]);
-      commanders.push(selectedDeck.value.commander.Partner[1]);
-    }
-  }
-
   const iterations = mcSimulations.value;
   const maxTurn = 10;
   
@@ -237,8 +227,7 @@ async function runMonteCarlo() {
       [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]];
     }
     
-    // In Commander, commanders are always "available" (effectively in hand for role purposes)
-    const hand = [...commanders];
+    const hand = [];
     
     for (let turn = 1; turn <= maxTurn; turn++) {
       const cardsToDraw = (turn === 1) ? 7 : 1;

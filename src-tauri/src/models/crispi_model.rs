@@ -793,6 +793,15 @@ fn derive_bracket(n_gc: u32, any_combo_found: bool, total_score: f32, amv: f32) 
     }
 }
 
+fn is_etb_tapped_land(card: &Card) -> bool {
+    if !card.is_land() {
+        return false;
+    }
+
+    let oracle_text = card.oracle_text().map(normalize_text).unwrap_or_default();
+    oracle_text.contains("enters the battlefield tapped") && !oracle_text.contains("unless")
+}
+
 pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> CrispiEvaluation {
     let mut total_mv = 0.0;
     let mut non_land_count = 0;
@@ -1436,6 +1445,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     }
 
     let land_count = mainboard.iter().filter(|c| c.is_land()).count();
+    let tapped_land_count = mainboard.iter().filter(|c| is_etb_tapped_land(c)).count();
     let provisional_total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
     let provisional_bracket = derive_bracket(n_gc, any_combo_found, provisional_total_score, amv);
     let key_turn = if provisional_bracket >= 5 {
@@ -1443,7 +1453,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     } else if provisional_bracket >= 4 {
         5
     } else {
-        8
+        6
     };
     let land_drop_score = (2..=key_turn)
         .map(|turn| {
@@ -1482,6 +1492,33 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let flood_penalty = ((flood_risk - 0.35).max(0.0) * 0.30 * flood_mitigation).min(0.12);
     let land_score = land_drop_score + ((flood_risk - 0.35).max(0.0) * flood_mitigation);
     final_multiplier *= 1.0 - flood_penalty;
+
+    let tapped_land_penalty = if land_count > 0 && tapped_land_count > 0 {
+        let tapped_share = tapped_land_count as f32 / land_count as f32;
+        let first_land_tapped_risk = tapped_share;
+        let first_two_tapped_risk = hypergeometric_at_least(land_count, tapped_land_count, 2.min(land_count), 1);
+        let first_three_tapped_risk = hypergeometric_at_least(land_count, tapped_land_count, 3.min(land_count), 1);
+
+        let early_penalty = match provisional_bracket {
+            5 => first_land_tapped_risk * 0.24 + first_two_tapped_risk * 0.10 + first_three_tapped_risk * 0.06,
+            4 => first_land_tapped_risk * 0.18 + first_two_tapped_risk * 0.08 + first_three_tapped_risk * 0.05,
+            _ => first_two_tapped_risk * 0.04 + first_three_tapped_risk * 0.03,
+        };
+
+        let tolerated_tapped = match provisional_bracket {
+            5 => 1,
+            4 => 2,
+            _ => 3,
+        };
+        let excess_tapped = tapped_land_count.saturating_sub(tolerated_tapped) as f32;
+        let post_three_excess = tapped_land_count.saturating_sub(3) as f32;
+        let saturation_penalty = excess_tapped * 0.015 + post_three_excess * post_three_excess * 0.006;
+
+        (early_penalty + saturation_penalty).min(0.30)
+    } else {
+        0.0
+    };
+    final_multiplier *= 1.0 - tapped_land_penalty;
 
     let total_score = (raw_score * final_multiplier - commander_mv_penalty).min(25.0).max(0.0);
     let role_score = raw_score / 25.0;
