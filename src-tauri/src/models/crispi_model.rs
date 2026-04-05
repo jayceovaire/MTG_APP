@@ -32,6 +32,7 @@ pub enum Role {
     LOOTING,
     IMPULSE_DRAW,
     GROUP_HUG,
+    MASS_REMOVAL,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,14 +121,71 @@ static DRAW_PATTERNS: &[&str] = &[
 ];
 
 static REMOVAL_PATTERNS: &[&str] = &[
+    // Hard destroy / exile
     r"destroy target",
     r"exile target",
     r"counter target spell",
-    r"return target .* to its owner's hand",
+
+    // Bounce
+    r"return target .* to (its|their) owner's hand",
+
+    // Forced sacrifice
+    r"target player sacrifices",
     r"sacrifice target",
-    r"damage to target",
-    r"deals .* damage to each",
-    r"change the target",
+
+    // Damage to a single target
+    r"deals? \d+ damage to target",
+
+    // Fight / bite style
+    r"target creature you control fights target creature",
+    r"deals? damage equal to its power to target creature",
+
+    // Tuck / library interaction
+    r"put target .* into (its|their) owner's library",
+
+    // Tap/lock removal that functions as removal
+    r"tap target .*\\. it doesn't untap",
+
+    // Transform into harmless permanent (blue/white style)
+    r"target .* loses all abilities",
+    r"enchant .* can't attack or block",
+];
+
+static MASS_REMOVAL_PATTERNS: &[&str] = &[
+    // The gold standard wipes
+    r"destroy all (creatures|artifacts|enchantments|lands|planeswalkers)",
+    r"exile all (creatures|artifacts|enchantments|graveyards|planeswalkers)",
+
+    // Each creature / each permanent
+    // True wipes must contain a removal verb
+    r"(destroy|exile) all (creatures|artifacts|enchantments|lands|planeswalkers)",
+    r"deals? \d+ damage to each creature",
+    r"creatures get -\d+/-\d+",
+    r"each player sacrifices a creature",
+    r"each opponent sacrifices a creature",
+    r"each player sacrifices those",
+    r"return all .* to (their|its) owner's hand",
+    r"sacrifice all (creatures|artifacts|enchantments|lands|planeswalkers)",
+
+    // Damage to all
+    r"deals? \d+ damage to each creature",
+
+    // -X/-X wipes
+    r"creatures get -",
+    r"all creatures get -",
+
+    // Sacrifice all / return all
+    r"sacrifice all",
+    r"return all .* to (their|its) owner's hand",
+
+    // Choose a type wipes
+    r"choose a (creature|artifact|enchantment) type.*destroy all",
+
+    // Non-targeting exile
+    r"exile .* you don't control",
+
+    // Classic wording used on many wipes
+    r"for each creature",
 ];
 
 static TUTOR_PATTERNS: &[&str] = &[
@@ -335,6 +393,7 @@ static MULTI_MANA_PRODUCER_PATTERNS: &[&str] = &[
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RAMP_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static MASS_REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MASS_REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| TUTOR_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static PROTECTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| PROTECTION_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static FIXING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| FIXING_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
@@ -489,6 +548,10 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             roles.insert(Role::VOLTRON_PIECE);
         }
 
+        if MASS_REMOVAL_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::MASS_REMOVAL);
+        }
+
         if LOOTING_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::LOOTING);
         }
@@ -522,6 +585,7 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
         let has_utility = roles.contains(&Role::TUTOR) || 
                           roles.contains(&Role::RECURSION) || 
                           roles.contains(&Role::REMOVAL) || 
+                          roles.contains(&Role::MASS_REMOVAL) || 
                           roles.contains(&Role::PROTECTION) || 
                           roles.contains(&Role::STAX) || 
                           roles.contains(&Role::DRAW) || 
@@ -555,6 +619,7 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
         (roles.contains(&Role::TUTOR) && ANY_TUTOR_REGEX.is_match(&oracle_text) && mv <= 2) ||
         ((roles.contains(&Role::REMOVAL) || roles.contains(&Role::PROTECTION)) && is_inst && mv <= 1) ||
         (roles.contains(&Role::WINCON) && mv <= 2) ||
+        (roles.contains(&Role::MASS_REMOVAL) && mv <= 3) ||
         (roles.contains(&Role::ENGINE) && mv <= 2);
 
     // Refinement: For creatures/artifacts, require non-tapping activation or immediate impact
@@ -574,8 +639,8 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
         return QualityTier::Premium;
     }
 
-    // Slow criteria: MV >= 4 and no combo/fast-mana/tutor
-    if mv >= 4 && !roles.contains(&Role::WINCON) && !roles.contains(&Role::FAST_MANA) && !roles.contains(&Role::TUTOR) {
+    // Slow criteria: MV >= 4 and no combo/fast-mana/tutor/mass-removal
+    if mv >= 4 && !roles.contains(&Role::WINCON) && !roles.contains(&Role::FAST_MANA) && !roles.contains(&Role::TUTOR) && !roles.contains(&Role::MASS_REMOVAL) {
         return QualityTier::Slow;
     }
 
@@ -735,11 +800,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         explosive_draw_points += card_draw_points;
 
         // Interaction: Removal & Stax
-        if roles.contains(&Role::REMOVAL) {
-            if is_inst {
+        if roles.contains(&Role::REMOVAL) || roles.contains(&Role::MASS_REMOVAL) {
+            if is_inst || roles.contains(&Role::MASS_REMOVAL) {
                 interaction_weighted += weight;
                 // Free interaction check
-                let is_free = mv == 0 || (card.oracle_text().map(|t| FREE_SPELL_REGEX.is_match(&normalize_text(t))).unwrap_or(false));
+                let is_free = mv == 0 || (card.oracle_text().map(|t| FREE_SPELL_REGEX.is_match(&normalize_text(t))).unwrap_or_default());
                 if is_free {
                     free_interaction_count += 1;
                 }
@@ -756,7 +821,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             resilience_weighted += weight;
             // Instant protection can also count as free interaction if free
             if is_inst {
-                let is_free = mv == 0 || (card.oracle_text().map(|t| FREE_SPELL_REGEX.is_match(&normalize_text(t))).unwrap_or(false));
+                let is_free = mv == 0 || (card.oracle_text().map(|t| FREE_SPELL_REGEX.is_match(&normalize_text(t))).unwrap_or_default());
                 if is_free {
                     free_interaction_count += 1;
                 }
@@ -794,7 +859,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     // Archetype Signals (Before Scoring)
     let turbo_signal = explosive_mana_points + explosive_draw_points;
-    let midrange_signal = (consistency_weighted as f32) + (engine_count_weighted as f32) + (draw_count_weighted as f32);
+    let midrange_signal = (consistency_weighted as f32) + (engine_count_weighted as f32) + (draw_count_weighted as f32) + (interaction_weighted as f32 * 0.5);
     let stax_signal = stax_signal_weighted;
     let voltron_signal = voltron_signal_weighted;
     let group_hug_signal = group_hug_signal_weighted;
@@ -1183,7 +1248,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::card_model::{Card, CardType, SuperType};
+    use crate::models::card_model::{Card, CardType};
 
     fn make_card(name: &str, mv: u8, types: Vec<CardType>, text: &str) -> Card {
         let mut sub_types = vec![];
@@ -1263,6 +1328,7 @@ mod tests {
         let roles = infer_roles(&valakut);
         assert!(roles.contains(&Role::ENGINE), "Valakut should be an Engine because it has 'whenever'. Roles found: {:?}", roles);
     }
+
 
     #[test]
     fn test_rog_si_archetype() {
