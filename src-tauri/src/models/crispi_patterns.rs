@@ -17,10 +17,10 @@ static RAMP_PATTERNS: &[&str] = &[
 
 static DRAW_PATTERNS: &[&str] = &[
     r"draw .* cards?",
-    r"whenever you draw",
-    r"whenever an opponent .* draws",
-    r"look at the top .* cards? .* put .* into your hand",
-    r"reveal .* put .* into your hand",
+    r"whenever an opponent .* draw a card",
+    r"whenever an opponent .* draw .* cards",
+    r"look at the top \d+ cards? of your library.*put .* into your hand",
+    
 ];
 
 static REMOVAL_PATTERNS: &[&str] = &[
@@ -36,6 +36,7 @@ static REMOVAL_PATTERNS: &[&str] = &[
     r"tap target .*\. it doesn't untap",
     r"target .* loses all abilities",
     r"enchant .* can't attack or block",
+    r"exile up to one target .*",
 ];
 
 static MASS_REMOVAL_PATTERNS: &[&str] = &[
@@ -55,7 +56,8 @@ static MASS_REMOVAL_PATTERNS: &[&str] = &[
     r"sacrifice all",
     r"return all .* to (their|its) owner's hand",
     r"choose a (creature|artifact|enchantment) type.*destroy all",
-    r"exile .* you don't control",
+    r"exile target .* you don't control",
+    r"exile all .* you don't control",
     r"(destroy|exile|sacrifice).*for each creature|for each creature.*(destroy|exile|sacrifice)",
 ];
 
@@ -148,6 +150,7 @@ static RITUAL_PATTERNS: &[&str] = &[
     r"add \{.\}\{.\}\{.\}",
     r"add .* mana equal to",
     r"add .* for each",
+    r"add \{.\}\{.\} mana",
 ];
 
 static TREASURE_BURST_PATTERNS: &[&str] = &[
@@ -168,8 +171,20 @@ static COST_REDUCTION_PATTERNS: &[&str] = &[
 ];
 
 static FAST_MANA_ONE_SHOT_PATTERNS: &[&str] = &[
-    r"add .* mana",
-    r"untap up to .* lands",
+    // Sacrifice for mana (Lotus Petal, Treasures, LED)
+    r"sacrifice .*: add",
+
+    // Treasure creation
+    r"create a treasure token",
+
+    // Rituals (instants/sorceries that add mana)
+    r"add [wubrgc ]{2,}",
+
+    // ETB burst mana (rare but real)
+    r"enters the battlefield.*add",
+
+    // Untap lands burst (Frantic Search / Turnabout style)
+    r"untap up to \d+ lands",
 ];
 
 static BURST_DRAW_PATTERNS: &[&str] = &[
