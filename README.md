@@ -1,129 +1,361 @@
-# MTG App (Tauri + Vue 3)
+# MTG App
 
-A desktop application for Magic: The Gathering card collection and deck building, built with [Tauri](https://tauri.app/), [Vue 3](https://vuejs.org/), and [Rust](https://www.rust-lang.org/).
+MTG App is a desktop Magic: The Gathering companion built with Tauri, Vue 3, Vuetify, and Rust. It combines collection tracking, deck and package management, card image caching, commander-aware deck editing, and deck analysis tooling in a single local-first application.
 
-## 🌟 Key Features
+The app is designed around a simple idea: keep the responsive UI in Vue, keep stateful and file-backed operations in Rust, and persist user data locally so the app remains fast and usable without requiring an online account or hosted backend.
 
-- **Advanced Deck Management:** Full-featured deck builder with "Import Decklist" capabilities (Quantity CardName format).
-- **CRISPI v2 Power Evaluation:** A sophisticated power-level scoring framework (Consistency, Resilience, Interaction, Speed, Pivotability) that uses:
-  - Global efficiency rules based on mana value (MV).
-  - Non-linear AMV multipliers for high-curve penalties.
-  - Role-based classification (Protection, Recursion, Engines, Wincons, etc.) with strict logic for utility lands.
-  - Integration with "Game Changers" (high-impact cards) for accurate bracket-based tiering.
-- **Monte Carlo & Hypergeometric Simulations:** Real-time probability calculations for drawing specific card roles across turn-by-turn simulations and opening hand scenarios.
-- **Polished UI:** User-friendly role names (e.g., "FAST MANA" instead of "FAST_MANA") and dynamic role distribution charts.
-- **Targeted Image Caching:** 
-  - Automated, background image fetching for specific decks, packages, or individual card searches.
-  - Scryfall API compliance with a global 100ms rate limiter and 10 requests-per-second cap.
-  - Real-time UI updates via Tauri event emitters (`images-updated`).
-- **Expanded Commander Rules:** Support for Legendary Vehicles and Legendary Spacecraft as valid commanders.
-- **Collection Tracker:** Search and manage your personal card collection with suggestion-driven UI.
+## What The App Does
 
-## 🛠 Tech Stack
+MTG App currently focuses on six core workflows:
 
-- **Frontend Framework:** [Vue 3](https://vuejs.org/) (Composition API with `<script setup>`)
-- **UI Component Library:** [Vuetify 3](https://vuetifyjs.com/)
-- **State Management & Backend:** [Rust](https://www.rust-lang.org/) (via Tauri)
-- **Database:** [SQLite](https://sqlite.org/) (using `rusqlite` on Rust side)
-- **Styling:** [Vuetify](https://vuetifyjs.com/), [Mana Font](https://andrewgioia.github.io/Mana/) (MTG symbols)
-- **Build Tool:** [Vite](https://vitejs.dev/)
-- **Package Manager:** [Bun](https://bun.sh/) (frontend), [Cargo](https://doc.rust-lang.org/cargo/) (backend)
+- Build and maintain Commander decks with a desktop-first editing experience.
+- Organize reusable packages of cards that can be applied across multiple decks.
+- Track a personal card collection, including favorites and quick-add flows.
+- Evaluate decks using CRISPI-based role and power heuristics.
+- Run probability and simulation tools against real deck contents.
+- Cache Scryfall card images locally so repeated browsing is fast and API-friendly.
 
-## 📋 Requirements
+The app includes these main views:
 
-Before starting, ensure you have the following installed:
+- `Home`: recent cached image display and random card surfacing.
+- `Decks`: deck library plus a full deck editor.
+- `Packages`: reusable package library plus a package editor.
+- `Collection`: personal collection management.
+- `Tools`: CRISPI analysis, hypergeometric calculations, and Monte Carlo simulation.
+- `Roast`: currently a styled placeholder page for a future AI deck roaster.
+- `Settings`: updater entry point and bulk image download tools.
+- `Information`: app information and supporting content.
+- `Card Viewer`: search-driven card lookup view.
 
-- [Node.js](https://nodejs.org/) or [Bun](https://bun.sh/)
-- [Rust & Cargo](https://www.rust-lang.org/tools/install)
-- [Tauri CLI](https://tauri.app/v2/reference/cli/): `cargo install tauri-cli`
-- System-specific Tauri dependencies (see [Tauri's prerequisites](https://tauri.app/v2/guides/prerequisites/))
+## How It Works
 
-## 🚀 Setup & Run
+The project is split into two layers:
 
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd MTG_APP
-    ```
+- The frontend in `src/` is a Vue 3 single-page app using Composition API and Vuetify.
+- The backend in `src-tauri/` is a Rust Tauri application that exposes commands to the frontend through Tauri IPC.
 
-2.  **Install dependencies:**
-    Using Bun:
-    ```bash
-    bun install
-    ```
-    (Or `npm install` if using npm).
+In practice, the flow looks like this:
 
-3.  **Run in development mode:**
-    ```bash
-    bun tauri dev
-    ```
-    This starts the Vite dev server and launches the Tauri window.
+1. A Vue view calls a helper in `src/api/`.
+2. That helper uses `invoke()` to call a named Rust command.
+3. Rust reads or mutates local state, SQLite-backed data, or local files.
+4. Rust returns structured data back to the Vue view.
+5. Some long-running backend tasks also emit Tauri events so the UI can update in real time.
 
-4.  **Build for production:**
-    ```bash
-    bun tauri build
-    ```
+This architecture keeps UI concerns in the frontend and pushes persistence, filesystem access, SQLite, updater logic, and image caching into the native layer.
 
-## 📜 Available Scripts
+## Feature Overview
 
-| Script | Description |
-| :--- | :--- |
-| `dev` | Runs the Vite dev server for the frontend. |
-| `build` | Builds the frontend for production. |
-| `preview` | Previews the production build of the frontend. |
-| `tauri` | Accesses the Tauri CLI (e.g., `bun run tauri dev`). |
+### Deck Management
 
-## 📁 Project Structure
+Decks are first-class objects in the app. Users can:
+
+- Create, rename, duplicate, and delete decks.
+- Add cards individually or through bulk import flows.
+- Assign commanders and partners.
+- Remove commanders or replace them cleanly.
+- Attach reusable packages to decks.
+- Inspect deck contents in a persistent local editor.
+
+Deck data is stored as serialized JSON inside the local user database, while the active in-memory copy is held in `AppState` on the Rust side for fast access.
+
+### Package Management
+
+Packages are reusable card groups intended to reduce repetitive editing across multiple decks. A package can hold its own name, description, and card list, then be attached to decks from the deck editor.
+
+This is useful for:
+
+- shared mana packages
+- recurring interaction suites
+- color-specific staple bundles
+- archetype modules
+- test packages for theorycrafting
+
+Packages are persisted separately from decks and can be duplicated, edited, and deleted independently.
+
+### Collection Tracking
+
+The collection workflow supports:
+
+- adding cards by name
+- bulk adding multiple cards
+- duplicating collection entries
+- removing cards
+- favoriting and unfavoriting cards
+- searching card suggestions from the local card database
+
+Collection cards are persisted locally, and favorites are stored in a separate table for quick filtering and retrieval.
+
+### CRISPI Deck Analysis
+
+The Tools view uses CRISPI-oriented evaluation logic from the Rust backend to inspect a deck and produce structured role and power data.
+
+The CRISPI tooling includes:
+
+- role counts across the deck
+- card-level role evaluation
+- dimension scoring such as consistency, resilience, interaction, speed, and pivotability
+- tier or interpretation-oriented output used by the frontend for summary presentation
+
+The frontend then visualizes those results and uses them to drive probability tooling.
+
+### Hypergeometric Calculator
+
+The hypergeometric calculator uses a selected deck and CRISPI output to estimate draw odds. It lets the user work with:
+
+- total population size
+- matching cards in the library
+- sample size by turn
+- target hit counts
+- optional card type filtering
+- optional CRISPI role filtering
+
+This is useful for questions like:
+
+- What are the odds of seeing at least one ramp card by turn 3?
+- How often does this deck see interaction in the opening hand?
+- What is the probability of finding a specific role bucket by a given turn?
+
+### Monte Carlo Simulation
+
+The Monte Carlo tool runs repeated randomized draws against a deck to estimate role appearance over time. The current implementation simulates:
+
+- opening hands
+- one draw per turn
+- turn-by-turn role access across the early game
+
+That makes it useful for checking how often a deck naturally sees enough ramp, removal, or other role categories without relying only on exact closed-form probability formulas.
+
+### Local Image Caching
+
+The app can download and cache card images from Scryfall. This is handled by Rust so the filesystem and network work stays outside the renderer process.
+
+Image caching behavior includes:
+
+- image downloads for collection cards, decks, packages, or everything
+- local cache storage under the app data directory
+- progress events emitted back to the frontend
+- a semaphore/rate-limiting approach intended to stay friendly to Scryfall
+
+The Settings page exposes a bulk image download action, and multiple views listen for image-related events so cached visuals refresh automatically when downloads finish.
+
+### In-App Updating
+
+The app is wired for Tauri updater support. The current implementation includes:
+
+- manual update checks from Settings
+- startup update checks that can prompt the user with a modal
+- download/install/restart handling via Tauri updater commands
+
+For this to work in a packaged release, the updater configuration, release artifacts, manifest JSON, and signing metadata all need to be consistent.
+
+## Desktop Architecture
+
+### Frontend
+
+The Vue side is responsible for:
+
+- routing
+- screen layout
+- forms and controls
+- local view state
+- progress and status display
+- rendering deck, package, collection, and analysis screens
+
+Key frontend folders:
+
+- `src/views/`: page-level screens
+- `src/components/`: reusable UI components
+- `src/api/`: thin wrappers around Tauri `invoke()` calls
+- `src/router/`: route definitions
+- `src/utils/`: small frontend utility helpers
+
+### Backend
+
+The Rust side is responsible for:
+
+- app startup and plugin registration
+- SQLite-backed persistence
+- deck/package/collection mutation logic
+- card search and retrieval
+- image downloading and caching
+- CRISPI deck evaluation
+- updater checks and installation
+
+Key backend files and folders:
+
+- `src-tauri/src/lib.rs`: Tauri app setup, plugin wiring, command registration
+- `src-tauri/src/state.rs`: application state and persistence bootstrap
+- `src-tauri/src/commands/`: command handlers grouped by domain
+- `src-tauri/src/models/`: Rust data structures for cards, decks, packages, and analysis
+
+## Data Model And Persistence
+
+The app is local-first. There is no hosted sync layer in this repository.
+
+On startup, Rust creates or opens a SQLite database in the platform-local data directory, then loads its data into memory.
+
+Current persisted tables include:
+
+- `collection_cards`
+- `favorites`
+- `packages`
+- `decks`
+
+The user database lives under the local app data directory in:
+
+- Windows: `%LOCALAPPDATA%\mtg_app\user_data.db`
+- macOS: `~/Library/Application Support/mtg_app/user_data.db`
+- Linux: `~/.local/share/mtg_app/user_data.db`
+
+Card images are cached separately under the same app data root in a `card_images` directory.
+
+The bundled card metadata database is included as an app resource:
+
+- `src/db/scryfall.db`
+
+That database is used to support card lookups and related card-oriented workflows inside the app.
+
+## Tech Stack
+
+- `Tauri 2` for the desktop shell and native command bridge
+- `Vue 3` with Composition API for the frontend
+- `Vuetify` for UI components
+- `Rust` for native application logic
+- `rusqlite` for local persistence
+- `reqwest` and `tokio` for async network and file work
+- `Vite` for frontend builds
+- `Bun` for frontend package management and scripts
+
+## Requirements
+
+Before running the project locally, install:
+
+- `Bun`
+- `Rust` and `cargo`
+- Tauri platform prerequisites for your OS
+
+Tauri prerequisites vary by platform. Use the official Tauri documentation to ensure WebView/runtime dependencies are installed for your environment.
+
+## Getting Started
+
+### 1. Clone The Repository
+
+```bash
+git clone <repository-url>
+cd MTG_APP
+```
+
+### 2. Install Frontend Dependencies
+
+```bash
+bun install
+```
+
+### 3. Run The App In Development
+
+```bash
+bun run tauri dev
+```
+
+This starts the Vite dev server and launches the Tauri desktop window.
+
+### 4. Build A Production Release
+
+```bash
+bun run tauri build
+```
+
+This produces packaged desktop artifacts under `src-tauri/target/release/bundle/`.
+
+## Available Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `bun run dev` | Start the Vite frontend dev server. |
+| `bun run build` | Build the Vue frontend for production. |
+| `bun run preview` | Preview the production frontend build. |
+| `bun run tauri dev` | Run the desktop app in development mode. |
+| `bun run tauri build` | Build packaged desktop artifacts. |
+
+## Project Layout
 
 ```text
 MTG_APP/
-├── src/                # Frontend (Vue 3)
-│   ├── api/            # API/Type definitions
-│   ├── assets/         # Styles, images
-│   ├── components/     # Vue components
-│   ├── router/         # Vue Router configuration
-│   ├── utils/          # Frontend utility functions
-│   └── views/          # Page-level Vue components
-├── src-tauri/          # Backend (Rust + Tauri)
-│   ├── src/            # Rust source code
-│   │   ├── commands/   # Tauri command handlers (collection, deck, image, etc.)
-│   │   ├── models/     # Rust data models (card, deck, package, crispi)
-│   │   ├── lib.rs      # Main Tauri application logic
-│   │   ├── state.rs    # AppState and Persistence logic
-│   │   └── main.rs     # Binary entry point
-│   └── Cargo.toml      # Rust dependencies
-├── public/             # Static assets
-├── scryfall.db         # Scryfall card database (SQLite)
-├── vite.config.js      # Vite configuration
-└── package.json        # Frontend dependencies & scripts
+|-- src/
+|   |-- api/
+|   |-- assets/
+|   |-- components/
+|   |-- router/
+|   |-- utils/
+|   |-- views/
+|   |-- App.vue
+|   `-- main.js
+|-- src-tauri/
+|   |-- capabilities/
+|   |-- icons/
+|   |-- src/
+|   |   |-- commands/
+|   |   |-- models/
+|   |   |-- lib.rs
+|   |   |-- main.rs
+|   |   `-- state.rs
+|   |-- Cargo.toml
+|   `-- tauri.conf.json
+|-- dist/
+|-- package.json
+|-- bun.lock
+`-- README.md
 ```
 
-## ⚙️ Environment Variables
+## Release And Updater Notes
 
-- `TAURI_DEV_HOST`: Used in `vite.config.js` to set the host for development.
+The app is configured to create updater artifacts, but a working release flow requires all of the following to line up:
 
-## 💾 Data Persistence
+- the app version in `package.json`
+- the app version in `src-tauri/Cargo.toml`
+- the Tauri version in `src-tauri/tauri.conf.json`
+- the built installer artifact for that version
+- the updater signature for that exact artifact
+- the `latest.json` manifest used by Tauri updater
 
-The application uses SQLite for data storage:
-- **Card Metadata:** Reads from `scryfall.db` (in the root or project-specified path).
-- **User Data:** Collections, decks, and favorites are stored in a local SQLite database located in the platform-specific app data directory:
-  - Windows: `%LOCALAPPDATA%\mtg_app\user_data.db`
-  - Linux: `~/.local/share/mtg_app/user_data.db`
-  - macOS: `~/Library/Application Support/mtg_app/user_data.db`
-- **Image Cache:** Card images are locally cached in the application data directory to reduce Scryfall API load.
+In other words, if you publish `0.1.2`, the installer URL and signature in `latest.json` must both describe the `0.1.2` installer, not an older file.
 
-## 📖 Technical Guidelines
+The updater manifest also requires `pub_date` in full RFC 3339 format, for example:
 
-For more detailed information on internal frameworks, refer to:
-- [`CRISPI.md`](src-tauri/Guidelines/CRISPI.md) - Documentation on the power evaluation algorithm and scoring rules.
-- [`MTG_Role_Inference_Engine_Agent_Spec.md`](src-tauri/Guidelines/MTG_Role_Inference_Engine_Agent_Spec.md) - Specification for the card classification system.
+```json
+"pub_date": "2026-04-06T00:00:00Z"
+```
 
-## 🧪 Tests
+For manual first-time installs from GitHub, users only need the installer artifact such as the `.msi`. They do not need to separately download the `.sig` file.
 
-- **Rust Backend:** Unit tests for `crispi_model` (role inference, archetypes, and land engine logic) are implemented and passing.
-  - Run via: `cd src-tauri ; cargo test`
-- **Vue Frontend:** TODO: Add automated component/view tests.
+## Notes On Current Scope
 
-## 📄 License
+Some features are more complete than others.
 
-- TODO: Add license information.
+- Deck, package, collection, image caching, and CRISPI workflows are implemented and wired into the desktop app.
+- The Roast page is currently a placeholder for a future AI-assisted deck roasting experience.
+- Automated frontend tests are not yet present in this repository.
+
+## Verification
+
+Useful local verification commands:
+
+```bash
+bun run build
+cd src-tauri
+cargo check
+```
+
+## Documentation References
+
+Additional internal documentation lives in:
+
+- `src-tauri/Guidelines/CRISPI.md`
+- `src-tauri/Guidelines/MTG_Role_Inference_Engine_Agent_Spec.md`
+
+Those files describe the deck evaluation framework and role inference logic in more detail.
+
+## License
+
+No license file is currently included in this repository.
