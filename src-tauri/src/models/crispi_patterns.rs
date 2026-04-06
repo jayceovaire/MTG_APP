@@ -139,9 +139,20 @@ static ENGINE_PATTERNS: &[&str] = &[
 static WINCON_PATTERNS: &[&str] = &[r"you win the game", r"target player loses the game", r"infinite"];
 
 static FAST_MANA_PATTERNS: &[&str] = &[
-    r"add (?:\{.\}){2,}",
-    r"add .* (?:two|three|four|five|six|seven|eight|nine|ten) .* mana",
-    r"add one mana of any color",
+    // Produces 2+ mana explicitly
+    r"add (?:\{[WUBRGC]\}){2,}",
+
+    // Ritual wording
+    r"add [wubrgc ]{2,}",
+
+    // Sacrifice for mana (LED, Petal, Treasures)
+    r"sacrifice .*: add",
+
+    // Treasure creation
+    r"create a treasure token",
+
+    // Untap lands burst
+    r"untap up to \d+ lands",
 ];
 
 static RECURSION_PATTERNS: &[&str] = &[
@@ -171,6 +182,15 @@ static RITUAL_PATTERNS: &[&str] = &[
 static TREASURE_BURST_PATTERNS: &[&str] = &[
     r"create (?:two|three|four|five|x) treasure",
     r"create a treasure token for each",
+    r"create (two|three|four|five|six|seven|eight|nine|ten) treasure tokens",
+    // Variable X treasures
+    r"create x treasure tokens",
+
+    // Scaling treasure burst
+    r"for each .* create a treasure token",
+
+    // ETB burst treasures
+    r"enters the battlefield.*create .* treasure tokens",
 ];
 
 static SAC_MANA_PATTERNS: &[&str] = &[

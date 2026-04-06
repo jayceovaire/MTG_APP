@@ -618,22 +618,22 @@ const scoringBonuses = [
       <v-col cols="12" md="6">
         <v-card variant="outlined" class="pa-4 h-100">
           <h3 class="text-h6 mb-3">Raise Your Score Efficiently</h3>
-          <v-list density="compact">
+          <v-list density="compact" lines="false">
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Upgrade weak effects before adding new themes</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">Replacing a 4-5 mana filler spell with a cheaper card in the same role usually improves the deck more than adding a flashy but disconnected synergy piece.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">Replacing a 4-5 mana filler spell with a cheaper card in the same role usually improves the deck more than adding a flashy but disconnected synergy piece.</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Turn lands and mana rocks into cleaner color access</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">Mana that enters untapped and fixes colors consistently improves real game play and helps CRISPI avoid docking the deck for speed loss and mana instability.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">Mana that enters untapped and fixes colors consistently improves real game play and helps CRISPI avoid docking the deck for speed loss and mana instability.</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Use tutors to tighten a plan, not replace one</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">Tutors are strongest when they reinforce a compact win package or a clear engine. If the deck has no focused target set, extra tutors can mask structural problems instead of solving them.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">Tutors are strongest when they reinforce a compact win package or a clear engine. If the deck has no focused target set, extra tutors can mask structural problems instead of solving them.</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Respect your opening turns</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">If your first meaningful play happens on turns 3-4, your score ceiling is naturally lower. Early ramp, draw, or interaction matters more than expensive top-end cards.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">If your first meaningful play happens on turns 3-4, your score ceiling is naturally lower. Early ramp, draw, or interaction matters more than expensive top-end cards.</v-list-item-subtitle>
             </v-list-item>
           </v-list>
         </v-card>
@@ -642,22 +642,22 @@ const scoringBonuses = [
       <v-col cols="12" md="6">
         <v-card variant="outlined" class="pa-4 h-100">
           <h3 class="text-h6 mb-3">Raise Deck Quality, Not Just Numbers</h3>
-          <v-list density="compact">
+          <v-list density="compact" lines="false">
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Match card slots to the deck's actual win condition</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">If the deck wins through combat, prioritize pressure, protection, and card flow. If it wins through combo, prioritize compact lines, tutors, and stack interaction.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">If the deck wins through combat, prioritize pressure, protection, and card flow. If it wins through combo, prioritize compact lines, tutors, and stack interaction.</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Cut cards that are only good when you are already ahead</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">Win-more cards often look powerful but tend to lower consistency. Cards that stabilize, dig, or convert parity into progress usually perform better over time.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">Win-more cards often look powerful but tend to lower consistency. Cards that stabilize, dig, or convert parity into progress usually perform better over time.</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Keep role density honest</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">A strong deck usually has enough draw, interaction, mana development, and finishing power to function without perfect sequencing. CRISPI rewards balanced structural support around your main plan.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">A strong deck usually has enough draw, interaction, mana development, and finishing power to function without perfect sequencing. CRISPI rewards balanced structural support around your main plan.</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title class="font-weight-bold">Test whether your commander actually improves the 99</v-list-item-title>
-              <v-list-item-subtitle class="text-wrap">Some commanders define the entire shell. Others are just color identity carriers. If the command zone is not actively helping your plan, the list may need a clearer strategic center.</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-wrap guide-subtitle">Some commanders define the entire shell. Others are just color identity carriers. If the command zone is not actively helping your plan, the list may need a clearer strategic center.</v-list-item-subtitle>
             </v-list-item>
           </v-list>
         </v-card>
@@ -699,5 +699,13 @@ li::before {
   display: inline-block;
   width: 1em;
   margin-left: -1em;
+}
+
+.guide-subtitle {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 </style>
