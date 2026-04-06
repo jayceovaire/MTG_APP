@@ -31,6 +31,7 @@ pub enum Role {
     COMBO_PIECE,
     ENGINE_WIN,
     INFECT,
+    PROLIFERATE,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

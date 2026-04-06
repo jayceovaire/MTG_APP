@@ -35,6 +35,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut voltron_signal_weighted = 0.0;
     let mut group_hug_signal_weighted = 0.0;
     let mut infect_signal_weighted = 0.0;
+    let mut infect_support_count = 0;
+    let mut proliferate_signal_weighted = 0.0;
 
     let mut process_card = |card: &Card| {
         let roles = infer_roles(card);
@@ -166,6 +168,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
         if roles.contains(&Role::INFECT) {
             infect_signal_weighted += weight;
+            infect_support_count += 1;
+        }
+
+        if roles.contains(&Role::PROLIFERATE) {
+            proliferate_signal_weighted += weight;
         }
     };
 
@@ -178,15 +185,17 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let stax_signal = stax_signal_weighted;
     let voltron_signal = voltron_signal_weighted;
     let group_hug_signal = group_hug_signal_weighted;
-    let infect_signal = infect_signal_weighted;
+    let infect_signal = if infect_support_count >= 4 {
+        infect_signal_weighted + proliferate_signal_weighted
+    } else {
+        infect_signal_weighted
+    };
     let commander_engine_signal = commanders.iter().filter(|c| {
         let r = infer_roles(c);
         let is_engine = r.contains(&Role::ENGINE) && (r.contains(&Role::DRAW) || r.contains(&Role::TUTOR));
         let is_cost_reducer = r.contains(&Role::COST_REDUCTION);
         is_engine || is_cost_reducer
     }).count() as f32;
-
-    let archetype = detect_archetype(stax_signal, commander_engine_signal, turbo_signal, midrange_signal, voltron_signal, group_hug_signal, infect_signal);
 
     // --- Archetype Coherence Calculation ---
     let signals = [
@@ -290,6 +299,17 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
 
     let mut speed_score = efficiency_speed_score.max(explosive_speed_score);
 
+    let archetype = detect_archetype(
+        stax_signal,
+        commander_engine_signal,
+        turbo_signal,
+        midrange_signal,
+        voltron_signal,
+        group_hug_signal,
+        infect_signal,
+        speed_score,
+    );
+
     // P — Pivotability (0-5)
     let mut pivotability_score = match pivotability_weighted {
         n if n >= 8.0 => 5,
@@ -349,7 +369,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         DeckArchetype::Turbo => {
             consistency_score = consistency_score.max(4);
             pivotability_score = pivotability_score.max(3);
-            applied_overrides.push("Turbo Archetype (C>=4, P>=3)");
+            applied_overrides.push("Turbo Archetype (requires natural S=5, C>=4, P>=3)");
         }
         DeckArchetype::Stax => {
             interaction_score = interaction_score.max(4);

@@ -19,7 +19,7 @@ import {
 const glossary = [
   { term: "Fast Mana", icon: mdiLightningBolt, color: "amber", desc: "Permanents that produce more mana than they cost. High-velocity fuel." },
   { term: "Rituals & Bursts", icon: mdiLightningBolt, color: "orange", desc: "One-shot mana like rituals and Treasure. Essential for Turbo strategies." },
-  { term: "Tutors", icon: mdiBullseyeArrow, color: "blue", desc: "Cards that search for other cards. Increases deck Consistency." },
+  { term: "Tutors", icon: mdiBullseyeArrow, color: "blue", desc: "Cards that search for nonland cards. Land-search cards are treated as ramp/fixing instead of generic tutors." },
   { term: "Engines", icon: mdiCogs, color: "purple", desc: "Repeatable value sources. Key for Midrange and Commander-focused decks." },
   { term: "Interaction", icon: mdiGestureTap, color: "red", desc: "Removal and counterspells. Essential for controlling the game state." },
   { term: "Stax", icon: mdiShieldLock, color: "deep-orange", desc: "Resource denial. Slows down the entire table." },
@@ -29,7 +29,7 @@ const glossary = [
   { term: "Looting", icon: mdiSwapHorizontal, color: "light-blue", desc: "Draw then discard effects. Good for deck filtering and graveyard strategies." },
   { term: "Impulse Draw", icon: mdiLibraryOutline, color: "deep-purple", desc: "Exiling cards to play them temporarily. Red's primary form of card advantage." },
   { term: "Group Hug", icon: mdiSwapHorizontal, color: "pink", desc: "Symmetrical effects that benefit all players. Common in casual and political decks." },
-  { term: "Infect", icon: mdiSeal, color: "light-green-darken-4", desc: "Cards that utilize poison counters, infect, toxic, and proliferate to win." },
+  { term: "Infect", icon: mdiSeal, color: "light-green-darken-4", desc: "Cards that apply poison through infect, toxic, or direct poison-counter effects. Proliferate supports this plan only when the deck already has strong poison support." },
 ];
 
 const archetypes = [
@@ -52,7 +52,7 @@ const archetypes = [
     color: "blue",
     definition: "Flexible strategy that balances value engines with interaction.",
     traits: [
-      "Consistent Tutors and steady Draw Engines",
+      "Consistent nonland Tutors and steady Draw Engines",
       "High Interaction (at least 6 pieces ≤ 2 MV)",
       "High Pivotability (versatile cards)",
       "Out-values and out-interacts opponents over time",
@@ -117,8 +117,8 @@ const archetypes = [
     color: "light-green-darken-4",
     definition: "Aggressive or Combo strategy focusing on winning through poison counters.",
     traits: [
-      "High density of cards with Infect or Toxic",
-      "Frequent use of Proliferate to accelerate poison accumulation",
+      "High density of cards with Infect, Toxic, or direct poison-counter text",
+      "Proliferate strengthens the archetype only when poison support is already dense",
       "Signal Floor: ≥ 8.0 Infect signal",
       "Wins by reaching 10 poison counters on opponents",
     ],
@@ -127,7 +127,7 @@ const archetypes = [
 ];
 
 const dimensions = [
-  { name: "Consistency (C)", icon: mdiBullseyeArrow, desc: "Weights Tutors, Draw, and Engines. Thresholds: 1.2, 3.0, 5.0, 8.0.", color: "blue" },
+  { name: "Consistency (C)", icon: mdiBullseyeArrow, desc: "Weights nonland Tutors, Draw, and Engines. Thresholds: 1.2, 3.0, 5.0, 8.0.", color: "blue" },
   { name: "Resilience (R)", icon: mdiShieldCheck, desc: "Weights Protection and Recursion. Thresholds: 1.5, 4.0, 7.0, 10.0.", color: "green" },
   { name: "Interaction (I)", icon: mdiGestureTap, desc: "Weights Removal and Stax. Thresholds: 2.5, 5.0, 8.0, 12.0.", color: "red" },
   { name: "Speed (S)", icon: mdiSpeedometer, desc: "Calculated from estimated win turn (Efficiency) and high-velocity signals (Explosive Mana and Draw).", color: "amber" },
@@ -136,7 +136,7 @@ const dimensions = [
 
 const structuralMetrics = [
   { name: "Role Score", desc: "A normalized measure of the deck's raw role coverage (Raw Score / 25.0)." },
-  { name: "Land Score", desc: "Measures the adequacy of the land count, normalized against a standard 38-land baseline." },
+  { name: "Land Score", desc: "Measures mana-base stability using early land-drop odds, flood risk, and tapped-land pressure relative to the deck's expected speed." },
   { name: "Commander MV Adjustment", desc: "A dynamic weight based on the mana value of your commanders. MV 4+ results in a penalty, while MV 3 and lower provides a score bonus." },
 ];
 
@@ -157,7 +157,7 @@ const numericalBrackets = [
 ];
 
 const qualityTiers = [
-  { name: "Premium", weight: "1.5", desc: "Maximum efficiency pieces: 0-1 mana interaction, low-cost tutors, and high-velocity fast mana." },
+  { name: "Premium", weight: "1.5", desc: "Maximum efficiency pieces: 0-1 mana interaction, low-cost nonland tutors, and high-velocity fast mana." },
   { name: "Efficient", weight: "1.0", desc: "Standard high-quality cards: 2-mana interaction, reliable engines, and solid utility lands." },
   { name: "Slow", weight: "0.75", desc: "Higher-cost alternatives or cards that require significant setup to be effective." },
   { name: "Low Impact", weight: "0.5", desc: "Cards with marginal utility or those that do not contribute significantly to any core CRISPI dimension." },
@@ -179,7 +179,7 @@ const floorLogic = [
     name: "Archetype Floors",
     desc: "Minimum dimension scores required to maintain the identity of a specific strategy.",
     items: [
-      { condition: "Turbo Archetype", effect: "Consistency ≥ 4, Pivotability ≥ 3", color: "amber" },
+      { condition: "Turbo Archetype", effect: "Requires natural Speed = 5, Consistency ≥ 4, Pivotability ≥ 3", color: "amber" },
       { condition: "Stax Archetype", effect: "Interaction ≥ 4, Resilience ≥ 4", color: "deep-orange" },
       { condition: "Commander Engine Archetype", effect: "Consistency ≥ 4, Resilience ≥ 3, Pivotability ≥ 3", color: "purple" },
       { condition: "Voltron Archetype", effect: "Resilience ≥ 4, Pivotability ≥ 2", color: "green" },
@@ -193,7 +193,7 @@ const floorLogic = [
 const scoringBonuses = [
   { name: "Game Changer Count (GC)", impact: "+0.4 per GC", desc: "Direct addition to raw score (max +6.0). Reflects high-impact cards that can single-handedly shift game momentum." },
   { name: "CMDR MV Adjustment", impact: "Dynamic Bonus/Penalty", desc: "MV 4+ commanders scale up a penalty (0.25 per MV above 3), while MV 3 and lower grant a score bonus (0.15 per MV below 3.5)." },
-  { name: "Land Balance", impact: "0.0 to 1.0", desc: "A structural health score based on land count relative to a 38-land baseline. This is factored into the role score." },
+  { name: "Land Balance", impact: "Contextual Multiplier Pressure", desc: "Mana-base quality is evaluated through land-drop consistency, flood mitigation, and tapped-land penalties." },
 ];
 </script>
 
@@ -218,7 +218,7 @@ const scoringBonuses = [
                 <v-avatar color="primary" size="x-small" class="mr-2">1</v-avatar>
                 <span class="font-weight-bold">Role Identification</span>
               </div>
-              <p class="text-caption text-medium-emphasis">Every card is assigned roles (Mana, Draw, Interaction, etc.) based on its oracle text and properties.</p>
+              <p class="text-caption text-medium-emphasis">Every card is assigned roles (Mana, Draw, Interaction, Fixing, Infect support, etc.) based on its oracle text and properties.</p>
             </v-col>
             <v-col cols="12" sm="4">
               <div class="d-flex align-center mb-2">
@@ -432,7 +432,7 @@ const scoringBonuses = [
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>Tutor Scaling: <span class="text-primary font-weight-bold">+0.02x per tutor</span></v-list-item-title>
-                  <v-list-item-subtitle>Scales with the number of tutors, capped at +0.15x.</v-list-item-subtitle>
+                  <v-list-item-subtitle>Scales with the number of generic nonland tutors, capped at +0.15x.</v-list-item-subtitle>
                 </v-list-item>
                 <v-list-item>
                   <v-list-item-title>Total Multiplier Cap: <span class="text-primary font-weight-bold">1.25x</span></v-list-item-title>
@@ -478,7 +478,7 @@ const scoringBonuses = [
         <v-expansion-panels variant="accordion">
           <v-expansion-panel
             title="Why am I registered as 'Midrange' despite having fast mana?"
-            text="CRISPI requires a specific 'Signal Floor' to qualify for specialized archetypes. If your deck has a few pieces of fast mana but lacks the critical mass of burst draw or rituals to sustain that velocity, it falls back to Midrange—the most flexible and common category."
+            text="CRISPI requires a specific 'Signal Floor' to qualify for specialized archetypes. If your deck has a few pieces of fast mana but lacks the critical mass of burst draw or rituals to sustain that velocity, it falls back to Midrange, the most flexible and common category."
           ></v-expansion-panel>
           <v-expansion-panel
             title="How does the Average Mana Value (AMV) affect my score?"
@@ -545,12 +545,12 @@ const scoringBonuses = [
             <tbody>
               <tr><td>≤ 1.5</td><td class="font-weight-bold">1.08x</td><td class="text-success">+8% Bonus</td></tr>
               <tr><td>≤ 1.8</td><td class="font-weight-bold">1.04x</td><td class="text-success">+4% Bonus</td></tr>
-              <tr><td>≤ 2.0</td><td class="font-weight-bold">1.02x</td><td class="text-success">+2% Bonus</td></tr>
-              <tr><td>≤ 2.4</td><td class="font-weight-bold">1.01x</td><td class="text-success">+1% Bonus</td></tr>
-              <tr><td>2.5 – 2.8</td><td class="font-weight-bold">1.00x</td><td class="text-medium-emphasis">Neutral</td></tr>
-              <tr><td>≤ 3.0</td><td class="font-weight-bold">0.92x</td><td class="text-error">-8% Penalty</td></tr>
-              <tr><td>≤ 3.4</td><td class="font-weight-bold">0.85x</td><td class="text-error">-15% Penalty</td></tr>
-              <tr><td>≤ 3.8</td><td class="font-weight-bold">0.65x</td><td class="text-error">-35% Penalty</td></tr>
+              <tr><td>≤ 2.5</td><td class="font-weight-bold">1.02x</td><td class="text-success">+2% Bonus</td></tr>
+              <tr><td>≤ 2.8</td><td class="font-weight-bold">1.01x</td><td class="text-success">+1% Bonus</td></tr>
+              <tr><td>≤ 3.0</td><td class="font-weight-bold">1.00x</td><td class="text-medium-emphasis">Neutral</td></tr>
+              <tr><td>≤ 3.4</td><td class="font-weight-bold">0.92x</td><td class="text-error">-8% Penalty</td></tr>
+              <tr><td>≤ 3.8</td><td class="font-weight-bold">0.85x</td><td class="text-error">-15% Penalty</td></tr>
+              <tr><td>≤ 4.0</td><td class="font-weight-bold">0.65x</td><td class="text-error">-35% Penalty</td></tr>
               <tr><td>> 4.0</td><td class="font-weight-bold">0.50x</td><td class="text-error">-50% Penalty</td></tr>
             </tbody>
           </v-table>
@@ -602,6 +602,71 @@ const scoringBonuses = [
             Decks that try to do too many things often get a lower score. Pick a clear path (Turbo, Midrange, or Stax) and lean into it!
           </p>
         </v-card>
+      </v-col>
+    </v-row>
+
+    <!-- Improvement Guide -->
+    <v-row class="mb-8 mt-4">
+      <v-col cols="12">
+        <h2 class="text-h4 mb-4 d-flex align-center">
+          <v-icon :icon="mdiInformationOutline" class="mr-2" color="primary"></v-icon>
+          Practical Upgrade Guide
+        </h2>
+        <v-divider class="mb-6"></v-divider>
+      </v-col>
+
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-4 h-100">
+          <h3 class="text-h6 mb-3">Raise Your Score Efficiently</h3>
+          <v-list density="compact">
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Upgrade weak effects before adding new themes</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">Replacing a 4-5 mana filler spell with a cheaper card in the same role usually improves the deck more than adding a flashy but disconnected synergy piece.</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Turn lands and mana rocks into cleaner color access</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">Mana that enters untapped and fixes colors consistently improves real game play and helps CRISPI avoid docking the deck for speed loss and mana instability.</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Use tutors to tighten a plan, not replace one</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">Tutors are strongest when they reinforce a compact win package or a clear engine. If the deck has no focused target set, extra tutors can mask structural problems instead of solving them.</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Respect your opening turns</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">If your first meaningful play happens on turns 3-4, your score ceiling is naturally lower. Early ramp, draw, or interaction matters more than expensive top-end cards.</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="6">
+        <v-card variant="outlined" class="pa-4 h-100">
+          <h3 class="text-h6 mb-3">Raise Deck Quality, Not Just Numbers</h3>
+          <v-list density="compact">
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Match card slots to the deck's actual win condition</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">If the deck wins through combat, prioritize pressure, protection, and card flow. If it wins through combo, prioritize compact lines, tutors, and stack interaction.</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Cut cards that are only good when you are already ahead</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">Win-more cards often look powerful but tend to lower consistency. Cards that stabilize, dig, or convert parity into progress usually perform better over time.</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Keep role density honest</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">A strong deck usually has enough draw, interaction, mana development, and finishing power to function without perfect sequencing. CRISPI rewards balanced structural support around your main plan.</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title class="font-weight-bold">Test whether your commander actually improves the 99</v-list-item-title>
+              <v-list-item-subtitle class="text-wrap">Some commanders define the entire shell. Others are just color identity carriers. If the command zone is not actively helping your plan, the list may need a clearer strategic center.</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12">
+        <v-alert color="secondary" variant="tonal" border="start">
+          The fastest way to improve both performance and score is usually to cut clunky cards that do not advance your primary plan, then replace them with cheaper interaction, cleaner mana, stronger draw, or more direct win pieces.
+        </v-alert>
       </v-col>
     </v-row>
 

@@ -8,6 +8,7 @@ pub fn detect_archetype(
     voltron_signal: f32,
     group_hug_signal: f32,
     infect_signal: f32,
+    speed_score: u8,
 ) -> DeckArchetype {
     if infect_signal >= 8.0 && infect_signal > turbo_signal && infect_signal > midrange_signal {
         DeckArchetype::Infect
@@ -19,9 +20,9 @@ pub fn detect_archetype(
         DeckArchetype::Voltron
     } else if commander_engine_signal > 1.0 && turbo_signal > 12.0 && turbo_signal > midrange_signal {
         DeckArchetype::CommanderEngine
-    } else if turbo_signal >= 18.0 && turbo_signal >= midrange_signal {
+    } else if speed_score == 5 && turbo_signal >= 18.0 && turbo_signal >= midrange_signal {
         DeckArchetype::Turbo
-    } else if turbo_signal > 12.0 && turbo_signal > midrange_signal {
+    } else if speed_score == 5 && turbo_signal > 12.0 && turbo_signal > midrange_signal {
         DeckArchetype::Turbo
     } else {
         DeckArchetype::Midrange

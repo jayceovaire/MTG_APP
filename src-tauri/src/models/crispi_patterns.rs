@@ -69,6 +69,16 @@ static TUTOR_PATTERNS: &[&str] = &[
     r"search your library for a creature",
 ];
 
+static LAND_TUTOR_PATTERNS: &[&str] = &[
+    r"search your library for .* land",
+    r"search your library for a basic land",
+    r"search your library for a plains",
+    r"search your library for an island",
+    r"search your library for a swamp",
+    r"search your library for a mountain",
+    r"search your library for a forest",
+];
+
 static PROTECTION_PATTERNS: &[&str] = &[
     r"hexproof",
     r"indestructible",
@@ -85,6 +95,11 @@ static FIXING_PATTERNS: &[&str] = &[
     r"add two mana of any one color",
     r"any color",
     r"search your library for .* land",
+    r"search your library for a plains",
+    r"search your library for an island",
+    r"search your library for a swamp",
+    r"search your library for a mountain",
+    r"search your library for a forest",
 ];
 
 static STAX_PATTERNS: &[&str] = &[
@@ -236,13 +251,15 @@ static MULTI_MANA_PRODUCER_PATTERNS: &[&str] = &[
     r"add .* (?:two|three|four|five|six|seven|eight|nine|ten) .* mana",
 ];
 
-static INFECT_PATTERNS: &[&str] = &[r"\binfect\b", r"\btoxic\b", r"\bproliferate\b", r"poison counter"];
+static INFECT_PATTERNS: &[&str] = &[r"\binfect\b", r"\btoxic\b", r"poison counter"];
+static PROLIFERATE_PATTERNS: &[&str] = &[r"\bproliferate\b"];
 
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RAMP_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static MASS_REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MASS_REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| TUTOR_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static LAND_TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| LAND_TUTOR_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static PROTECTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| PROTECTION_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static FIXING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| FIXING_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static STAX_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| STAX_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
@@ -264,6 +281,7 @@ static LOOTING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| LOOTING_PATTERNS.iter().ma
 static IMPULSE_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| IMPULSE_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static GROUP_HUG_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| GROUP_HUG_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 static INFECT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| INFECT_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static PROLIFERATE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| PROLIFERATE_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
 
 pub static MULTI_COLOR_LAND_PATTERNS: &[&str] = &[
     r"add \{.\} or \{.\}",
@@ -325,7 +343,9 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         if REMOVAL_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::REMOVAL);
         }
-        if TUTOR_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        let is_land_tutor = LAND_TUTOR_REGEX.iter().any(|re| re.is_match(&normalized));
+
+        if !is_land_tutor && TUTOR_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::TUTOR);
         }
         if PROTECTION_REGEX.iter().any(|re| re.is_match(&normalized)) {
@@ -408,6 +428,9 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         }
         if INFECT_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::INFECT);
+        }
+        if PROLIFERATE_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::PROLIFERATE);
         }
 
         if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized)) {

@@ -1,5 +1,6 @@
 use super::*;
 use crate::models::card_model::{Card, CardType};
+use crate::models::crispi_archetypes::detect_archetype;
 
     fn make_card(name: &str, mv: u8, types: Vec<CardType>, text: &str) -> Card {
         let mut sub_types = vec![];
@@ -78,6 +79,43 @@ use crate::models::card_model::{Card, CardType};
         
         let roles = infer_roles(&valakut);
         assert!(roles.contains(&Role::ENGINE), "Valakut should be an Engine because it has 'whenever'. Roles found: {:?}", roles);
+    }
+
+    #[test]
+    fn test_pure_proliferate_is_not_infect_role() {
+        let evolution_sage = make_card(
+            "Evolution Sage",
+            3,
+            vec![CardType::Creature],
+            "Whenever a land enters the battlefield under your control, proliferate."
+        );
+
+        let roles = infer_roles(&evolution_sage);
+        assert!(roles.contains(&Role::PROLIFERATE), "Evolution Sage should be tagged as Proliferate. Roles found: {:?}", roles);
+        assert!(!roles.contains(&Role::INFECT), "Pure proliferate should not be tagged as Infect. Roles found: {:?}", roles);
+    }
+
+    #[test]
+    fn test_land_tutor_is_fixing_not_tutor() {
+        let farseek = make_card(
+            "Farseek",
+            2,
+            vec![CardType::Sorcery],
+            "Search your library for a Plains, Island, Swamp, or Mountain card and put it onto the battlefield tapped, then shuffle."
+        );
+
+        let roles = infer_roles(&farseek);
+        assert!(roles.contains(&Role::FIXING), "Land tutors should count as fixing. Roles found: {:?}", roles);
+        assert!(!roles.contains(&Role::TUTOR), "Land tutors should not count as generic tutors. Roles found: {:?}", roles);
+    }
+
+    #[test]
+    fn test_turbo_requires_natural_speed_five() {
+        let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 4);
+        assert_eq!(archetype, DeckArchetype::Midrange);
+
+        let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 5);
+        assert_eq!(archetype, DeckArchetype::Turbo);
     }
 
 
@@ -368,6 +406,29 @@ use crate::models::card_model::{Card, CardType};
         // Floors should apply: Consistency >= 4, Pivotability >= 3
         assert!(evaluation.consistency.score >= 4);
         assert!(evaluation.pivotability.score >= 3);
+    }
+
+    #[test]
+    fn test_proliferate_without_poison_support_does_not_count_as_infect() {
+        let atraxa = make_card("Atraxa, Praetors' Voice", 4, vec![CardType::Creature], "Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.");
+        let commanders = vec![atraxa];
+
+        let mut mainboard = vec![];
+        mainboard.push(make_card("Evolution Sage", 3, vec![CardType::Creature], "Whenever a land enters the battlefield under your control, proliferate."));
+        mainboard.push(make_card("Flux Channeler", 3, vec![CardType::Creature], "Whenever you cast a noncreature spell, proliferate."));
+        mainboard.push(make_card("Grateful Apparition", 2, vec![CardType::Creature], "Flying. Whenever Grateful Apparition deals combat damage to a player or planeswalker, proliferate."));
+        mainboard.push(make_card("Kami of Whispered Hopes", 3, vec![CardType::Creature], "If one or more +1/+1 counters would be put on a permanent you control, that many plus one +1/+1 counters are put on it instead. {T}: Add X mana of any one color, where X is Kami of Whispered Hopes's power."));
+        mainboard.push(make_card("Hardened Scales", 1, vec![CardType::Enchantment], "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead."));
+        mainboard.push(make_card("Conclave Mentor", 2, vec![CardType::Creature], "If one or more +1/+1 counters would be put on a creature you control, that many plus one +1/+1 counters are put on it instead."));
+
+        for _ in 0..30 {
+            mainboard.push(make_card("Forest", 0, vec![CardType::Land], "{T}: Add {G}."));
+        }
+
+        let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+        assert_eq!(evaluation.infect_signal, 0.0, "Proliferate without poison support should not create infect signal.");
+        assert_ne!(evaluation.archetype, DeckArchetype::Infect);
     }
 
     #[test]
