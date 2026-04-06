@@ -1,4 +1,6 @@
 pub mod card_model;
+pub mod cedh_staples;
+pub mod combos;
 pub mod crispi_archetypes;
 pub mod crispi_classify;
 pub mod crispi_model;
@@ -7,5 +9,3 @@ pub mod crispi_probability;
 pub mod crispi_types;
 pub mod deck_model;
 pub mod package_model;
-pub mod combos;
-pub mod cedh_staples;

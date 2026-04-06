@@ -16,7 +16,12 @@ pub fn combinations(n: usize, k: usize) -> f64 {
     result
 }
 
-pub fn hypergeometric_at_least(population: usize, successes: usize, draws: usize, target: usize) -> f32 {
+pub fn hypergeometric_at_least(
+    population: usize,
+    successes: usize,
+    draws: usize,
+    target: usize,
+) -> f32 {
     if population == 0 || draws == 0 || successes == 0 || target > draws {
         return 0.0;
     }
@@ -34,7 +39,8 @@ pub fn hypergeometric_at_least(population: usize, successes: usize, draws: usize
 
     let mut total = 0.0;
     for hits in target..=max_hits {
-        total += combinations(successes, hits) * combinations(population - successes, draws - hits) / denominator;
+        total += combinations(successes, hits) * combinations(population - successes, draws - hits)
+            / denominator;
     }
     total as f32
 }

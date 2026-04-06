@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 
 pub static CEDH_STAPLES: Lazy<HashSet<String>> = Lazy::new(|| {
     [
@@ -82,7 +82,6 @@ pub static CEDH_STAPLES: Lazy<HashSet<String>> = Lazy::new(|| {
         "Burnt Offering",
         "Sacrifice",
         "Culling the Weak",
-
     ]
     .iter()
     .map(|&s| super::crispi_model::normalize_card_name(s))

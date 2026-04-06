@@ -24,14 +24,12 @@ pub struct Deck {
     red_pips: i16,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CommanderSelection {
     None,
     Single(Card),
     Partner(Card, Card),
 }
-
 
 impl Deck {
     pub fn new(id: u64) -> Self {
@@ -77,9 +75,7 @@ impl Deck {
                 self.commander = CommanderSelection::Partner(first, card);
                 Ok(())
             }
-            CommanderSelection::Partner(_, _) => {
-                Err("Deck already has two commanders".into())
-            }
+            CommanderSelection::Partner(_, _) => Err("Deck already has two commanders".into()),
         }
     }
 
@@ -94,9 +90,8 @@ impl Deck {
     pub fn get_cards(&self) -> &[Card] {
         &self.cards
     }
-    pub fn add_card(&mut self, card: Card ) {
+    pub fn add_card(&mut self, card: Card) {
         self.cards.push(card);
-
     }
     pub fn remove_card(&mut self, card: &Card) {
         if let Some(index) = self.cards.iter().position(|c| c == card) {
@@ -138,17 +133,29 @@ impl Deck {
         match &self.commander {
             CommanderSelection::None => {}
             CommanderSelection::Single(c) => {
-                if c.is_game_changer() { n_gc += 1; }
-                if !c.is_legal_in_commander() { n_illegal += 1; }
+                if c.is_game_changer() {
+                    n_gc += 1;
+                }
+                if !c.is_legal_in_commander() {
+                    n_illegal += 1;
+                }
                 commanders.push(c.clone());
             }
             CommanderSelection::Partner(a, b) => {
-                if a.is_game_changer() { n_gc += 1; }
-                if !a.is_legal_in_commander() { n_illegal += 1; }
+                if a.is_game_changer() {
+                    n_gc += 1;
+                }
+                if !a.is_legal_in_commander() {
+                    n_illegal += 1;
+                }
                 commanders.push(a.clone());
 
-                if b.is_game_changer() { n_gc += 1; }
-                if !b.is_legal_in_commander() { n_illegal += 1; }
+                if b.is_game_changer() {
+                    n_gc += 1;
+                }
+                if !b.is_legal_in_commander() {
+                    n_illegal += 1;
+                }
                 commanders.push(b.clone());
             }
         }
@@ -190,8 +197,12 @@ impl Deck {
     pub fn set_partner_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {
         let existing_commander = match &self.commander {
             CommanderSelection::Single(card) => card.clone(),
-            CommanderSelection::None => return Err("Deck must already have a commander before adding a partner".to_string()),
-            CommanderSelection::Partner(_, _) => return Err("Deck already has two commanders".to_string()),
+            CommanderSelection::None => {
+                return Err("Deck must already have a commander before adding a partner".to_string())
+            }
+            CommanderSelection::Partner(_, _) => {
+                return Err("Deck already has two commanders".to_string())
+            }
         };
 
         if !existing_commander.can_be_commander() || !existing_commander.has_partner_mechanic() {
@@ -205,7 +216,7 @@ impl Deck {
             .ok_or_else(|| format!("Card with id {} not found in deck", card_id))?;
 
         let selected_card = self.cards.remove(card_index);
-        
+
         // Validation:
         // Both cards must be legal commanders.
         // Both cards must have a partner mechanic.
@@ -214,7 +225,7 @@ impl Deck {
         // Special case: "Doctor's companion" only works if the other card is "The Doctor".
         // For now, we'll allow any two cards with ANY partner mechanic to be paired,
         // which covers 99% of cases and Rograkh specifically.
-        
+
         if !selected_card.can_be_commander() {
             self.cards.insert(card_index, selected_card);
             return Err("Selected card cannot be a commander".to_string());
@@ -243,8 +254,11 @@ impl Deck {
                     self.commander = CommanderSelection::Single(first);
                     Ok(())
                 } else {
-                    self.commander = CommanderSelection::Partner(first,second);
-                    Err(format!("Card with id {} is not a partner commander", card_id))
+                    self.commander = CommanderSelection::Partner(first, second);
+                    Err(format!(
+                        "Card with id {} is not a partner commander",
+                        card_id
+                    ))
                 }
             }
             other => {
@@ -253,8 +267,6 @@ impl Deck {
             }
         }
     }
-
-
 
     pub fn clear_commander_to_deck(&mut self) -> Result<(), String> {
         let previous_commander = std::mem::replace(&mut self.commander, CommanderSelection::None);
@@ -282,7 +294,6 @@ impl Deck {
             CommanderSelection::Partner(_, _) => Ok(()),
         }
     }
-
 }
 
 #[cfg(test)]
@@ -293,7 +304,7 @@ mod tests {
     #[test]
     fn test_partner_commanders() {
         let mut deck = Deck::new(1);
-        
+
         // Rograkh, Son of Rohgahh (Legendary Creature Kobold)
         let rograkh = Card::new(
             1,
@@ -334,10 +345,12 @@ mod tests {
         deck.add_card(ardenn.clone());
 
         // Set Rograkh as commander
-        deck.set_single_commander_from_deck(1).expect("Failed to set Rograkh as commander");
-        
+        deck.set_single_commander_from_deck(1)
+            .expect("Failed to set Rograkh as commander");
+
         // Try to set Ardenn as partner
-        deck.set_partner_commander_from_deck(2).expect("Failed to set Ardenn as partner");
+        deck.set_partner_commander_from_deck(2)
+            .expect("Failed to set Ardenn as partner");
 
         if let CommanderSelection::Partner(c1, c2) = deck.get_commander() {
             assert_eq!(c1.get_name(), "Rograkh, Son of Rohgahh");
@@ -350,7 +363,7 @@ mod tests {
     #[test]
     fn test_background_commander() {
         let mut deck = Deck::new(2);
-        
+
         // Burakos, Party Leader (Choose a Background)
         let burakos = Card::new(
             1,
@@ -361,7 +374,13 @@ mod tests {
             4,
             vec![CardType::Creature],
             vec![SuperType::Legendary],
-            vec!["Orc".to_string(), "Wizard".to_string(), "Warrior".to_string(), "Cleric".to_string(), "Rogue".to_string()],
+            vec![
+                "Orc".to_string(),
+                "Wizard".to_string(),
+                "Warrior".to_string(),
+                "Cleric".to_string(),
+                "Rogue".to_string(),
+            ],
             Some("Choose a Background".to_string()),
             "legal".to_string(),
             true,
@@ -390,8 +409,10 @@ mod tests {
         deck.add_card(burakos.clone());
         deck.add_card(folk_hero.clone());
 
-        deck.set_single_commander_from_deck(1).expect("Failed to set Burakos as commander");
-        deck.set_partner_commander_from_deck(2).expect("Failed to set Folk Hero as partner");
+        deck.set_single_commander_from_deck(1)
+            .expect("Failed to set Burakos as commander");
+        deck.set_partner_commander_from_deck(2)
+            .expect("Failed to set Folk Hero as partner");
 
         if let CommanderSelection::Partner(c1, c2) = deck.get_commander() {
             assert_eq!(c1.get_name(), "Burakos, Party Leader");

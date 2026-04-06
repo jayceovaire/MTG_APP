@@ -24,6 +24,7 @@
     }
   },
   "bundle": {
+    "createUpdaterArtifacts": true,
     "active": true,
     "targets": "all",
     "icon": [
@@ -36,5 +37,16 @@
     "resources": [
       "src/db/scryfall.db"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENBQUUxNTVBN0VDNTY0NkEKUldScVpNVitXaFd1eWtrTmFDbTVwZSsyOHNkeEFiL2ZTME5EQThoSlE4TW9BMndRT21JaXl1WWcK",
+      "endpoints": [
+        "https://gist.github.com/jayceovaire/4f38e54bde4c6d2a420fc1b33ec5a1e3/raw/latest.json"
+      ]
+    }
   }
+
 }

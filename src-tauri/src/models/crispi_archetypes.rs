@@ -16,9 +16,13 @@ pub fn detect_archetype(
         DeckArchetype::Stax
     } else if group_hug_signal >= 8.0 && group_hug_signal > midrange_signal {
         DeckArchetype::GroupHug
-    } else if voltron_signal >= 8.0 && voltron_signal > turbo_signal && voltron_signal > midrange_signal {
+    } else if voltron_signal >= 8.0
+        && voltron_signal > turbo_signal
+        && voltron_signal > midrange_signal
+    {
         DeckArchetype::Voltron
-    } else if commander_engine_signal > 1.0 && turbo_signal > 12.0 && turbo_signal > midrange_signal {
+    } else if commander_engine_signal > 1.0 && turbo_signal > 12.0 && turbo_signal > midrange_signal
+    {
         DeckArchetype::CommanderEngine
     } else if speed_score == 5 && turbo_signal >= 18.0 && turbo_signal >= midrange_signal {
         DeckArchetype::Turbo

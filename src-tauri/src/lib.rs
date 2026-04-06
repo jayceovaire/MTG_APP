@@ -11,6 +11,7 @@ pub fn run() {
     let app_state = AppState::default();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
@@ -65,6 +66,7 @@ pub fn run() {
             commands::image_commands::get_most_recent_cached_image,
             commands::crispi_commands::evaluate_deck_roles,
             commands::settings_commands::check_for_updates,
+            commands::settings_commands::install_update,
         ])
         .manage(app_state)
         .run(tauri::generate_context!())

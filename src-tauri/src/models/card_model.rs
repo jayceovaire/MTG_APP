@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Card {
     id: u64,
-    image: String, 
+    image: String,
     #[serde(default)]
-    image_uri: Option<String>, 
+    image_uri: Option<String>,
     name: String,
     mana_cost: Option<String>,
     mana_value: u8,
@@ -183,7 +183,12 @@ impl Card {
     /// - "Doctor's companion" (partners with The Doctor)
     pub fn has_partner_mechanic(&self) -> bool {
         // Special case: Backgrounds are partners to "Choose a Background" cards
-        if self.is_enchantment() && self.sub_type.iter().any(|s| s.eq_ignore_ascii_case("Background")) {
+        if self.is_enchantment()
+            && self
+                .sub_type
+                .iter()
+                .any(|s| s.eq_ignore_ascii_case("Background"))
+        {
             return true;
         }
 
@@ -219,7 +224,8 @@ impl Card {
     /// - A Background (Legendary Enchantment that can be a commander)
     pub fn can_be_commander(&self) -> bool {
         // Standard case: Legendary Creature, Legendary Vehicle, or Legendary Spacecraft
-        if self.is_legendary() && (self.is_creature() || self.is_vehicle() || self.is_spacecraft()) {
+        if self.is_legendary() && (self.is_creature() || self.is_vehicle() || self.is_spacecraft())
+        {
             return true;
         }
 
@@ -227,7 +233,11 @@ impl Card {
         // Actually, Backgrounds themselves can be commanders if you have a "Choose a Background" creature.
         // In Commander, a Background is a legal commander if the other commander has "Choose a Background".
         if self.is_legendary() && self.is_enchantment() {
-            if self.sub_type.iter().any(|s| s.eq_ignore_ascii_case("Background")) {
+            if self
+                .sub_type
+                .iter()
+                .any(|s| s.eq_ignore_ascii_case("Background"))
+            {
                 return true;
             }
         }

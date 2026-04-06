@@ -1,15 +1,15 @@
-use crate::state::AppState;
 use crate::models::card_model::Card;
 use crate::models::deck_model::CommanderSelection;
+use crate::state::AppState;
+use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::{Manager, AppHandle, Emitter};
-use serde::Deserialize;
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt;
 
-use std::time::SystemTime;
 use once_cell::sync::Lazy;
+use std::time::SystemTime;
 use tokio::sync::Semaphore;
 
 static SCRYFALL_SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(1));
@@ -48,7 +48,9 @@ pub async fn fetch_card_images(
 ) -> Result<(), String> {
     let state = app.state::<AppState>();
     let mut any_changed = false;
-    let cache_dir = app.path().local_data_dir()
+    let cache_dir = app
+        .path()
+        .local_data_dir()
         .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
         .join("mtg_app")
         .join("card_images");
@@ -56,7 +58,8 @@ pub async fn fetch_card_images(
     let is_all = all.unwrap_or(false);
 
     if !cache_dir.exists() {
-        fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache directory: {e}"))?;
+        fs::create_dir_all(&cache_dir)
+            .map_err(|e| format!("Failed to create cache directory: {e}"))?;
     }
 
     let client = reqwest::Client::builder()
@@ -69,17 +72,29 @@ pub async fn fetch_card_images(
     if collection.unwrap_or(false) || is_all {
         total_cards += state.collection.read().map_err(|_| "Lock failed")?.len();
     }
-    
+
     let decks_to_process: Vec<u64> = if let Some(id) = deck_id {
         vec![id]
     } else if is_all {
-        state.decks.read().map_err(|_| "Lock failed")?.iter().map(|d| d.id()).collect()
+        state
+            .decks
+            .read()
+            .map_err(|_| "Lock failed")?
+            .iter()
+            .map(|d| d.id())
+            .collect()
     } else {
         vec![]
     };
-    
+
     for d_id in &decks_to_process {
-        if let Some(d) = state.decks.read().map_err(|_| "Lock failed")?.iter().find(|d| d.id() == *d_id) {
+        if let Some(d) = state
+            .decks
+            .read()
+            .map_err(|_| "Lock failed")?
+            .iter()
+            .find(|d| d.id() == *d_id)
+        {
             total_cards += d.get_cards().len();
             match d.get_commander() {
                 CommanderSelection::None => {}
@@ -92,13 +107,25 @@ pub async fn fetch_card_images(
     let packages_to_process: Vec<u64> = if let Some(id) = package_id {
         vec![id]
     } else if is_all {
-        state.packages.read().map_err(|_| "Lock failed")?.iter().map(|p| p.id()).collect()
+        state
+            .packages
+            .read()
+            .map_err(|_| "Lock failed")?
+            .iter()
+            .map(|p| p.id())
+            .collect()
     } else {
         vec![]
     };
-    
+
     for p_id in &packages_to_process {
-        if let Some(p) = state.packages.read().map_err(|_| "Lock failed")?.iter().find(|p| p.id() == *p_id) {
+        if let Some(p) = state
+            .packages
+            .read()
+            .map_err(|_| "Lock failed")?
+            .iter()
+            .find(|p| p.id() == *p_id)
+        {
             total_cards += p.get_cards().len();
         }
     }
@@ -107,14 +134,18 @@ pub async fn fetch_card_images(
 
     // 1. Process Collection
     if collection.unwrap_or(false) || is_all {
-        let collection_ids: Vec<u64> = state.collection.read()
+        let collection_ids: Vec<u64> = state
+            .collection
+            .read()
             .map_err(|_| "Failed to lock collection for reading")?
             .iter()
             .map(|c| c.id())
             .collect();
 
         for id in collection_ids {
-            let card_opt = state.collection.read()
+            let card_opt = state
+                .collection
+                .read()
                 .map_err(|_| "Failed to lock collection for card lookup")?
                 .iter()
                 .find(|c| c.id() == id)
@@ -122,16 +153,21 @@ pub async fn fetch_card_images(
 
             if let Some(mut card) = card_opt {
                 current_card += 1;
-                let _ = app.emit("image-download-progress", ProgressPayload {
-                    current: current_card,
-                    total: total_cards,
-                    card_name: card.get_name().to_string(),
-                });
+                let _ = app.emit(
+                    "image-download-progress",
+                    ProgressPayload {
+                        current: current_card,
+                        total: total_cards,
+                        card_name: card.get_name().to_string(),
+                    },
+                );
 
                 match process_card(&mut card, &cache_dir, &client).await {
                     Ok(true) => {
                         any_changed = true;
-                        let mut collection_lock = state.collection.write()
+                        let mut collection_lock = state
+                            .collection
+                            .write()
                             .map_err(|_| "Failed to lock collection for update")?;
                         if let Some(c) = collection_lock.iter_mut().find(|c| c.id() == id) {
                             *c = card;
@@ -147,7 +183,9 @@ pub async fn fetch_card_images(
 
     // 2. Process Decks
     for d_id in decks_to_process {
-        let deck_opt = state.decks.read()
+        let deck_opt = state
+            .decks
+            .read()
             .map_err(|_| "Failed to lock decks for deck lookup")?
             .iter()
             .find(|d| d.id() == d_id)
@@ -159,11 +197,14 @@ pub async fn fetch_card_images(
             // Cards in deck
             for card in deck.get_cards_mut().iter_mut() {
                 current_card += 1;
-                let _ = app.emit("image-download-progress", ProgressPayload {
-                    current: current_card,
-                    total: total_cards,
-                    card_name: card.get_name().to_string(),
-                });
+                let _ = app.emit(
+                    "image-download-progress",
+                    ProgressPayload {
+                        current: current_card,
+                        total: total_cards,
+                        card_name: card.get_name().to_string(),
+                    },
+                );
                 match process_card(card, &cache_dir, &client).await {
                     Ok(true) => changed = true,
                     Ok(false) => {}
@@ -176,11 +217,14 @@ pub async fn fetch_card_images(
                 CommanderSelection::None => {}
                 CommanderSelection::Single(card) => {
                     current_card += 1;
-                    let _ = app.emit("image-download-progress", ProgressPayload {
-                        current: current_card,
-                        total: total_cards,
-                        card_name: card.get_name().to_string(),
-                    });
+                    let _ = app.emit(
+                        "image-download-progress",
+                        ProgressPayload {
+                            current: current_card,
+                            total: total_cards,
+                            card_name: card.get_name().to_string(),
+                        },
+                    );
                     match process_card(card, &cache_dir, &client).await {
                         Ok(true) => changed = true,
                         Ok(false) => {}
@@ -189,22 +233,28 @@ pub async fn fetch_card_images(
                 }
                 CommanderSelection::Partner(c1, c2) => {
                     current_card += 1;
-                    let _ = app.emit("image-download-progress", ProgressPayload {
-                        current: current_card,
-                        total: total_cards,
-                        card_name: c1.get_name().to_string(),
-                    });
+                    let _ = app.emit(
+                        "image-download-progress",
+                        ProgressPayload {
+                            current: current_card,
+                            total: total_cards,
+                            card_name: c1.get_name().to_string(),
+                        },
+                    );
                     match process_card(c1, &cache_dir, &client).await {
                         Ok(true) => changed = true,
                         Ok(false) => {}
                         Err(e) => println!("Error processing partner: {}", e),
                     }
                     current_card += 1;
-                    let _ = app.emit("image-download-progress", ProgressPayload {
-                        current: current_card,
-                        total: total_cards,
-                        card_name: c2.get_name().to_string(),
-                    });
+                    let _ = app.emit(
+                        "image-download-progress",
+                        ProgressPayload {
+                            current: current_card,
+                            total: total_cards,
+                            card_name: c2.get_name().to_string(),
+                        },
+                    );
                     match process_card(c2, &cache_dir, &client).await {
                         Ok(true) => changed = true,
                         Ok(false) => {}
@@ -215,7 +265,9 @@ pub async fn fetch_card_images(
 
             if changed {
                 any_changed = true;
-                let mut decks = state.decks.write()
+                let mut decks = state
+                    .decks
+                    .write()
                     .map_err(|_| "Failed to lock decks for update")?;
                 if let Some(d) = decks.iter_mut().find(|d| d.id() == d_id) {
                     *d = deck;
@@ -227,7 +279,9 @@ pub async fn fetch_card_images(
 
     // 3. Process Packages
     for p_id in packages_to_process {
-        let package_opt = state.packages.read()
+        let package_opt = state
+            .packages
+            .read()
             .map_err(|_| "Failed to lock packages for package lookup")?
             .iter()
             .find(|p| p.id() == p_id)
@@ -237,11 +291,14 @@ pub async fn fetch_card_images(
             let mut changed = false;
             for card in package.get_cards_mut().iter_mut() {
                 current_card += 1;
-                let _ = app.emit("image-download-progress", ProgressPayload {
-                    current: current_card,
-                    total: total_cards,
-                    card_name: card.get_name().to_string(),
-                });
+                let _ = app.emit(
+                    "image-download-progress",
+                    ProgressPayload {
+                        current: current_card,
+                        total: total_cards,
+                        card_name: card.get_name().to_string(),
+                    },
+                );
                 match process_card(card, &cache_dir, &client).await {
                     Ok(true) => changed = true,
                     Ok(false) => {}
@@ -250,7 +307,9 @@ pub async fn fetch_card_images(
             }
             if changed {
                 any_changed = true;
-                let mut packages = state.packages.write()
+                let mut packages = state
+                    .packages
+                    .write()
                     .map_err(|_| "Failed to lock packages for update")?;
                 if let Some(p) = packages.iter_mut().find(|p| p.id() == p_id) {
                     *p = package;
@@ -268,7 +327,11 @@ pub async fn fetch_card_images(
     Ok(())
 }
 
-pub(crate) async fn process_card(card: &mut Card, cache_dir: &Path, client: &reqwest::Client) -> Result<bool, String> {
+pub(crate) async fn process_card(
+    card: &mut Card,
+    cache_dir: &Path,
+    client: &reqwest::Client,
+) -> Result<bool, String> {
     // Check if we already have the image path and if it exists
     if !card.get_image().is_empty() {
         let path = PathBuf::from(card.get_image());
@@ -301,18 +364,25 @@ pub(crate) async fn process_card(card: &mut Card, cache_dir: &Path, client: &req
 
         // Priority 1: Use Card Name as per JS example (it's more direct for some reason?)
         // Priority 2: Use Scryfall ID if name fails or ID is present
-        let api_url = format!("https://api.scryfall.com/cards/named?exact={}", urlencoding::encode(card.get_name()));
-        
+        let api_url = format!(
+            "https://api.scryfall.com/cards/named?exact={}",
+            urlencoding::encode(card.get_name())
+        );
+
         if let Some(_scryfall_id) = card.scryfall_id() {
-             // If we have an ID, we could also use that, but let's try name first if it's there
-             // unless name has weird characters that Scryfall doesn't like.
-             // Actually, let's stick to name first to match the user's example.
+            // If we have an ID, we could also use that, but let's try name first if it's there
+            // unless name has weird characters that Scryfall doesn't like.
+            // Actually, let's stick to name first to match the user's example.
         }
 
         println!("Querying card data: {}", api_url);
-        let response = client.get(&api_url).send().await
-            .map_err(|e| format!("Failed to fetch card data from Scryfall ({}): {}", api_url, e))?;
-        
+        let response = client.get(&api_url).send().await.map_err(|e| {
+            format!(
+                "Failed to fetch card data from Scryfall ({}): {}",
+                api_url, e
+            )
+        })?;
+
         if !response.status().is_success() {
             // If name lookup fails, try ID lookup if available
             if let Some(scryfall_id) = card.scryfall_id() {
@@ -320,30 +390,46 @@ pub(crate) async fn process_card(card: &mut Card, cache_dir: &Path, client: &req
                 println!("Name lookup failed, trying ID lookup: {}", id_url);
                 // Respect Scryfall API rate limit for the second lookup as well
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-                let response = client.get(&id_url).send().await
-                    .map_err(|e| format!("Failed to fetch card data from Scryfall ({}): {}", id_url, e))?;
-                
+                let response = client.get(&id_url).send().await.map_err(|e| {
+                    format!(
+                        "Failed to fetch card data from Scryfall ({}): {}",
+                        id_url, e
+                    )
+                })?;
+
                 if response.status().is_success() {
-                    let scryfall_card: ScryfallCard = response.json().await
+                    let scryfall_card: ScryfallCard = response
+                        .json()
+                        .await
                         .map_err(|e| format!("Failed to parse Scryfall response: {}", e))?;
-                    
+
                     if let Some(sid) = &scryfall_card.id {
                         card.set_scryfall_id(sid.clone());
                     }
 
                     extract_png_url(&scryfall_card)
                 } else {
-                    println!("ID lookup also failed for {}: {}", card.get_name(), response.status());
+                    println!(
+                        "ID lookup also failed for {}: {}",
+                        card.get_name(),
+                        response.status()
+                    );
                     None
                 }
             } else {
-                println!("Name lookup failed for {}: {}", card.get_name(), response.status());
+                println!(
+                    "Name lookup failed for {}: {}",
+                    card.get_name(),
+                    response.status()
+                );
                 None
             }
         } else {
-            let scryfall_card: ScryfallCard = response.json().await
+            let scryfall_card: ScryfallCard = response
+                .json()
+                .await
                 .map_err(|e| format!("Failed to parse Scryfall response: {}", e))?;
-            
+
             if let Some(sid) = &scryfall_card.id {
                 card.set_scryfall_id(sid.clone());
             }
@@ -362,7 +448,11 @@ pub(crate) async fn process_card(card: &mut Card, cache_dir: &Path, client: &req
         };
 
         if final_dest_path.exists() {
-            println!("Found image at {:?} after API lookup, skipping download for {}", final_dest_path, card.get_name());
+            println!(
+                "Found image at {:?} after API lookup, skipping download for {}",
+                final_dest_path,
+                card.get_name()
+            );
             card.set_image(final_dest_path.to_string_lossy().to_string());
             return Ok(true);
         }
@@ -372,19 +462,37 @@ pub(crate) async fn process_card(card: &mut Card, cache_dir: &Path, client: &req
         let _permit = SCRYFALL_SEMAPHORE.acquire().await.unwrap();
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        let response = client.get(&uri).send().await
+        let response = client
+            .get(&uri)
+            .send()
+            .await
             .map_err(|e| format!("Failed to fetch image from {}: {}", uri, e))?;
-        
+
         if !response.status().is_success() {
-            return Err(format!("Failed to download image from {}: {}", uri, response.status()));
+            return Err(format!(
+                "Failed to download image from {}: {}",
+                uri,
+                response.status()
+            ));
         }
 
-        let bytes = response.bytes().await.map_err(|e| format!("Failed to read image bytes: {e}"))?;
-        let mut file = tfs::File::create(&final_dest_path).await.map_err(|e| format!("Failed to create file: {e}"))?;
-        file.write_all(&bytes).await.map_err(|e| format!("Failed to write to file: {e}"))?;
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|e| format!("Failed to read image bytes: {e}"))?;
+        let mut file = tfs::File::create(&final_dest_path)
+            .await
+            .map_err(|e| format!("Failed to create file: {e}"))?;
+        file.write_all(&bytes)
+            .await
+            .map_err(|e| format!("Failed to write to file: {e}"))?;
 
         card.set_image(final_dest_path.to_string_lossy().to_string());
-        println!("Successfully saved image for {} to {:?}", card.get_name(), final_dest_path);
+        println!(
+            "Successfully saved image for {} to {:?}",
+            card.get_name(),
+            final_dest_path
+        );
         return Ok(true);
     }
 
@@ -396,7 +504,10 @@ fn extract_png_url(scryfall_card: &ScryfallCard) -> Option<String> {
     if let Some(uris) = &scryfall_card.image_uris {
         uris.png.clone()
     } else if let Some(faces) = &scryfall_card.card_faces {
-        faces.get(0).and_then(|f| f.image_uris.as_ref()).and_then(|u| u.png.clone())
+        faces
+            .get(0)
+            .and_then(|f| f.image_uris.as_ref())
+            .and_then(|u| u.png.clone())
     } else {
         None
     }
@@ -423,7 +534,9 @@ pub async fn get_base64_images(paths: Vec<String>) -> Result<Vec<String>, String
 
 #[tauri::command]
 pub async fn get_most_recent_cached_image(app: AppHandle) -> Result<Option<String>, String> {
-    let cache_dir = app.path().local_data_dir()
+    let cache_dir = app
+        .path()
+        .local_data_dir()
         .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
         .join("mtg_app")
         .join("card_images");
@@ -434,13 +547,19 @@ pub async fn get_most_recent_cached_image(app: AppHandle) -> Result<Option<Strin
 
     let mut most_recent_file: Option<(PathBuf, SystemTime)> = None;
 
-    for entry in fs::read_dir(cache_dir).map_err(|e| format!("Failed to read cache directory: {e}"))? {
+    for entry in
+        fs::read_dir(cache_dir).map_err(|e| format!("Failed to read cache directory: {e}"))?
+    {
         let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
         let path = entry.path();
 
         if path.is_file() {
-            let metadata = entry.metadata().map_err(|e| format!("Failed to read metadata: {e}"))?;
-            let modified = metadata.modified().map_err(|e| format!("Failed to read modified time: {e}"))?;
+            let metadata = entry
+                .metadata()
+                .map_err(|e| format!("Failed to read metadata: {e}"))?;
+            let modified = metadata
+                .modified()
+                .map_err(|e| format!("Failed to read modified time: {e}"))?;
 
             match most_recent_file {
                 None => most_recent_file = Some((path, modified)),
@@ -489,7 +608,8 @@ pub(crate) fn b64_encode(input: &[u8]) -> String {
 
 pub(crate) fn convert_card_image_to_base64(card: &mut Card) {
     let image_path = card.get_image().to_string();
-    if !image_path.is_empty() && !image_path.starts_with("data:") && !image_path.starts_with("http") {
+    if !image_path.is_empty() && !image_path.starts_with("data:") && !image_path.starts_with("http")
+    {
         if let Ok(bytes) = std::fs::read(&image_path) {
             let b64 = b64_encode(&bytes);
             card.set_image(format!("data:image/png;base64,{}", b64));

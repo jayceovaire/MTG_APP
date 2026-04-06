@@ -36,4 +36,5 @@ export {
 
 export {
   checkForUpdatesCommand,
+  installUpdateCommand,
 } from "./settingsCommands.js";

@@ -1,11 +1,11 @@
 use crate::models::card_model::{Card, CardType, SuperType};
 use crate::state::AppState;
-use rusqlite::{Connection, OpenFlags, OptionalExtension, Row, params};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Row};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::OnceLock;
-use tauri::{AppHandle, State, Manager};
+use tauri::{AppHandle, Manager, State};
 
 const SCRYFALL_DB_RELATIVE_PATH: &str = "src/db/scryfall.db";
 static SCRYFALL_DB_PATH: OnceLock<PathBuf> = OnceLock::new();
@@ -35,7 +35,8 @@ struct CardSearchCandidate {
 }
 
 pub fn initialize_db_paths(app: &AppHandle) -> Result<(), String> {
-    let path = app.path()
+    let path = app
+        .path()
         .resource_dir()
         .map_err(|e| format!("Failed to resolve resource directory: {e}"))?
         .join(SCRYFALL_DB_RELATIVE_PATH);
@@ -44,7 +45,10 @@ pub fn initialize_db_paths(app: &AppHandle) -> Result<(), String> {
 }
 
 fn scryfall_db_path() -> Result<PathBuf, String> {
-    SCRYFALL_DB_PATH.get().cloned().ok_or_else(|| "Scryfall DB path not initialized".to_string())
+    SCRYFALL_DB_PATH
+        .get()
+        .cloned()
+        .ok_or_else(|| "Scryfall DB path not initialized".to_string())
 }
 
 fn open_scryfall_db() -> Result<Connection, String> {
@@ -59,14 +63,17 @@ fn open_scryfall_db() -> Result<Connection, String> {
     let db_uri = if path_str.starts_with("//") && !path_str.starts_with("///") {
         format!("file:{}?mode=ro&immutable=1", path_str)
     } else {
-        format!("file:///{}?mode=ro&immutable=1", path_str.trim_start_matches('/'))
+        format!(
+            "file:///{}?mode=ro&immutable=1",
+            path_str.trim_start_matches('/')
+        )
     };
 
     Connection::open_with_flags(
         db_uri,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
     )
-        .map_err(|e| format!("Failed to open scryfall.db: {e}"))
+    .map_err(|e| format!("Failed to open scryfall.db: {e}"))
 }
 
 fn ensure_lookup_indexes(connection: &Connection) -> Result<(), String> {
@@ -104,14 +111,37 @@ fn normalize_search_text(value: &str) -> String {
             'ŕ' | 'ŗ' | 'ř' => Some("r".to_string()),
             'ś' | 'ŝ' | 'ş' | 'š' => Some("s".to_string()),
             'ţ' | 'ť' | 'ŧ' => Some("t".to_string()),
-            'ù' | 'ú' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' => Some("u".to_string()),
+            'ù' | 'ú' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' => {
+                Some("u".to_string())
+            }
             'ŵ' => Some("w".to_string()),
             'ý' | 'ÿ' | 'ŷ' => Some("y".to_string()),
             'ź' | 'ż' | 'ž' => Some("z".to_string()),
             'æ' => Some("ae".to_string()),
             'œ' => Some("oe".to_string()),
             'ß' => Some("ss".to_string()),
-            _ if ch.is_whitespace() || matches!(ch, '-' | '_' | '/' | '\\' | '\'' | '"' | ',' | '.' | ':' | ';' | '(' | ')' | '[' | ']' | '{' | '}') => Some(" ".to_string()),
+            _ if ch.is_whitespace()
+                || matches!(
+                    ch,
+                    '-' | '_'
+                        | '/'
+                        | '\\'
+                        | '\''
+                        | '"'
+                        | ','
+                        | '.'
+                        | ':'
+                        | ';'
+                        | '('
+                        | ')'
+                        | '['
+                        | ']'
+                        | '{'
+                        | '}'
+                ) =>
+            {
+                Some(" ".to_string())
+            }
             _ => None,
         };
 
@@ -243,7 +273,8 @@ fn load_search_candidates() -> Result<Vec<CardSearchCandidate>, String> {
             let name: String = row.get(0)?;
             let mana_cost: Option<String> = row.get(1)?;
             let type_line: String = row.get(2)?;
-            let commander_legality: String = row.get::<_, Option<String>>(3)?
+            let commander_legality: String = row
+                .get::<_, Option<String>>(3)?
                 .unwrap_or_else(|| "not_legal".to_string());
             let game_changer_int: i64 = row.get(4)?;
             let game_changer = game_changer_int != 0;
@@ -349,7 +380,11 @@ fn parse_sub_types(type_line: &str) -> Vec<String> {
     let right_side = type_line
         .split_once("—")
         .map(|(_, subtype_text)| subtype_text)
-        .or_else(|| type_line.split_once(" - ").map(|(_, subtype_text)| subtype_text));
+        .or_else(|| {
+            type_line
+                .split_once(" - ")
+                .map(|(_, subtype_text)| subtype_text)
+        });
 
     match right_side {
         Some(subtype_text) => subtype_text
@@ -486,15 +521,18 @@ pub(crate) fn card_from_db_by_name(name: &str, id: u64) -> Result<Option<Card>, 
 #[tauri::command]
 pub async fn get_card(app: AppHandle, name: String) -> Result<Option<Card>, String> {
     let mut card_opt = card_from_db_by_name(&name, 0)?;
-    
+
     if let Some(ref mut card) = card_opt {
-        let cache_dir = app.path().local_data_dir()
+        let cache_dir = app
+            .path()
+            .local_data_dir()
             .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
             .join("mtg_app")
             .join("card_images");
 
         if !cache_dir.exists() {
-            std::fs::create_dir_all(&cache_dir).map_err(|e| format!("Failed to create cache directory: {e}"))?;
+            std::fs::create_dir_all(&cache_dir)
+                .map_err(|e| format!("Failed to create cache directory: {e}"))?;
         }
 
         let client = reqwest::Client::builder()
@@ -505,7 +543,7 @@ pub async fn get_card(app: AppHandle, name: String) -> Result<Option<Card>, Stri
         let _ = crate::commands::image_commands::process_card(card, &cache_dir, &client).await;
         crate::commands::image_commands::convert_card_image_to_base64(card);
     }
-    
+
     Ok(card_opt)
 }
 
@@ -518,7 +556,9 @@ pub fn search_card_suggestions(query: String) -> Result<Vec<CardSearchSuggestion
 
     let mut matches: Vec<(usize, &CardSearchCandidate)> = search_candidates()?
         .iter()
-        .filter_map(|candidate| search_score(&normalized_query, candidate).map(|score| (score, candidate)))
+        .filter_map(|candidate| {
+            search_score(&normalized_query, candidate).map(|score| (score, candidate))
+        })
         .collect();
 
     matches.sort_by(|left, right| {
@@ -653,7 +693,9 @@ pub async fn get_random_card(app: AppHandle) -> Result<Option<Card>, String> {
     };
 
     if let Some(ref mut card) = card_opt {
-        let cache_dir = app.path().local_data_dir()
+        let cache_dir = app
+            .path()
+            .local_data_dir()
             .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
             .join("mtg_app")
             .join("card_images");
@@ -700,7 +742,14 @@ pub async fn add_card_to_collection(
     // Trigger image fetching in background for collection
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
+        let _ = crate::commands::image_commands::fetch_card_images(
+            app_handle,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .await;
     });
 
     Ok(CollectionCardView {
@@ -757,7 +806,14 @@ pub async fn bulk_add_cards_to_collection(
     // Trigger image fetching in background ONCE for collection
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
+        let _ = crate::commands::image_commands::fetch_card_images(
+            app_handle,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .await;
     });
 
     Ok(views)
@@ -789,7 +845,14 @@ pub async fn duplicate_collection_card(
     // Trigger image fetching in background for collection
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
+        let _ = crate::commands::image_commands::fetch_card_images(
+            app_handle,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .await;
     });
 
     Ok(CollectionCardView {
@@ -815,7 +878,6 @@ pub fn remove_collection_card(state: State<'_, AppState>, card_id: u64) -> Resul
     state.delete_collection_card(card_id)?;
     Ok(())
 }
-
 
 #[tauri::command]
 pub fn set_collection_card_favorite(
@@ -854,7 +916,10 @@ pub fn set_collection_card_favorite(
 }
 
 #[tauri::command]
-pub async fn get_collection(state: State<'_, AppState>, app: AppHandle) -> Result<Vec<CollectionCardView>, String> {
+pub async fn get_collection(
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Vec<CollectionCardView>, String> {
     let favorite_ids: HashSet<u64> = state
         .favorites
         .read()
@@ -862,8 +927,9 @@ pub async fn get_collection(state: State<'_, AppState>, app: AppHandle) -> Resul
         .iter()
         .copied()
         .collect();
-    
-    let cards = state.collection
+
+    let cards = state
+        .collection
         .read()
         .map_err(|_| "Failed to lock collection for read".to_string())?
         .clone()
@@ -874,7 +940,14 @@ pub async fn get_collection(state: State<'_, AppState>, app: AppHandle) -> Resul
     // Trigger image fetching for collection in background
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let _ = crate::commands::image_commands::fetch_card_images(app_handle, None, None, Some(true), None).await;
+        let _ = crate::commands::image_commands::fetch_card_images(
+            app_handle,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .await;
     });
 
     Ok(cards)
@@ -894,6 +967,3 @@ mod tests {
         // Actually, since it needs AppHandle, a simple unit test might fail to compile or run.
     }
 }
-
-
-

@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "updater:default",
     "core:path:default",
     "fs:default",
     "core:app:default",

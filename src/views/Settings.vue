@@ -1,13 +1,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
 import { 
   checkForUpdatesCommand, 
+  installUpdateCommand,
   fetchCardImagesCommand 
 } from '../api/commands';
 import { mdiUpdate, mdiDownload, mdiCached, mdiInformationOutline, mdiPaletteOutline } from '@mdi/js';
 
-const appVersion = ref('0.1.0');
+const appVersion = ref('');
 const isCheckingUpdate = ref(false);
 const updateMessage = ref('');
 const updateColor = ref('info');
@@ -25,9 +27,22 @@ async function handleCheckUpdate() {
   isCheckingUpdate.value = true;
   updateMessage.value = 'Checking for updates...';
   updateColor.value = 'info';
+
   try {
     const result = await checkForUpdatesCommand();
-    updateMessage.value = result;
+
+    appVersion.value = result.currentVersion;
+
+    if (!result.available) {
+      updateMessage.value = `You are running the latest version (${result.currentVersion}).`;
+      updateColor.value = 'success';
+      return;
+    }
+
+    updateMessage.value = `Update ${result.version} found. Downloading and installing...`;
+    updateColor.value = 'info';
+    await installUpdateCommand();
+    updateMessage.value = `Installed update ${result.version}. Restarting application...`;
     updateColor.value = 'success';
   } catch (error) {
     updateMessage.value = `Update check failed: ${error}`;
@@ -54,6 +69,13 @@ async function handleDownloadAllImages() {
 }
 
 onMounted(async () => {
+  try {
+    appVersion.value = await getVersion();
+  } catch (error) {
+    console.error('Failed to load app version:', error);
+    appVersion.value = 'Unknown';
+  }
+
   unlistenProgress = await listen('image-download-progress', (event) => {
     const payload = event.payload;
     downloadCurrent.value = payload.current;

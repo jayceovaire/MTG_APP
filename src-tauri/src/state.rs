@@ -1,14 +1,13 @@
-use std::sync::RwLock;
-use std::sync::atomic::{AtomicU64, Ordering};
 use crate::models::card_model::Card;
 use crate::models::deck_model::Deck;
 use crate::models::package_model::Package;
-use rusqlite::{Connection, params};
+use rusqlite::{params, Connection};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::RwLock;
 use tauri::Manager;
-
 
 #[derive(Default)]
 pub struct AppState {
@@ -34,8 +33,8 @@ impl AppState {
 
         let db_path = app_data_dir.join("user_data.db");
         let _ = self.user_db_path.set(db_path.clone());
-        let connection = Connection::open(&db_path)
-            .map_err(|e| format!("Failed to open user database: {e}"))?;
+        let connection =
+            Connection::open(&db_path).map_err(|e| format!("Failed to open user database: {e}"))?;
 
         connection
             .execute_batch(
@@ -84,9 +83,7 @@ impl AppState {
             .query_map([], |row| row.get::<_, u64>(0))
             .map_err(|e| format!("Failed to read favorite rows: {e}"))?;
         for row in favorite_rows {
-            loaded_favorites.push(
-                row.map_err(|e| format!("Failed to parse favorite row: {e}"))?,
-            );
+            loaded_favorites.push(row.map_err(|e| format!("Failed to parse favorite row: {e}"))?);
         }
 
         let mut loaded_packages = Vec::new();
@@ -153,7 +150,8 @@ impl AppState {
 
         self.next_card_id.store(max_card_id, Ordering::Relaxed);
         self.next_deck_id.store(max_deck_id, Ordering::Relaxed);
-        self.next_package_id.store(max_package_id, Ordering::Relaxed);
+        self.next_package_id
+            .store(max_package_id, Ordering::Relaxed);
         Ok(())
     }
 
@@ -195,7 +193,10 @@ impl AppState {
     pub fn delete_collection_card(&self, card_id: u64) -> Result<(), String> {
         let connection = self.open_user_connection()?;
         connection
-            .execute("DELETE FROM collection_cards WHERE card_id = ?1", params![card_id])
+            .execute(
+                "DELETE FROM collection_cards WHERE card_id = ?1",
+                params![card_id],
+            )
             .map_err(|e| format!("Failed to delete collection card: {e}"))?;
         connection
             .execute("DELETE FROM favorites WHERE card_id = ?1", params![card_id])
@@ -224,8 +225,8 @@ impl AppState {
 
     pub fn save_deck(&self, deck: &Deck) -> Result<(), String> {
         let connection = self.open_user_connection()?;
-        let deck_json = serde_json::to_string(deck)
-            .map_err(|e| format!("Failed to serialize deck: {e}"))?;
+        let deck_json =
+            serde_json::to_string(deck).map_err(|e| format!("Failed to serialize deck: {e}"))?;
         connection
             .execute(
                 "INSERT INTO decks (deck_id, name, deck_json)
@@ -265,7 +266,10 @@ impl AppState {
     pub fn delete_package(&self, package_id: u64) -> Result<(), String> {
         let connection = self.open_user_connection()?;
         connection
-            .execute("DELETE FROM packages WHERE package_id = ?1", params![package_id])
+            .execute(
+                "DELETE FROM packages WHERE package_id = ?1",
+                params![package_id],
+            )
             .map_err(|e| format!("Failed to delete package: {e}"))?;
         Ok(())
     }

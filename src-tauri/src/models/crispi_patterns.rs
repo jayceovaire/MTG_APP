@@ -20,7 +20,6 @@ static DRAW_PATTERNS: &[&str] = &[
     r"whenever an opponent .* draw a card",
     r"whenever an opponent .* draw .* cards",
     r"look at the top \d+ cards? of your library.*put .* into your hand",
-    
 ];
 
 static REMOVAL_PATTERNS: &[&str] = &[
@@ -136,21 +135,21 @@ static ENGINE_PATTERNS: &[&str] = &[
     r"exile .*: .*",
 ];
 
-static WINCON_PATTERNS: &[&str] = &[r"you win the game", r"target player loses the game", r"infinite"];
+static WINCON_PATTERNS: &[&str] = &[
+    r"you win the game",
+    r"target player loses the game",
+    r"infinite",
+];
 
 static FAST_MANA_PATTERNS: &[&str] = &[
     // Produces 2+ mana explicitly
     r"add (?:\{[WUBRGC]\}){2,}",
-
     // Ritual wording
     r"add [wubrgc ]{2,}",
-
     // Sacrifice for mana (LED, Petal, Treasures)
     r"sacrifice .*: add",
-
     // Treasure creation
     r"create a treasure token",
-
     // Untap lands burst
     r"untap up to \d+ lands",
 ];
@@ -185,10 +184,8 @@ static TREASURE_BURST_PATTERNS: &[&str] = &[
     r"create (two|three|four|five|six|seven|eight|nine|ten) treasure tokens",
     // Variable X treasures
     r"create x treasure tokens",
-
     // Scaling treasure burst
     r"for each .* create a treasure token",
-
     // ETB burst treasures
     r"enters the battlefield.*create .* treasure tokens",
 ];
@@ -208,25 +205,17 @@ static COST_REDUCTION_PATTERNS: &[&str] = &[
 static FAST_MANA_ONE_SHOT_PATTERNS: &[&str] = &[
     // Sacrifice for mana (Lotus Petal, Treasures, LED)
     r"sacrifice .*: add",
-
     // Treasure creation
     r"create a treasure token",
-
     // Rituals (instants/sorceries that add mana)
     r"add [wubrgc ]{2,}",
-
     // ETB burst mana (rare but real)
     r"enters the battlefield.*add",
-
     // Untap lands burst (Frantic Search / Turnabout style)
     r"untap up to \d+ lands",
 ];
 
-static BURST_DRAW_PATTERNS: &[&str] = &[
-    r"draw two cards",
-    r"draw three cards",
-    r"draw x cards",
-];
+static BURST_DRAW_PATTERNS: &[&str] = &[r"draw two cards", r"draw three cards", r"draw x cards"];
 
 static MASS_DRAW_PATTERNS: &[&str] = &[
     r"each player draws",
@@ -235,11 +224,7 @@ static MASS_DRAW_PATTERNS: &[&str] = &[
     r"draw five cards",
 ];
 
-static LOOTING_PATTERNS: &[&str] = &[
-    r"draw .* then discard",
-    r"discard .* then draw",
-    r"loot",
-];
+static LOOTING_PATTERNS: &[&str] = &[r"draw .* then discard", r"discard .* then draw", r"loot"];
 
 static IMPULSE_DRAW_PATTERNS: &[&str] = &[
     r"exile the top .* card.* you may play",
@@ -274,34 +259,174 @@ static MULTI_MANA_PRODUCER_PATTERNS: &[&str] = &[
 static INFECT_PATTERNS: &[&str] = &[r"\binfect\b", r"\btoxic\b", r"poison counter"];
 static PROLIFERATE_PATTERNS: &[&str] = &[r"\bproliferate\b"];
 
-static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RAMP_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static MASS_REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MASS_REMOVAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| TUTOR_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static LAND_TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| LAND_TUTOR_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static PROTECTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| PROTECTION_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static FIXING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| FIXING_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static STAX_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| STAX_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static ENGINE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| ENGINE_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static WINCON_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| WINCON_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static FAST_MANA_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| FAST_MANA_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static RECURSION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RECURSION_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static RITUAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| RITUAL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static TREASURE_BURST_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| TREASURE_BURST_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static SAC_MANA_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| SAC_MANA_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static COST_REDUCTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| COST_REDUCTION_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static FAST_MANA_ONE_SHOT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| FAST_MANA_ONE_SHOT_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-pub static MULTI_MANA_PRODUCER_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MULTI_MANA_PRODUCER_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static BURST_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| BURST_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static MASS_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MASS_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static WHEEL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| WHEEL_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static VOLTRON_PIECE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| VOLTRON_PIECE_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static LOOTING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| LOOTING_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static IMPULSE_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| IMPULSE_DRAW_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static GROUP_HUG_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| GROUP_HUG_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static INFECT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| INFECT_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-static PROLIFERATE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| PROLIFERATE_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    RAMP_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    DRAW_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    REMOVAL_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static MASS_REMOVAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MASS_REMOVAL_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    TUTOR_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static LAND_TUTOR_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    LAND_TUTOR_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static PROTECTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    PROTECTION_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static FIXING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    FIXING_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static STAX_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    STAX_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static ENGINE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    ENGINE_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static WINCON_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    WINCON_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static FAST_MANA_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    FAST_MANA_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static RECURSION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    RECURSION_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static RITUAL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    RITUAL_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static TREASURE_BURST_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    TREASURE_BURST_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static SAC_MANA_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    SAC_MANA_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static COST_REDUCTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    COST_REDUCTION_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static FAST_MANA_ONE_SHOT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    FAST_MANA_ONE_SHOT_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+pub static MULTI_MANA_PRODUCER_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MULTI_MANA_PRODUCER_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static BURST_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    BURST_DRAW_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static MASS_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MASS_DRAW_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static WHEEL_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    WHEEL_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static VOLTRON_PIECE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    VOLTRON_PIECE_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static LOOTING_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    LOOTING_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static IMPULSE_DRAW_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    IMPULSE_DRAW_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static GROUP_HUG_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    GROUP_HUG_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static INFECT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    INFECT_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static PROLIFERATE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    PROLIFERATE_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
 
 pub static MULTI_COLOR_LAND_PATTERNS: &[&str] = &[
     r"add \{.\} or \{.\}",
@@ -311,16 +436,32 @@ pub static MULTI_COLOR_LAND_PATTERNS: &[&str] = &[
 
 pub static MULTI_MANA_LAND_PATTERNS: &[&str] = &[r"add \{.\}\{.\}"];
 
-pub static MULTI_COLOR_LAND_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MULTI_COLOR_LAND_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
-pub static MULTI_MANA_LAND_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| MULTI_MANA_LAND_PATTERNS.iter().map(|p| Regex::new(p).unwrap()).collect());
+pub static MULTI_COLOR_LAND_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MULTI_COLOR_LAND_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+pub static MULTI_MANA_LAND_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MULTI_MANA_LAND_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
 
-pub static ANY_TUTOR_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"search your library for .* card").unwrap());
-pub static FREE_SPELL_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"rather than pay this spell's mana cost|without paying its mana cost").unwrap());
-pub static NON_TAPPING_ACTIVATION_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|\.)\s*([^:\.]+):").unwrap());
+pub static ANY_TUTOR_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"search your library for .* card").unwrap());
+pub static FREE_SPELL_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"rather than pay this spell's mana cost|without paying its mana cost").unwrap()
+});
+pub static NON_TAPPING_ACTIVATION_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?:^|\.)\s*([^:\.]+):").unwrap());
 
 static RE_REMINDER: Lazy<Regex> = Lazy::new(|| Regex::new(r"\(.*?\)").unwrap());
 static RE_SPACES: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").unwrap());
-pub static LAND_ENGINE_VERBS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(whenever|for each|you may pay|return|draw|copy|cast|sacrifice).*").unwrap());
+pub static LAND_ENGINE_VERBS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(whenever|for each|you may pay|return|draw|copy|cast|sacrifice).*").unwrap()
+});
 
 pub fn normalize_text(text: &str) -> String {
     let mut normalized = text.to_lowercase();
@@ -380,7 +521,9 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             let trimmed = phrase.trim();
             if !trimmed.is_empty() && !trimmed.contains("you may pay") {
                 if STAX_REGEX.iter().any(|re| re.is_match(trimmed))
-                    && !(roles.contains(&Role::LAND) && !roles.contains(&Role::TUTOR) && !roles.contains(&Role::RECURSION))
+                    && !(roles.contains(&Role::LAND)
+                        && !roles.contains(&Role::TUTOR)
+                        && !roles.contains(&Role::RECURSION))
                 {
                     roles.insert(Role::STAX);
                     break;
@@ -407,16 +550,25 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         if RITUAL_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::RITUAL);
         }
-        if TREASURE_BURST_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if TREASURE_BURST_REGEX
+            .iter()
+            .any(|re| re.is_match(&normalized))
+        {
             roles.insert(Role::TREASURE_BURST);
         }
         if SAC_MANA_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::SAC_MANA);
         }
-        if COST_REDUCTION_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if COST_REDUCTION_REGEX
+            .iter()
+            .any(|re| re.is_match(&normalized))
+        {
             roles.insert(Role::COST_REDUCTION);
         }
-        if FAST_MANA_ONE_SHOT_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if FAST_MANA_ONE_SHOT_REGEX
+            .iter()
+            .any(|re| re.is_match(&normalized))
+        {
             roles.insert(Role::FAST_MANA_ONE_SHOT);
         }
         if BURST_DRAW_REGEX.iter().any(|re| re.is_match(&normalized)) {
@@ -429,7 +581,10 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             roles.insert(Role::WHEEL);
         }
 
-        if VOLTRON_PIECE_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if VOLTRON_PIECE_REGEX
+            .iter()
+            .any(|re| re.is_match(&normalized))
+        {
             roles.insert(Role::VOLTRON_PIECE);
         }
 
@@ -455,7 +610,10 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
 
         if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::FAST_MANA);
-        } else if card.mana_value() == 0 && RAMP_REGEX.iter().any(|re| re.is_match(&normalized)) && !card.is_land() {
+        } else if card.mana_value() == 0
+            && RAMP_REGEX.iter().any(|re| re.is_match(&normalized))
+            && !card.is_land()
+        {
             roles.insert(Role::FAST_MANA);
         }
     }

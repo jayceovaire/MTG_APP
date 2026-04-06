@@ -1,7 +1,7 @@
 use crate::models::card_model::Card;
 use crate::models::crispi_patterns::{
-    normalize_text, ANY_TUTOR_REGEX, FREE_SPELL_REGEX, LAND_ENGINE_VERBS_REGEX, MULTI_COLOR_LAND_REGEX,
-    MULTI_MANA_LAND_REGEX, NON_TAPPING_ACTIVATION_REGEX,
+    normalize_text, ANY_TUTOR_REGEX, FREE_SPELL_REGEX, LAND_ENGINE_VERBS_REGEX,
+    MULTI_COLOR_LAND_REGEX, MULTI_MANA_LAND_REGEX, NON_TAPPING_ACTIVATION_REGEX,
 };
 use crate::models::crispi_types::{QualityTier, Role};
 use std::collections::HashSet;
@@ -10,9 +10,14 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
     let oracle_text = card.oracle_text().map(normalize_text).unwrap_or_default();
 
     if card.is_land() {
-        let enters_tapped = oracle_text.contains("enters the battlefield tapped") && !oracle_text.contains("unless");
-        let produces_multi_color = MULTI_COLOR_LAND_REGEX.iter().any(|re| re.is_match(&oracle_text));
-        let produces_multi_mana = MULTI_MANA_LAND_REGEX.iter().any(|re| re.is_match(&oracle_text));
+        let enters_tapped = oracle_text.contains("enters the battlefield tapped")
+            && !oracle_text.contains("unless");
+        let produces_multi_color = MULTI_COLOR_LAND_REGEX
+            .iter()
+            .any(|re| re.is_match(&oracle_text));
+        let produces_multi_mana = MULTI_MANA_LAND_REGEX
+            .iter()
+            .any(|re| re.is_match(&oracle_text));
 
         let has_utility = roles.contains(&Role::TUTOR)
             || roles.contains(&Role::RECURSION)
@@ -45,8 +50,13 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
 
     let mut is_premium = FREE_SPELL_REGEX.is_match(&oracle_text)
         || roles.contains(&Role::FAST_MANA)
-        || (roles.contains(&Role::TUTOR) && !is_delayed_tutor && ANY_TUTOR_REGEX.is_match(&oracle_text) && mv <= 2)
-        || ((roles.contains(&Role::REMOVAL) || roles.contains(&Role::PROTECTION)) && is_inst && mv <= 1)
+        || (roles.contains(&Role::TUTOR)
+            && !is_delayed_tutor
+            && ANY_TUTOR_REGEX.is_match(&oracle_text)
+            && mv <= 2)
+        || ((roles.contains(&Role::REMOVAL) || roles.contains(&Role::PROTECTION))
+            && is_inst
+            && mv <= 1)
         || (roles.contains(&Role::WINCON) && mv <= 2)
         || (roles.contains(&Role::MASS_REMOVAL) && mv <= 3)
         || (roles.contains(&Role::ENGINE) && mv <= 2);
@@ -71,7 +81,12 @@ pub fn classify_card(card: &Card, roles: &HashSet<Role>) -> QualityTier {
         return QualityTier::Slow;
     }
 
-    if mv >= 4 && !roles.contains(&Role::WINCON) && !roles.contains(&Role::FAST_MANA) && !roles.contains(&Role::TUTOR) && !roles.contains(&Role::MASS_REMOVAL) {
+    if mv >= 4
+        && !roles.contains(&Role::WINCON)
+        && !roles.contains(&Role::FAST_MANA)
+        && !roles.contains(&Role::TUTOR)
+        && !roles.contains(&Role::MASS_REMOVAL)
+    {
         return QualityTier::Slow;
     }
 

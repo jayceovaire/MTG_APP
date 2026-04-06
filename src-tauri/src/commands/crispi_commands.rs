@@ -1,9 +1,9 @@
-use crate::models::crispi_model::{self, Role, CrispiEvaluation};
 use crate::models::card_model::{self, CardType};
+use crate::models::crispi_model::{self, CrispiEvaluation, Role};
 use crate::state::AppState;
-use tauri::State;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tauri::State;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardRoles {
@@ -24,17 +24,26 @@ pub struct DeckRoleEvaluation {
 }
 
 #[tauri::command]
-pub fn evaluate_deck_roles(state: State<'_, AppState>, deck_id: u64) -> Result<DeckRoleEvaluation, String> {
-    let decks = state.decks.read().map_err(|_| "Failed to acquire deck lock".to_string())?;
-    let deck = decks.iter().find(|d| d.id() == deck_id).ok_or_else(|| format!("Deck {} not found", deck_id))?;
+pub fn evaluate_deck_roles(
+    state: State<'_, AppState>,
+    deck_id: u64,
+) -> Result<DeckRoleEvaluation, String> {
+    let decks = state
+        .decks
+        .read()
+        .map_err(|_| "Failed to acquire deck lock".to_string())?;
+    let deck = decks
+        .iter()
+        .find(|d| d.id() == deck_id)
+        .ok_or_else(|| format!("Deck {} not found", deck_id))?;
 
     let mut mainboard = Vec::new();
     let mut commanders = Vec::new();
     match deck.get_commander() {
-        crate::models::deck_model::CommanderSelection::None => {},
+        crate::models::deck_model::CommanderSelection::None => {}
         crate::models::deck_model::CommanderSelection::Single(commander) => {
             commanders.push(commander.clone());
-        },
+        }
         crate::models::deck_model::CommanderSelection::Partner(c1, c2) => {
             commanders.push(c1.clone());
             commanders.push(c2.clone());
@@ -56,14 +65,14 @@ pub fn evaluate_deck_roles(state: State<'_, AppState>, deck_id: u64) -> Result<D
         let roles_set = crispi_model::infer_roles(card);
         let tier = crispi_model::classify_card(card, &roles_set);
         let weight = tier.weight();
-        
+
         let mut roles: Vec<Role> = roles_set.into_iter().collect();
         roles.sort_by_key(|r| format!("{:?}", r));
-        
+
         for role in &roles {
             *role_counts.entry(role.clone()).or_insert(0.0) += weight;
         }
-        
+
         card_evaluations.push(CardRoles {
             card_id: card.id(),
             card_name: card.get_name().to_string(),
