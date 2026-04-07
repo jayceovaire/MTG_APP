@@ -144,12 +144,225 @@ fn test_land_tutor_is_fixing_not_tutor() {
 }
 
 #[test]
+fn test_fetch_land_is_fixing_not_ramp() {
+    let evolving_wilds = make_card(
+        "Evolving Wilds",
+        0,
+        vec![CardType::Land],
+        "{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",
+    );
+
+    let roles = infer_roles(&evolving_wilds);
+    assert!(
+        roles.contains(&Role::LAND),
+        "Fetch lands should still be tagged as lands. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        roles.contains(&Role::FIXING),
+        "Fetch lands should count as fixing. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::RAMP),
+        "Fetch lands should not count as ramp. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_basic_typed_fetch_land_is_not_ramp() {
+    let flooded_strand = make_card(
+        "Flooded Strand",
+        0,
+        vec![CardType::Land],
+        "{T}, Pay 1 life, Sacrifice Flooded Strand: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
+    );
+
+    let roles = infer_roles(&flooded_strand);
+    assert!(
+        roles.contains(&Role::FIXING),
+        "Typed fetch lands should count as fixing. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::RAMP),
+        "Typed fetch lands should not count as ramp. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_repeatable_treasure_creature_is_not_fast_mana_one_shot() {
+    let grim_hireling = make_card(
+        "Grim Hireling",
+        4,
+        vec![CardType::Creature],
+        "Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.",
+    );
+
+    let roles = infer_roles(&grim_hireling);
+    assert!(
+        roles.contains(&Role::RAMP),
+        "Repeatable treasure creatures should still count as ramp. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        roles.contains(&Role::ENGINE),
+        "Repeatable treasure creatures should count as engines. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::FAST_MANA_ONE_SHOT),
+        "Repeatable treasure creatures should not count as fast mana one shot. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::FAST_MANA),
+        "Repeatable treasure creatures should not count as fast mana. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_one_shot_treasure_spell_still_counts_as_fast_mana_one_shot() {
+    let strike_it_rich = make_card(
+        "Strike It Rich",
+        1,
+        vec![CardType::Sorcery],
+        "Create a Treasure token. Flashback {2}{R}.",
+    );
+
+    let roles = infer_roles(&strike_it_rich);
+    assert!(
+        roles.contains(&Role::FAST_MANA_ONE_SHOT),
+        "One-shot treasure spells should still count as fast mana one shot. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_repeatable_treasure_enchantment_is_not_fast_mana_one_shot() {
+    let black_market_connections = make_card(
+        "Black Market Connections",
+        3,
+        vec![CardType::Enchantment],
+        "At the beginning of your precombat main phase, choose one or more. Create a Treasure token. You lose 1 life.",
+    );
+
+    let roles = infer_roles(&black_market_connections);
+    assert!(
+        roles.contains(&Role::RAMP),
+        "Repeatable treasure enchantments should count as ramp. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        roles.contains(&Role::ENGINE),
+        "Repeatable treasure enchantments should count as engines. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::FAST_MANA_ONE_SHOT),
+        "Repeatable treasure enchantments should not count as fast mana one shot. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::FAST_MANA),
+        "Repeatable treasure enchantments should not count as fast mana. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_simian_spirit_guide_is_fast_mana_not_engine() {
+    let simian_spirit_guide = make_card(
+        "Simian Spirit Guide",
+        3,
+        vec![CardType::Creature],
+        "Exile Simian Spirit Guide from your hand: Add {R}.",
+    );
+
+    let roles = infer_roles(&simian_spirit_guide);
+    assert!(
+        roles.contains(&Role::FAST_MANA_ONE_SHOT),
+        "Simian Spirit Guide should count as fast mana one shot. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::ENGINE),
+        "Simian Spirit Guide should not count as an engine. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_elvish_spirit_guide_is_fast_mana_not_engine() {
+    let elvish_spirit_guide = make_card(
+        "Elvish Spirit Guide",
+        3,
+        vec![CardType::Creature],
+        "Exile Elvish Spirit Guide from your hand: Add {G}.",
+    );
+
+    let roles = infer_roles(&elvish_spirit_guide);
+    assert!(
+        roles.contains(&Role::FAST_MANA_ONE_SHOT),
+        "Elvish Spirit Guide should count as fast mana one shot. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::ENGINE),
+        "Elvish Spirit Guide should not count as an engine. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_mana_vault_is_fast_mana_not_engine() {
+    let mana_vault = make_card(
+        "Mana Vault",
+        1,
+        vec![CardType::Artifact],
+        "Mana Vault doesn't untap during your untap step. At the beginning of your upkeep, you may pay {4}. If you do, untap Mana Vault. At the beginning of your draw step, if Mana Vault is tapped, it deals 1 damage to you. {T}: Add {C}{C}{C}.",
+    );
+
+    let roles = infer_roles(&mana_vault);
+    assert!(
+        roles.contains(&Role::RAMP),
+        "Mana Vault should count as ramp. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        roles.contains(&Role::FAST_MANA),
+        "Mana Vault should count as fast mana. Roles found: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::ENGINE),
+        "Mana Vault should not count as an engine. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
 fn test_turbo_requires_natural_speed_five() {
     let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 4);
     assert_eq!(archetype, DeckArchetype::Midrange);
 
     let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 5);
     assert_eq!(archetype, DeckArchetype::Turbo);
+}
+
+#[test]
+fn test_two_card_combo_floors_bracket_four() {
+    let bracket = derive_bracket(0, 4, 10.0, 2.5);
+    assert_eq!(bracket, 4);
+}
+
+#[test]
+fn test_three_card_combo_floors_bracket_three() {
+    let bracket = derive_bracket(0, 3, 10.0, 2.5);
+    assert_eq!(bracket, 3);
 }
 
 #[test]

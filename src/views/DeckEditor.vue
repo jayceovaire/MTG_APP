@@ -571,9 +571,10 @@ function collapseCardCopies(cards) {
     const entry = grouped.get(key);
     if (entry) {
       entry.quantity += 1;
+      entry.cardIds.push(card.id);
       continue;
     }
-    grouped.set(key, { card, quantity: 1 });
+    grouped.set(key, { key, card, quantity: 1, cardIds: [card.id] });
   }
 
   return [...grouped.values()].sort((a, b) => a.card.name.localeCompare(b.card.name));
@@ -1537,7 +1538,7 @@ onUnmounted(() => {
             <div v-if="commanderSection.length > 0" class="deck-list">
               <DeckCardRow
                 v-for="entry in commanderSection"
-                :key="`commander-${entry.card.id}`"
+                :key="`commander-${entry.key}`"
                 :card="entry.card"
                 :quantity="entry.quantity"
                 :editable="true"
@@ -1595,7 +1596,7 @@ onUnmounted(() => {
                 <div class="deck-list">
                   <DeckCardRow
                     v-for="entry in section.entries"
-                    :key="`${section.title}-${entry.card.id}`"
+                    :key="`${section.title}-${entry.key}`"
                     :card="entry.card"
                     :quantity="entry.quantity"
                     :editable="true"
@@ -1603,7 +1604,7 @@ onUnmounted(() => {
                     :can-set-partner="canSetPartner(entry.card)"
                     :show-add-to-package-action="true"
                     @add-copy="handleAddCopy(entry.card.name)"
-                    @remove-copy="handleRemoveCopy(entry.card.id, entry.card.name)"
+                    @remove-copy="handleRemoveCopy(entry.cardIds[entry.cardIds.length - 1], entry.card.name)"
                     @set-commander="handleSetCommander(entry.card.id, entry.card.name)"
                     @set-partner="handleSetPartner(entry.card.id, entry.card.name)"
                     @add-to-package="handleAddToPackage(entry.card.name)"

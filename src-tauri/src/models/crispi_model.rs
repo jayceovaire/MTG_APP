@@ -21,7 +21,7 @@ struct ComboAnalysis {
     detected_combos: Vec<String>,
     combo_piece_names: HashSet<String>,
     combo_multiplier: f32,
-    any_combo_found: bool,
+    combo_bracket_floor: u8,
 }
 
 struct ColorFixingAssessment {
@@ -636,8 +636,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         + interaction_score
         + speed_score
         + pivotability_score) as f32;
-    let gc_bonus = (n_gc as f32 * 0.4).min(6.0);
-    let raw_score = (raw_score + gc_bonus).min(30.0);
+    let gc_bonus = (n_gc as f32 * 0.2).min(6.0);
+    let raw_score = (raw_score + gc_bonus).min(25.0);
 
     // AMV Multiplier (Applied AFTER floors)
     let amv_multiplier = match amv {
@@ -659,7 +659,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     }
     let detected_combos = combo_analysis.detected_combos.clone();
     let combo_multiplier = combo_analysis.combo_multiplier;
-    let any_combo_found = combo_analysis.any_combo_found;
+    let combo_bracket_floor = combo_analysis.combo_bracket_floor;
 
     let mut commander_mv_penalty = 0.0;
     if !commanders.is_empty() {
@@ -734,7 +734,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let provisional_total_score = (raw_score * final_multiplier - commander_mv_penalty)
         .min(25.0)
         .max(0.0);
-    let provisional_bracket = derive_bracket(n_gc, any_combo_found, provisional_total_score, amv);
+    let provisional_bracket =
+        derive_bracket(n_gc, combo_bracket_floor, provisional_total_score, amv);
     let color_fixing = assess_color_fixing(&color_fixing_profile, provisional_bracket);
     let key_turn = if provisional_bracket >= 5 {
         3
@@ -841,7 +842,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     .to_string();
 
     // Bracket Calculation
-    let bracket = derive_bracket(n_gc, any_combo_found, total_score, amv);
+    let bracket = derive_bracket(n_gc, combo_bracket_floor, total_score, amv);
 
     let consistency = CrispiDimension {
         score: consistency_score,
@@ -998,6 +999,7 @@ fn analyze_combos(
     let mut combo_piece_names = HashSet::new();
     let mut total_bonus = 0.0;
     let mut any_combo_found = false;
+    let mut combo_bracket_floor = 0;
     let tutor_influence = (tutor_count as f32 * 0.01).min(0.15);
 
     for combo in TWO_CARD_COMBOS {
@@ -1010,6 +1012,7 @@ fn analyze_combos(
             }
 
             any_combo_found = true;
+            combo_bracket_floor = combo_bracket_floor.max(4);
             combo_piece_names.insert(norm_a);
             combo_piece_names.insert(norm_b);
             detected_combos.push(format!(
@@ -1039,6 +1042,7 @@ fn analyze_combos(
             }
 
             any_combo_found = true;
+            combo_bracket_floor = combo_bracket_floor.max(3);
             combo_piece_names.insert(norm_a);
             combo_piece_names.insert(norm_b);
             combo_piece_names.insert(norm_c);
@@ -1070,7 +1074,7 @@ fn analyze_combos(
         detected_combos,
         combo_piece_names,
         combo_multiplier,
-        any_combo_found,
+        combo_bracket_floor,
     }
 }
 

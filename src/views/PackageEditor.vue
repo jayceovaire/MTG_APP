@@ -295,9 +295,10 @@ function collapseCardCopies(cards) {
     const entry = grouped.get(key);
     if (entry) {
       entry.quantity += 1;
+      entry.cardIds.push(card.id);
       continue;
     }
-    grouped.set(key, { card, quantity: 1 });
+    grouped.set(key, { key, card, quantity: 1, cardIds: [card.id] });
   }
 
   return [...grouped.values()].sort((a, b) => a.card.name.localeCompare(b.card.name));
@@ -621,11 +622,11 @@ onUnmounted(() => {
                 <div class="deck-list">
                   <DeckCardRow
                     v-for="entry in section.entries"
-                    :key="`${section.title}-${entry.card.id}`"
+                    :key="`${section.title}-${entry.key}`"
                     :card="entry.card"
                     :quantity="entry.quantity"
                     @add-copy="handleAddCopy(entry.card.name)"
-                    @remove-copy="handleRemoveCopy(entry.card.id, entry.card.name)"
+                    @remove-copy="handleRemoveCopy(entry.cardIds[entry.cardIds.length - 1], entry.card.name)"
                   />
                 </div>
               </section>

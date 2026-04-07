@@ -45,7 +45,7 @@ pub fn hypergeometric_at_least(
     total as f32
 }
 
-pub fn derive_bracket(n_gc: u32, any_combo_found: bool, total_score: f32, amv: f32) -> u8 {
+pub fn derive_bracket(n_gc: u32, combo_bracket_floor: u8, total_score: f32, amv: f32) -> u8 {
     let mut bracket = if n_gc == 0 {
         2
     } else if n_gc <= 3 {
@@ -54,8 +54,8 @@ pub fn derive_bracket(n_gc: u32, any_combo_found: bool, total_score: f32, amv: f
         4
     };
 
-    if any_combo_found {
-        bracket = bracket.max(4);
+    if combo_bracket_floor > 0 {
+        bracket = bracket.max(combo_bracket_floor);
     }
 
     if bracket == 2 && total_score <= 8.0 && amv > 3.5 {

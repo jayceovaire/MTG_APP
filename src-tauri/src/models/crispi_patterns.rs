@@ -143,7 +143,7 @@ static WINCON_PATTERNS: &[&str] = &[
 
 static FAST_MANA_PATTERNS: &[&str] = &[
     // Produces 2+ mana explicitly
-    r"add (?:\{[WUBRGC]\}){2,}",
+    r"add (?:\{[wubrgc]\}){2,}",
     // Ritual wording
     r"add [wubrgc ]{2,}",
     // Sacrifice for mana (LED, Petal, Treasures)
@@ -205,6 +205,8 @@ static COST_REDUCTION_PATTERNS: &[&str] = &[
 static FAST_MANA_ONE_SHOT_PATTERNS: &[&str] = &[
     // Sacrifice for mana (Lotus Petal, Treasures, LED)
     r"sacrifice .*: add",
+    // Exile from hand for mana (Spirit Guides)
+    r"exile .* from your hand: add",
     // Treasure creation
     r"create a treasure token",
     // Rituals (instants/sorceries that add mana)
@@ -481,6 +483,46 @@ pub fn normalize_card_name(name: &str) -> String {
         .join(" ")
 }
 
+fn is_repeatable_treasure_engine(card: &Card, normalized: &str) -> bool {
+    if !card.is_creature() && !card.is_enchantment() {
+        return false;
+    }
+
+    let creates_treasure = normalized.contains("create a treasure")
+        || normalized.contains("create two treasure")
+        || normalized.contains("create three treasure")
+        || normalized.contains("create four treasure")
+        || normalized.contains("create five treasure")
+        || normalized.contains("create x treasure");
+    let repeat_trigger = normalized.contains("whenever ")
+        || normalized.contains("at the beginning of ");
+
+    creates_treasure && repeat_trigger
+}
+
+fn is_one_shot_exile_mana_effect(normalized: &str) -> bool {
+    normalized.contains("exile ")
+        && normalized.contains(": add ")
+        && (normalized.contains("from your hand") || normalized.contains("this card"))
+}
+
+fn is_mana_artifact_maintenance_text(card: &Card, normalized: &str) -> bool {
+    if !card.is_artifact() {
+        return false;
+    }
+
+    let has_upkeep_or_drawstep_maintenance = normalized.contains("at the beginning of your upkeep")
+        || normalized.contains("at the beginning of your draw step");
+    let has_self_untap_or_downside = normalized.contains("doesn't untap during your untap step")
+        || normalized.contains("if ")
+            && (normalized.contains("untap ")
+                || normalized.contains("deals ")
+                || normalized.contains("pay {"));
+    let is_mana_source = normalized.contains(": add ");
+
+    has_upkeep_or_drawstep_maintenance && has_self_untap_or_downside && is_mana_source
+}
+
 pub fn infer_roles(card: &Card) -> HashSet<Role> {
     let mut roles = HashSet::new();
 
@@ -494,8 +536,11 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
 
     if let Some(oracle_text) = card.oracle_text() {
         let normalized = normalize_text(oracle_text);
+        let repeatable_treasure_engine = is_repeatable_treasure_engine(card, &normalized);
 
-        if RAMP_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if repeatable_treasure_engine
+            || (!card.is_land() && RAMP_REGEX.iter().any(|re| re.is_match(&normalized)))
+        {
             roles.insert(Role::RAMP);
         }
         if DRAW_REGEX.iter().any(|re| re.is_match(&normalized)) {
@@ -531,7 +576,12 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             }
         }
 
-        if ENGINE_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if repeatable_treasure_engine {
+            roles.insert(Role::ENGINE);
+        } else if ENGINE_REGEX.iter().any(|re| re.is_match(&normalized))
+            && !is_one_shot_exile_mana_effect(&normalized)
+            && !is_mana_artifact_maintenance_text(card, &normalized)
+        {
             if card.is_land() {
                 if LAND_ENGINE_VERBS_REGEX.is_match(&normalized) {
                     roles.insert(Role::ENGINE);
@@ -568,6 +618,7 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         if FAST_MANA_ONE_SHOT_REGEX
             .iter()
             .any(|re| re.is_match(&normalized))
+            && !repeatable_treasure_engine
         {
             roles.insert(Role::FAST_MANA_ONE_SHOT);
         }
@@ -608,11 +659,14 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             roles.insert(Role::PROLIFERATE);
         }
 
-        if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized))
+            && !repeatable_treasure_engine
+        {
             roles.insert(Role::FAST_MANA);
         } else if card.mana_value() == 0
             && RAMP_REGEX.iter().any(|re| re.is_match(&normalized))
             && !card.is_land()
+            && !repeatable_treasure_engine
         {
             roles.insert(Role::FAST_MANA);
         }
