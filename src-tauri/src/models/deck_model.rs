@@ -1,5 +1,4 @@
 use crate::models::card_model::Card;
-use crate::models::crispi_model;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -162,9 +161,14 @@ impl Deck {
 
         self.game_changer_count = n_gc;
         self.illegal_count = n_illegal;
+    }
 
-        let crispi = crispi_model::calculate_crispi(&mainboard, &commanders, n_gc);
-        self.bracket = crispi.bracket;
+    pub fn set_bracket(&mut self, bracket: u8) {
+        self.bracket = bracket;
+    }
+
+    pub fn bracket(&self) -> u8 {
+        self.bracket
     }
 
     pub fn set_single_commander_from_deck(&mut self, card_id: u64) -> Result<(), String> {

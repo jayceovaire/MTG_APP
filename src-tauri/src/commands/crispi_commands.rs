@@ -1,4 +1,4 @@
-use crate::models::card_model::{self, CardType};
+use crate::models::card_model::CardType;
 use crate::models::crispi_model::{self, CrispiEvaluation, Role};
 use crate::state::AppState;
 use serde::{Deserialize, Serialize};
@@ -53,6 +53,8 @@ pub fn evaluate_deck_roles(
         mainboard.push(card.clone());
     }
 
+    let combo_piece_names = crispi_model::combo_piece_names_for_deck(&mainboard, &commanders);
+
     let mut all_cards = Vec::new();
     all_cards.extend(commanders.clone());
     all_cards.extend(mainboard.clone());
@@ -62,7 +64,7 @@ pub fn evaluate_deck_roles(
 
     for (i, card) in all_cards.iter().enumerate() {
         let is_commander = i < commanders.len();
-        let roles_set = crispi_model::infer_roles(card);
+        let roles_set = crispi_model::infer_roles_with_combo_context(card, &combo_piece_names);
         let tier = crispi_model::classify_card(card, &roles_set);
         let weight = tier.weight();
 
@@ -85,6 +87,22 @@ pub fn evaluate_deck_roles(
 
     let n_gc = deck.get_game_changer_count();
     let crispi = crispi_model::calculate_crispi(&mainboard, &commanders, n_gc);
+    drop(decks);
+
+    {
+        let mut decks = state
+            .decks
+            .write()
+            .map_err(|_| "Failed to acquire deck lock".to_string())?;
+        if let Some(deck) = decks.iter_mut().find(|d| d.id() == deck_id) {
+            if deck.bracket() != crispi.bracket {
+                deck.set_bracket(crispi.bracket);
+                let updated = deck.clone();
+                drop(decks);
+                state.save_deck(&updated)?;
+            }
+        }
+    }
 
     Ok(DeckRoleEvaluation {
         deck_id,

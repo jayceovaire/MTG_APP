@@ -959,6 +959,32 @@ fn test_three_card_combo() {
 }
 
 #[test]
+fn test_combo_pieces_are_promoted_to_wincon_role() {
+    let mainboard = vec![
+        make_card(
+            "Demonic Consultation",
+            1,
+            vec![CardType::Instant],
+            "Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal the chosen card. Put that card into your hand and exile all other cards revealed this way.",
+        ),
+        make_card(
+            "Thassa's Oracle",
+            2,
+            vec![CardType::Creature],
+            "When Thassa's Oracle enters the battlefield, look at the top X cards of your library, where X is your devotion to blue. Put up to one of them on top of your library and the rest on the bottom of your library in a random order. If X is greater than or equal to the number of cards in your library, you win the game.",
+        ),
+    ];
+    let commanders = vec![];
+    let combo_piece_names = combo_piece_names_for_deck(&mainboard, &commanders);
+
+    let oracle_roles = infer_roles_with_combo_context(&mainboard[1], &combo_piece_names);
+    let consultation_roles = infer_roles_with_combo_context(&mainboard[0], &combo_piece_names);
+
+    assert!(oracle_roles.contains(&Role::WINCON));
+    assert!(consultation_roles.contains(&Role::WINCON));
+}
+
+#[test]
 fn test_hoarding_broodlord_combo() {
     let mut mainboard = vec![];
     mainboard.push(make_card("Hoarding Broodlord", 8, vec![CardType::Creature], "Convoke. When Hoarding Broodlord enters the battlefield, search your library for a card, exile it face down, then shuffle. For as long as that card remains exiled, you may play it. Spells you cast from exile have convoke."));
@@ -1023,4 +1049,149 @@ fn test_hoarding_broodlord_combo() {
         .any(|c| c.contains("Hoarding Broodlord")
             && c.contains("Saw in Half")
             && c.contains("Sacrifice")));
+}
+
+#[test]
+fn test_cormela_deck_score_investigation() {
+    let commanders = vec![make_card(
+        "Cormela, Glamour Thief",
+        4,
+        vec![CardType::Creature],
+        "Haste. {T}: Add {U}, {B}, or {R}. Spend this mana only to cast instant or sorcery spells. When Cormela dies, return up to one target instant or sorcery card from your graveyard to your hand.",
+    )];
+
+    let mut mainboard = vec![];
+    let mut push = |name: &str, mv: u8, types: Vec<CardType>, text: &str| {
+        mainboard.push(make_card(name, mv, types, text));
+    };
+
+    push("Birgi, God of Storytelling", 3, vec![CardType::Creature], "Whenever you cast a spell, add {R}. Until end of turn, you don't lose this mana as steps and phases end.");
+    push("Brash Taunter", 5, vec![CardType::Creature], "Indestructible. Whenever Brash Taunter is dealt damage, it deals that much damage to target opponent.");
+    push("Dualcaster Mage", 3, vec![CardType::Creature], "Flash. When Dualcaster Mage enters the battlefield, copy target instant or sorcery spell. You may choose new targets for the copy.");
+    push("Erebor Flamesmith", 2, vec![CardType::Creature], "Whenever you cast an instant or sorcery spell, Erebor Flamesmith deals 1 damage to each opponent.");
+    push("Faerie Mastermind", 2, vec![CardType::Creature], "Flash. Flying. Whenever an opponent draws their second card each turn, you draw a card.");
+    push("Firebrand Archer", 2, vec![CardType::Creature], "Whenever you cast a noncreature spell, Firebrand Archer deals 1 damage to each opponent.");
+    push("Geyser Drake", 4, vec![CardType::Creature], "Flying. Whenever you cast an instant or sorcery spell, Geyser Drake gets +1/+0 until end of turn.");
+    push("Goblin Electromancer", 2, vec![CardType::Creature], "Instant and sorcery spells you cast cost {1} less to cast.");
+    push("Guttersnipe", 3, vec![CardType::Creature], "Whenever you cast an instant or sorcery spell, Guttersnipe deals 2 damage to each opponent.");
+    push("Hexing Squelcher", 2, vec![CardType::Creature], "");
+    push("Nightscape Familiar", 2, vec![CardType::Creature], "Blue spells and red spells you cast cost {1} less to cast.");
+    push("Pestilent Spirit", 3, vec![CardType::Creature], "Instant and sorcery spells you control have deathtouch.");
+    push("Razorkin Needlehead", 2, vec![CardType::Creature], "");
+    push("Silver Myr", 2, vec![CardType::Artifact, CardType::Creature], "{T}: Add {U}.");
+    push("Storm-Kiln Artist", 4, vec![CardType::Creature], "Magecraft - Whenever you cast or copy an instant or sorcery spell, create a Treasure token.");
+    push("Syr Konrad, the Grim", 5, vec![CardType::Creature], "Whenever another creature dies, Syr Konrad, the Grim deals 1 damage to each opponent.");
+    push("Thassa's Oracle", 2, vec![CardType::Creature], "When Thassa's Oracle enters the battlefield, look at the top X cards of your library, where X is your devotion to blue. If X is greater than or equal to the number of cards in your library, you win the game.");
+    push("The Warring Triad", 3, vec![CardType::Creature], "");
+    push("Third Path Iconoclast", 2, vec![CardType::Creature], "Whenever you cast a noncreature spell, create a 1/1 Soldier artifact creature token.");
+    push("Unstoppable Slasher", 3, vec![CardType::Creature], "");
+    push("Valley Floodcaller", 2, vec![CardType::Creature], "");
+
+    push("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana of any color.");
+    push("Sol Ring", 1, vec![CardType::Artifact], "{T}: Add {C}{C}.");
+
+    push("Dictate of the Twin Gods", 5, vec![CardType::Enchantment], "Flash. If a source would deal damage to a permanent or player, it deals double that damage to that permanent or player instead.");
+    push("Fiery Inscription", 3, vec![CardType::Enchantment], "Whenever you cast an instant or sorcery spell, Fiery Inscription deals 2 damage to each opponent.");
+    push("Goblin Bombardment", 2, vec![CardType::Enchantment], "Sacrifice a creature: Goblin Bombardment deals 1 damage to any target.");
+    push("Mystic Remora", 1, vec![CardType::Enchantment], "Cumulative upkeep {1}. Whenever an opponent casts a noncreature spell, you may draw a card unless that player pays {4}.");
+
+    push("Amazing Acrobatics", 5, vec![CardType::Instant], "");
+    push("Borne Upon a Wind", 2, vec![CardType::Instant], "You may cast spells as though they had flash this turn. Draw a card.");
+    push("Brainstorm", 1, vec![CardType::Instant], "Draw three cards, then put two cards from your hand on top of your library in any order.");
+    push("Cabal Ritual", 2, vec![CardType::Instant], "Add {B}{B}{B}. Threshold - Add {B}{B}{B}{B}{B} instead.");
+    push("Counterspell", 2, vec![CardType::Instant], "Counter target spell.");
+    push("Dark Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}.");
+    push("Deflecting Swat", 3, vec![CardType::Instant], "If you control a commander, you may cast this spell without paying its mana cost. You may choose new targets for target spell or ability.");
+    push("Demonic Consultation", 1, vec![CardType::Instant], "Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal the chosen card. Put that card into your hand and exile all other cards revealed this way.");
+    push("Fake Your Own Death", 2, vec![CardType::Instant], "Until end of turn, target creature gets +2/+0 and gains \"When this creature dies, return it to the battlefield tapped under its owner's control and create a Treasure token.\"");
+    push("Flare of Duplication", 3, vec![CardType::Instant], "You may sacrifice a nontoken red creature rather than pay this spell's mana cost. Copy target instant or sorcery spell you control. You may choose new targets for the copy.");
+    push("Flusterstorm", 1, vec![CardType::Instant], "Counter target instant or sorcery spell unless its controller pays {1}. Storm.");
+    push("Frantic Search", 3, vec![CardType::Instant], "Draw two cards, then discard two cards. Untap up to three lands.");
+    push("Get Out", 2, vec![CardType::Instant], "");
+    push("Lightning Bolt", 1, vec![CardType::Instant], "Lightning Bolt deals 3 damage to any target.");
+    push("Mana Leak", 2, vec![CardType::Instant], "Counter target spell unless its controller pays {3}.");
+    push("Negate", 2, vec![CardType::Instant], "Counter target noncreature spell.");
+    push("Not Dead After All", 1, vec![CardType::Instant], "Until end of turn, target creature gains \"When this creature dies, return it to the battlefield tapped under its owner's control with a wicked role token attached to it.\"");
+    push("Otherworldly Gaze", 1, vec![CardType::Instant], "Surveil 3. Flashback {1}{U}.");
+    push("Pain 101", 2, vec![CardType::Instant], "");
+    push("Psychic Strike", 3, vec![CardType::Instant], "Counter target spell. Its controller mills two cards.");
+    push("Run Away Together", 2, vec![CardType::Instant], "Choose two target creatures controlled by different players. Return those creatures to their owners' hands.");
+    push("Sinister Sabotage", 3, vec![CardType::Instant], "Counter target spell. Surveil 1.");
+    push("Stoic Rebuttal", 3, vec![CardType::Instant], "Metalcraft - This spell costs {1} less to cast if you control three or more artifacts. Counter target spell.");
+    push("Supernatural Stamina", 1, vec![CardType::Instant], "Until end of turn, target creature gets +2/+0 and gains \"When this creature dies, return it to the battlefield tapped under its owner's control.\"");
+
+    push("Blasphemous Act", 9, vec![CardType::Sorcery], "This spell costs {1} less to cast for each creature on the battlefield. Blasphemous Act deals 13 damage to each creature.");
+    push("Freeze in Place", 3, vec![CardType::Sorcery], "");
+    push("Grapeshot", 2, vec![CardType::Sorcery], "Grapeshot deals 1 damage to any target. Storm.");
+    push("Impede Momentum", 3, vec![CardType::Sorcery], "");
+    push("Lava Spike", 1, vec![CardType::Sorcery], "Lava Spike deals 3 damage to target player or planeswalker.");
+    push("Lively Dirge", 3, vec![CardType::Sorcery], "");
+    push("Profane Tutor", 0, vec![CardType::Sorcery], "Suspend 2 - {1}{B}. Search your library for a card, put that card into your hand, then shuffle.");
+    push("Ranger's Firebrand", 2, vec![CardType::Sorcery], "");
+    push("Reanimate", 1, vec![CardType::Sorcery], "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to its mana value.");
+    push("Rite of Flame", 1, vec![CardType::Sorcery], "Add {R}{R}, then add {R} for each card named Rite of Flame in each graveyard.");
+    push("Singularity Rupture", 2, vec![CardType::Sorcery], "");
+    push("Slip Through Space", 1, vec![CardType::Sorcery], "Target creature can't be blocked this turn. Draw a card.");
+    push("Thundering Rebuke", 2, vec![CardType::Sorcery], "Thundering Rebuke deals 4 damage to target creature or planeswalker.");
+    push("Twinflame", 2, vec![CardType::Sorcery], "Strive. Choose any number of target creatures. For each of them, create a token that's a copy of that creature. That token gains haste. Exile it at the beginning of the next end step.");
+
+    push("Badlands", 0, vec![CardType::Land], "{T}: Add {B} or {R}.");
+    push("Command Tower", 0, vec![CardType::Land], "{T}: Add one mana of any color in your commander's color identity.");
+    for _ in 0..10 {
+        push("Island", 0, vec![CardType::Land], "{T}: Add {U}.");
+    }
+    for _ in 0..10 {
+        push("Mountain", 0, vec![CardType::Land], "{T}: Add {R}.");
+    }
+    for _ in 0..10 {
+        push("Swamp", 0, vec![CardType::Land], "{T}: Add {B}.");
+    }
+    push("Underground Sea", 0, vec![CardType::Land], "{T}: Add {U} or {B}.");
+    push("Volcanic Island", 0, vec![CardType::Land], "{T}: Add {U} or {R}.");
+
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+    println!("Cormela Investigation - Total Score: {}", evaluation.total_score);
+    println!("Cormela Investigation - Raw Score: {}", evaluation.raw_score);
+    println!("Cormela Investigation - Interpretation: {}", evaluation.interpretation);
+    println!("Cormela Investigation - Bracket: {}", evaluation.bracket);
+    println!("Cormela Investigation - Archetype: {:?}", evaluation.archetype);
+    println!(
+        "Cormela Investigation - C/R/I/S/P: {}/{}/{}/{}/{}",
+        evaluation.consistency.score,
+        evaluation.resilience.score,
+        evaluation.interaction.score,
+        evaluation.speed.score,
+        evaluation.pivotability.score
+    );
+    println!(
+        "Cormela Investigation - Multipliers: amv={} combo={} final={}",
+        evaluation.amv_multiplier, evaluation.combo_multiplier, evaluation.final_multiplier
+    );
+    println!(
+        "Cormela Investigation - Signals: turbo={} midrange={} stax={} cmdr={} group_hug={} infect={}",
+        evaluation.turbo_signal,
+        evaluation.midrange_signal,
+        evaluation.stax_signal,
+        evaluation.commander_engine_signal,
+        evaluation.group_hug_signal,
+        evaluation.infect_signal
+    );
+    println!(
+        "Cormela Investigation - Justifications:\nC: {}\nR: {}\nI: {}\nS: {}\nP: {}",
+        evaluation.consistency.justification,
+        evaluation.resilience.justification,
+        evaluation.interaction.justification,
+        evaluation.speed.justification,
+        evaluation.pivotability.justification
+    );
+    println!(
+        "Cormela Investigation - Detected Combos: {:?}",
+        evaluation.detected_combos
+    );
+
+    assert!(evaluation.total_score < 15.0);
+    assert_eq!(evaluation.bracket, 4);
+    assert_eq!(evaluation.interpretation, "Focused / Synergistic");
+    assert!(evaluation.consistency.score <= 2);
 }

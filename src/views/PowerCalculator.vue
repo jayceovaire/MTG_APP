@@ -7,6 +7,7 @@ import { mdiCalculator, mdiDice6, mdiChartBar, mdiChevronLeft } from "@mdi/js";
 
 const decks = ref([]);
 const selectedDeck = ref(null);
+const pendingDeckName = ref("");
 const isLoadingDecks = ref(false);
 const activeTool = ref("crispi"); // Default tool
 
@@ -34,22 +35,30 @@ async function loadDecks() {
 }
 
 async function selectDeck(deckId) {
+  const deckMeta = decks.value.find(deck => deck.id === deckId);
+  pendingDeckName.value = deckMeta?.name || "";
+  crispiResults.value = null;
+  isLoadingCrispi.value = true;
   try {
     selectedDeck.value = await getDeckCommand(deckId);
     await runCrispi();
   } catch (e) {
     console.error("Failed to select deck", e);
+    selectedDeck.value = null;
+    crispiResults.value = null;
+  } finally {
+    pendingDeckName.value = "";
   }
 }
 
 function deselectDeck() {
   selectedDeck.value = null;
   crispiResults.value = null;
+  pendingDeckName.value = "";
 }
 
 async function runCrispi() {
   if (!selectedDeck.value) return;
-  isLoadingCrispi.value = true;
   try {
     crispiResults.value = await evaluateDeckRolesCommand(selectedDeck.value.id);
   } catch (e) {
@@ -299,7 +308,7 @@ async function runMonteCarlo() {
         <v-btn icon variant="text" @click="deselectDeck" color="primary">
           <v-icon :icon="mdiChevronLeft"></v-icon>
         </v-btn>
-        <h1 class="text-h4 text-primary">{{ selectedDeck.name }} Evaluation</h1>
+        <h1 class="text-h4 text-primary">{{ selectedDeck.name || pendingDeckName }} Evaluation</h1>
       </div>
 
       <v-tabs v-model="activeTool" color="primary" grow class="mb-6">
@@ -320,6 +329,35 @@ async function runMonteCarlo() {
       <v-window v-model="activeTool">
         <!-- CRISPI Tool -->
         <v-window-item value="crispi">
+          <v-row v-if="isLoadingCrispi && !crispiResults">
+            <v-col cols="12">
+              <v-card variant="flat" border class="pa-6 mb-4">
+                <div class="d-flex align-center justify-space-between mb-4">
+                  <v-skeleton-loader type="heading" class="flex-grow-1 mr-4"></v-skeleton-loader>
+                  <v-skeleton-loader type="chip"></v-skeleton-loader>
+                </div>
+                <v-skeleton-loader type="paragraph"></v-skeleton-loader>
+                <div class="d-flex flex-wrap gap-4 mt-4">
+                  <v-skeleton-loader v-for="n in 4" :key="n" type="chip"></v-skeleton-loader>
+                </div>
+              </v-card>
+            </v-col>
+            <v-col v-for="n in 5" :key="`dim-${n}`" cols="12" md="6" lg="4">
+              <v-card variant="flat" border class="pa-4 h-100">
+                <v-skeleton-loader type="heading, paragraph"></v-skeleton-loader>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="4">
+              <v-card variant="flat" border class="pa-4">
+                <v-skeleton-loader type="heading, list-item-three-line, list-item-three-line, list-item-three-line"></v-skeleton-loader>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="8">
+              <v-card variant="flat" border class="pa-4">
+                <v-skeleton-loader type="heading, list-item-two-line, list-item-two-line, list-item-two-line, list-item-two-line"></v-skeleton-loader>
+              </v-card>
+            </v-col>
+          </v-row>
           <v-row v-if="crispiResults">
             <!-- Summary Card -->
             <v-col cols="12">

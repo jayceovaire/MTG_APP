@@ -638,4 +638,12 @@ pub static THREE_CARD_COMBOS: &[ThreeCardComboDef] = &[
         effects: &["Free Double Tutor/Cast"],
         prereqs: 3,
     },
+    ThreeCardComboDef {
+        card_a: "Relic of Legends",
+        card_b: "Goblin Bombardment",
+        card_c: "Dargo, the Shipwrecker",
+        effects: &["Infinite damage / sacrifice / ETB"],
+        prereqs: 1,
+    }
+
 ];

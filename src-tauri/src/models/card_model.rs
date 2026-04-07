@@ -284,4 +284,8 @@ impl Card {
     pub fn mana_value(&self) -> u8 {
         self.mana_value
     }
+
+    pub fn mana_cost(&self) -> Option<&str> {
+        self.mana_cost.as_deref()
+    }
 }
