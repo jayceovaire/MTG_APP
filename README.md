@@ -319,7 +319,7 @@ The app is configured to create updater artifacts, but a working release flow re
 - the updater signature for that exact artifact
 - the `latest.json` manifest used by Tauri updater
 
-In other words, if you publish `0.1.2`, the installer URL and signature in `latest.json` must both describe the `0.1.2` installer, not an older file.
+In other words, if you publish `0.1.3`, the installer URL and signature in `latest.json` must both describe the `0.1.3` installer, not an older file.
 
 The updater manifest also requires `pub_date` in full RFC 3339 format, for example:
 
