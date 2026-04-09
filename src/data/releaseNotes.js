@@ -10,21 +10,5 @@ export const releaseNotes = [
       "Split core logic and tests into more maintainable modules to make the scoring system easier to extend safely.",
       "Added the updater flow and follow-up bug fixes so in-app updates are more reliable."
     ],
-    commits: [
-      "215c2d3",
-      "162a36e",
-      "d0c03e2",
-      "3df8bd9",
-      "d2bc30e",
-      "a7abaf0",
-      "1379067",
-      "fc0917f",
-      "6d44f0d",
-      "e8cc105",
-      "0252532",
-      "40bf7cc",
-      "80e0cf6",
-      "214bf01"
-    ]
   }
 ];
