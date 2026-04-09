@@ -789,7 +789,7 @@ onUnmounted(() => {
   padding: 10px;
   border-radius: 18px;
   background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--v-border-color), 0.08);
   box-shadow: 0 22px 40px rgba(0, 0, 0, 0.4);
 }
 
@@ -799,7 +799,7 @@ onUnmounted(() => {
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--v-border-color), 0.05);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -892,7 +892,7 @@ onUnmounted(() => {
   padding: 16px 18px;
   border-radius: 20px;
   background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--v-border-color), 0.08);
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
@@ -949,7 +949,7 @@ onUnmounted(() => {
   padding: 20px;
   border-radius: 24px;
   background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--v-border-color), 0.08);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 

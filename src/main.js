@@ -23,6 +23,13 @@ const vuetify = createVuetify({
                     background: '#0f0f0f', // Very dark, matching the screenshot
                     surface: '#1e1e1e', // Slightly lighter for cards
                 }
+            },
+            light: {
+                colors: {
+                    primary: '#2196F3',
+                    background: '#f5f5f5',
+                    surface: '#ffffff',
+                }
             }
         }
     },

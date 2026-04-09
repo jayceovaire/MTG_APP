@@ -72,10 +72,7 @@ const featuredMessage = computed(() => sprinkleMessages[1]);
 <style scoped>
 .roast-page {
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(255, 214, 165, 0.3), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(255, 145, 77, 0.18), transparent 35%),
-    linear-gradient(160deg, #2b1612 0%, #120d11 55%, #0b1118 100%);
+  background-color: rgb(var(--v-theme-background));
 }
 
 .roast-shell {
@@ -89,11 +86,9 @@ const featuredMessage = computed(() => sprinkleMessages[1]);
   position: relative;
   overflow: hidden;
   padding: 32px;
-  border: 1px solid rgba(255, 210, 179, 0.2);
+  border: 1px solid rgba(var(--v-border-color), 0.2);
   border-radius: 32px;
-  background:
-    radial-gradient(circle at top, rgba(255, 244, 214, 0.12), transparent 40%),
-    linear-gradient(180deg, rgba(255, 249, 239, 0.08), rgba(255, 255, 255, 0.03));
+  background: rgb(var(--v-theme-surface));
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(14px);
 }
@@ -176,8 +171,8 @@ const featuredMessage = computed(() => sprinkleMessages[1]);
   margin-top: 28px;
   padding: 18px;
   border-radius: 24px;
-  background: rgba(16, 22, 28, 0.45);
-  border: 1px solid rgba(255, 232, 208, 0.12);
+  background: rgba(var(--v-border-color), 0.05);
+  border: 1px solid rgba(var(--v-border-color), 0.12);
 }
 
 .message-icon {
@@ -236,7 +231,7 @@ const featuredMessage = computed(() => sprinkleMessages[1]);
   height: 48px;
   margin-bottom: 18px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(var(--v-border-color), 0.12);
 }
 
 .detail-card h2 {

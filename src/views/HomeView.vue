@@ -67,9 +67,6 @@ onMounted(async () => {
     <div class="home-header">
       <div>
         <h1 class="text-primary">Home</h1>
-        <p class="text-medium-emphasis mb-0">
-          Switch between card discovery and the current release summary.
-        </p>
       </div>
       <div class="version-chip">Version {{ appVersion }}</div>
     </div>
@@ -204,9 +201,9 @@ onMounted(async () => {
   border-radius: 28px;
   background:
     radial-gradient(circle at top left, rgba(33, 150, 243, 0.16), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+    linear-gradient(180deg, rgba(var(--v-border-color), 0.02), rgba(var(--v-border-color), 0.01)),
     rgb(var(--v-theme-surface));
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--v-border-color), 0.08);
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
 }
 
@@ -219,8 +216,8 @@ onMounted(async () => {
   gap: 20px;
   padding: 24px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(var(--v-border-color), 0.02);
+  border: 1px solid rgba(var(--v-border-color), 0.05);
 }
 
 .panel-copy {
@@ -309,7 +306,7 @@ onMounted(async () => {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
 .release-bullets {
@@ -337,8 +334,8 @@ onMounted(async () => {
 .commit-chip {
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--v-border-color), 0.06);
+  border: 1px solid rgba(var(--v-border-color), 0.08);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.9rem;
 }

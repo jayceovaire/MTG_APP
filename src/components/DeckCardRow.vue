@@ -286,8 +286,8 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
   align-items: start;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(var(--v-border-color), 0.08);
+  background: rgba(var(--v-border-color), 0.03);
   container-type: inline-size;
 }
 
@@ -317,7 +317,7 @@ const isGameChanger = computed(() => isGameChangerCard(props.card));
   justify-content: center;
   min-height: 36px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--v-border-color), 0.1);
   color: inherit;
   font-size: 0.9rem;
   font-weight: 700;

@@ -1,5 +1,6 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useTheme } from 'vuetify';
 import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
 import { 
@@ -19,6 +20,17 @@ const downloadProgress = ref(0);
 const currentCardName = ref('');
 const downloadTotal = ref(0);
 const downloadCurrent = ref(0);
+
+const theme = useTheme();
+const isDarkMode = ref(localStorage.getItem('theme') === 'light' ? false : true);
+
+// Initialize theme
+theme.global.name.value = isDarkMode.value ? 'dark' : 'light';
+
+watch(isDarkMode, (val) => {
+  theme.global.name.value = val ? 'dark' : 'light';
+  localStorage.setItem('theme', theme.global.name.value);
+});
 
 let unlistenProgress = null;
 let unlistenComplete = null;
@@ -154,13 +166,12 @@ onUnmounted(() => {
             <v-list-item class="px-0">
               <v-switch
                 label="Dark Mode"
-                model-value="true"
+                v-model="isDarkMode"
                 color="primary"
                 hide-details
-                disabled
               ></v-switch>
               <div class="text-caption text-medium-emphasis mt-n2 ml-1">
-                System is currently locked to dark mode.
+                Toggle between light and dark modes.
               </div>
             </v-list-item>
           </v-list>

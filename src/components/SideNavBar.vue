@@ -93,9 +93,8 @@ function toggleDrawerWidth() {
 
 <style scoped>
 .side-nav {
-  background: linear-gradient(180deg, #131722 0%, #0f131d 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.92);
+  background: rgb(var(--v-theme-surface));
+  border-right: 1px solid rgba(var(--v-border-color), 0.12);
 }
 
 .side-nav__top {

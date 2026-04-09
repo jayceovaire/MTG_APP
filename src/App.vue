@@ -2,6 +2,7 @@
 import SideNavBar from "./components/SideNavBar.vue";
 import { useRoute } from "vue-router";
 import { computed, onMounted, ref } from "vue";
+import { useTheme } from "vuetify";
 import { checkForUpdatesCommand, installUpdateCommand } from "./api/commands.js";
 
 const route = useRoute();
@@ -51,7 +52,14 @@ async function installStartupUpdate() {
   }
 }
 
+const theme = useTheme();
+
+// Initialize theme on startup
 onMounted(() => {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    theme.global.name.value = savedTheme;
+  }
   void checkForStartupUpdate();
 });
 </script>
@@ -116,8 +124,6 @@ onMounted(() => {
   line-height: 24px;
   font-weight: 400;
 
-  color-scheme: dark;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -128,6 +134,5 @@ onMounted(() => {
 body {
   margin: 0;
   padding: 0;
-  background-color: #0f0f0f;
 }
 </style>

@@ -172,16 +172,16 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(var(--v-border-color), 0.1);
   border-radius: 12px;
   padding: 24px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .card-info-column {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--v-border-color), 0.05);
   padding: 24px;
   border-radius: 12px;
   margin-right: 12px;
