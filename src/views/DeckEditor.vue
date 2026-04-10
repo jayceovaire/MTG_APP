@@ -16,6 +16,7 @@ import {
   mdiCancel,
   mdiChevronLeft,
   mdiMagnify,
+  mdiPencil,
 } from "@mdi/js";
 import {
   addCardToDeckCommand,
@@ -28,6 +29,7 @@ import {
   getPackagesCommand,
   removeDeckCommanderCommand,
   removeCardFromDeckCommand,
+  renameDeckCommand,
   searchCardSuggestionsCommand,
   setDeckCommanderCommand,
   setDeckPartnerCommand,
@@ -56,6 +58,9 @@ const isSearchingCards = ref(false);
 const isSearchFocused = ref(false);
 const activeSuggestionIndex = ref(-1);
 const isAddingCard = ref(false);
+const isRenamingDeck = ref(false);
+const renameDialogVisible = ref(false);
+const renameDeckName = ref("");
 const snackbarVisible = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("success");
@@ -98,6 +103,32 @@ function normalizeDeckId(value) {
 
 function goBack() {
   router.back();
+}
+
+function openRenameDialog() {
+  renameDeckName.value = deck.value?.name || "";
+  renameDialogVisible.value = true;
+}
+
+async function handleRenameDeck() {
+  const trimmed = renameDeckName.value.trim();
+  if (!trimmed) {
+    showError("Deck name cannot be empty.");
+    return;
+  }
+
+  isRenamingDeck.value = true;
+  try {
+    const normalizedDeckId = normalizeDeckId(props.deckId);
+    deck.value = await renameDeckCommand(normalizedDeckId, trimmed);
+    renameDialogVisible.value = false;
+    showSuccess("Deck renamed successfully.");
+  } catch (error) {
+    console.error("Failed to rename deck:", error);
+    showError("Failed to rename deck.");
+  } finally {
+    isRenamingDeck.value = false;
+  }
 }
 
 function handleHoverCard(card) {
@@ -1170,6 +1201,17 @@ onUnmounted(() => {
             <v-icon :icon="mdiChevronLeft" size="32"></v-icon>
           </v-btn>
           <h1 class="text-primary">{{ deck?.name || "Deck" }}</h1>
+          <v-btn
+            icon
+            variant="text"
+            size="small"
+            color="primary"
+            class="ml-n2"
+            @click="openRenameDialog"
+            title="Rename Deck"
+          >
+            <v-icon :icon="mdiPencil" size="20"></v-icon>
+          </v-btn>
         </div>
         <div class="hero-actions">
           <div class="deck-search-wrap">
@@ -1721,6 +1763,36 @@ onUnmounted(() => {
             @click="handleSubmitPackageDialog"
           >
             {{ packageDialogMode === "card" ? "Add to Package" : "Add Package" }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rename Deck Dialog -->
+    <v-dialog v-model="renameDialogVisible" max-width="400">
+      <v-card class="package-dialog">
+        <v-card-title class="package-dialog__title">Rename Deck</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="renameDeckName"
+            label="Deck Name"
+            density="comfortable"
+            variant="outlined"
+            hide-details="auto"
+            autofocus
+            @keydown.enter.prevent="handleRenameDeck"
+          />
+        </v-card-text>
+        <v-card-actions class="package-dialog__actions">
+          <v-spacer />
+          <v-btn variant="outlined" @click="renameDialogVisible = false">Cancel</v-btn>
+          <v-btn
+            variant="elevated"
+            color="primary"
+            :loading="isRenamingDeck"
+            @click="handleRenameDeck"
+          >
+            Rename
           </v-btn>
         </v-card-actions>
       </v-card>

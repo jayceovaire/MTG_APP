@@ -21,6 +21,8 @@ pub struct Deck {
     white_pips: i16,
     green_pips: i16,
     red_pips: i16,
+    #[serde(default)]
+    ui_order: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,6 +49,7 @@ impl Deck {
             white_pips: 0,
             green_pips: 0,
             red_pips: 0,
+            ui_order: 0,
         }
     }
     pub fn get_name(&self) -> &str {
@@ -61,6 +64,12 @@ impl Deck {
     }
     pub fn set_name(&mut self, name: String) {
         self.name = name;
+    }
+    pub fn ui_order(&self) -> u32 {
+        self.ui_order
+    }
+    pub fn set_ui_order(&mut self, order: u32) {
+        self.ui_order = order;
     }
     pub fn add_commander(&mut self, card: Card) -> Result<(), String> {
         match &mut self.commander {

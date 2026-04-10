@@ -2,11 +2,14 @@
 
 import DeckTile from "../components/DeckTile.vue";
 import {onMounted, ref} from "vue";
-import {createDeckCommand, getDecksCommand} from "../api/deckCommands.js";
+import {useRouter} from "vue-router";
+import draggable from "vuedraggable";
+import {createDeckCommand, getDecksCommand, reorderDecksCommand} from "../api/deckCommands.js";
 import {mdiCardsOutline, mdiPlus} from "@mdi/js";
 
 const decks = ref([]);
 const isCreatingDeck = ref(false);
+const router = useRouter();
 const snackbarVisible = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("success");
@@ -71,6 +74,16 @@ function handleDeckActionError(message) {
   showError(message);
 }
 
+async function handleReorder() {
+  const ids = decks.value.map(d => d.id);
+  try {
+    await reorderDecksCommand(ids);
+  } catch (e) {
+    showError(`Failed to save deck order: ${String(e)}`);
+    console.error(e);
+  }
+}
+
 </script>
 
 <template>
@@ -102,17 +115,34 @@ function handleDeckActionError(message) {
       <p>Create a new deck to get started.</p>
     </div>
 
-    <div v-else class="deck-grid">
-      <DeckTile
-          v-for="deck in decks"
-          :key="deck.id"
-          :deck="deck"
-          @deck-renamed="handleDeckRenamed"
-          @deck-deleted="handleDeckDeleted"
-          @deck-duplicated="handleDeckDuplicated"
-          @deck-action-error="handleDeckActionError"
-      />
-    </div>
+    <draggable
+        v-else
+        v-model="decks"
+        item-key="id"
+        class="deck-grid"
+        ghost-class="ghost"
+        drag-class="dragging"
+        :delay="0"
+        :touch-start-threshold="3"
+        :force-fallback="true"
+        :fallback-tolerance="5"
+        :animation="200"
+        filter=".v-btn"
+        :prevent-on-filter="false"
+        @end="handleReorder"
+    >
+      <template #item="{element}">
+        <div class="drag-item" @click="router.push(`/deck-editor/${element.id}`)">
+          <DeckTile
+              :deck="element"
+              @deck-renamed="handleDeckRenamed"
+              @deck-deleted="handleDeckDeleted"
+              @deck-duplicated="handleDeckDuplicated"
+              @deck-action-error="handleDeckActionError"
+          />
+        </div>
+      </template>
+    </draggable>
 
     <v-snackbar
         v-model="snackbarVisible"
@@ -130,5 +160,26 @@ function handleDeckActionError(message) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
+}
+
+.drag-item {
+  height: 100%;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.drag-item:active {
+  cursor: grabbing;
+}
+
+.ghost {
+  opacity: 0.3;
+  background: #c8ebfb;
+}
+
+.dragging {
+  opacity: 0.9;
+  z-index: 9999;
 }
 </style>

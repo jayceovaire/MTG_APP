@@ -1,11 +1,14 @@
 <script setup>
 import { mdiPackageVariantClosed, mdiPlus } from "@mdi/js";
 import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import draggable from "vuedraggable";
 import PackageTile from "../components/PackageTile.vue";
-import { createPackageCommand, getPackagesCommand } from "../api/deckCommands.js";
+import { createPackageCommand, getPackagesCommand, reorderPackagesCommand } from "../api/deckCommands.js";
 
 const packages = ref([]);
 const isCreatingPackage = ref(false);
+const router = useRouter();
 const snackbarVisible = ref(false);
 const snackbarMessage = ref("");
 const snackbarColor = ref("success");
@@ -77,6 +80,16 @@ function handlePackageDuplicated(duplicatedPackage) {
 function handlePackageActionError(message) {
   showError(message);
 }
+
+async function handleReorder() {
+  const ids = packages.value.map(p => p.id);
+  try {
+    await reorderPackagesCommand(ids);
+  } catch (e) {
+    showError(`Failed to save package order: ${String(e)}`);
+    console.error(e);
+  }
+}
 </script>
 
 <template>
@@ -108,18 +121,35 @@ function handlePackageActionError(message) {
       <p>Create a new package to reuse groups of cards across decks.</p>
     </div>
 
-    <div v-else class="deck-grid">
-      <PackageTile
-        v-for="packageEntry in packages"
-        :key="packageEntry.id"
-        :package-entry="packageEntry"
-        @package-renamed="handlePackageRenamed"
-        @package-description-updated="handlePackageDescriptionUpdated"
-        @package-deleted="handlePackageDeleted"
-        @package-duplicated="handlePackageDuplicated"
-        @package-action-error="handlePackageActionError"
-      />
-    </div>
+    <draggable
+      v-else
+      v-model="packages"
+      item-key="id"
+      class="deck-grid"
+      ghost-class="ghost"
+      drag-class="dragging"
+      :delay="0"
+      :touch-start-threshold="3"
+      :force-fallback="true"
+      :fallback-tolerance="5"
+      :animation="200"
+      filter=".v-btn"
+      :prevent-on-filter="false"
+      @end="handleReorder"
+    >
+      <template #item="{element}">
+        <div class="drag-item" @click="router.push(`/package-editor/${element.id}`)">
+          <PackageTile
+            :package-entry="element"
+            @package-renamed="handlePackageRenamed"
+            @package-description-updated="handlePackageDescriptionUpdated"
+            @package-deleted="handlePackageDeleted"
+            @package-duplicated="handlePackageDuplicated"
+            @package-action-error="handlePackageActionError"
+          />
+        </div>
+      </template>
+    </draggable>
 
     <v-snackbar v-model="snackbarVisible" :color="snackbarColor" :timeout="2500">
       {{ snackbarMessage }}
@@ -132,6 +162,27 @@ function handlePackageActionError(message) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
+}
+
+.drag-item {
+  height: 100%;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.drag-item:active {
+  cursor: grabbing;
+}
+
+.ghost {
+  opacity: 0.3;
+  background: #c8ebfb;
+}
+
+.dragging {
+  opacity: 0.9;
+  z-index: 9999;
 }
 
 .opacity-20 {

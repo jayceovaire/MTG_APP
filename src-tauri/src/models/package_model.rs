@@ -8,6 +8,8 @@ pub struct Package {
     #[serde(default)]
     description: String,
     cards: Vec<Card>,
+    #[serde(default)]
+    ui_order: u32,
 }
 
 impl Package {
@@ -17,6 +19,7 @@ impl Package {
             name,
             description: String::new(),
             cards: Vec::new(),
+            ui_order: 0,
         }
     }
 
@@ -42,6 +45,12 @@ impl Package {
 
     pub fn set_description(&mut self, description: String) {
         self.description = description;
+    }
+    pub fn ui_order(&self) -> u32 {
+        self.ui_order
+    }
+    pub fn set_ui_order(&mut self, order: u32) {
+        self.ui_order = order;
     }
 
     pub fn add_card(&mut self, card: Card) {

@@ -1,11 +1,9 @@
 <script setup>
 import {computed, ref} from "vue";
-import {useRouter} from "vue-router";
 import {mdiContentCopy, mdiDotsHorizontal, mdiPencil, mdiTrashCan} from "@mdi/js";
 import {deleteDeckCommand, duplicateDeckCommand, setDeckNameCommand} from "../api/deckCommands.js";
 import ManaText from "./ManaText.vue";
 
-const router = useRouter();
 const props = defineProps({
   deck: {
     type: Object,
@@ -94,10 +92,6 @@ const averageManaValue = computed(() => {
 });
 const bracket = computed(() => props.deck?.bracket || "2");
 
-function goToDeckEditor() {
-  router.push(`/deck-editor/${props.deck.id}`);
-}
-
 // RENAME DECK
 function openRenameDialog() {
   actionsMenuOpen.value = false;
@@ -152,7 +146,6 @@ async function submitDelete(){
 
 <template>
   <v-card
-    @click="goToDeckEditor"
     variant="flat"
     border
     class="deck-tile pa-4 h-100 deck-card-hover"
@@ -218,26 +211,26 @@ async function submitDelete(){
         <span class="stat-value">{{ bracket }}</span>
       </div>
     </div>
-  </v-card>
 
-  <v-dialog v-model="renameDialogOpen" max-width="420">
-    <v-card @click.stop>
-      <v-card-title>Rename Deck</v-card-title>
-      <v-card-text>
-        <v-text-field
-          v-model="pendingName"
-          label="Deck Name"
-          autofocus
-          hide-details
-        />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="renameDialogOpen = false">Cancel</v-btn>
-        <v-btn :loading="isRenaming" @click="submitRename">Change Name</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    <v-dialog v-model="renameDialogOpen" max-width="420">
+      <v-card @click.stop>
+        <v-card-title>Rename Deck</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="pendingName"
+            label="Deck Name"
+            autofocus
+            hide-details
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="renameDialogOpen = false">Cancel</v-btn>
+          <v-btn :loading="isRenaming" @click="submitRename">Change Name</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+  </v-card>
 </template>
 
 <style scoped>

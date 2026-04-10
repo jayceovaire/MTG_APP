@@ -8,13 +8,16 @@ use tauri::{AppHandle, State};
 #[tauri::command]
 pub fn create_deck(state: State<'_, AppState>, name: Option<String>) -> Result<Deck, String> {
     let mut deck = Deck::new(state.next_deck_id());
+    let mut decks = state.decks.write().unwrap();
+    deck.set_ui_order(decks.len() as u32);
     let deck_name = match name {
         Some(name) if !name.trim().is_empty() => name,
         _ => "Untitled".to_string(),
     };
     deck.set_name(deck_name);
     deck.recount_game_changers();
-    state.decks.write().unwrap().push(deck.clone());
+    decks.push(deck.clone());
+    drop(decks);
     state.save_deck(&deck)?;
     Ok(deck) //RETURNING THE DECK SO NEW DECK TILE CAN PULL FROM IT RATHER THAN RERENDER ALL THE DECKS IN UI
 }
@@ -125,6 +128,7 @@ pub async fn duplicate_deck(
 
     let mut duplicated_deck = source_deck;
     duplicated_deck.set_id(state.next_deck_id());
+    duplicated_deck.set_ui_order(decks.len() as u32);
     let base_name = duplicated_deck.get_name().to_string();
     duplicated_deck.set_name(format!("{} (Copy)", base_name));
     duplicated_deck.recount_game_changers();
@@ -301,8 +305,11 @@ pub fn create_package(state: State<'_, AppState>, name: Option<String>) -> Resul
         _ => "Untitled Package".to_string(),
     };
 
-    let package = Package::new(state.next_package_id(), package_name);
-    state.packages.write().unwrap().push(package.clone());
+    let mut package = Package::new(state.next_package_id(), package_name);
+    let mut packages = state.packages.write().unwrap();
+    package.set_ui_order(packages.len() as u32);
+    packages.push(package.clone());
+    drop(packages);
     state.save_package(&package)?;
     Ok(package)
 }
@@ -511,6 +518,7 @@ pub async fn duplicate_package(
         duplicated_package.id(),
         duplicated_package.get_name().to_string(),
     );
+    copied_package.set_ui_order(packages.len() as u32);
 
     for mut card in source_cards {
         card.set_id(state.next_card_id());
@@ -536,6 +544,70 @@ pub async fn duplicate_package(
     });
 
     Ok(copied_package)
+}
+
+#[tauri::command]
+pub fn reorder_decks(state: State<'_, AppState>, deck_ids: Vec<u64>) -> Result<(), String> {
+    let mut decks_lock = state
+        .decks
+        .write()
+        .map_err(|_| "Failed to acquire deck lock".to_string())?;
+
+    // Create a map for quick lookup
+    let mut deck_map: std::collections::HashMap<u64, Deck> = decks_lock
+        .drain(..)
+        .map(|deck| (deck.id(), deck))
+        .collect();
+
+    let mut updated_decks = Vec::new();
+    for (index, id) in deck_ids.into_iter().enumerate() {
+        if let Some(mut deck) = deck_map.remove(&id) {
+            deck.set_ui_order(index as u32);
+            state.save_deck(&deck)?;
+            updated_decks.push(deck);
+        }
+    }
+
+    // Add back any decks that weren't in the provided IDs (shouldn't happen but for safety)
+    for (_, mut deck) in deck_map {
+        deck.set_ui_order(updated_decks.len() as u32);
+        state.save_deck(&deck)?;
+        updated_decks.push(deck);
+    }
+
+    *decks_lock = updated_decks;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_packages(state: State<'_, AppState>, package_ids: Vec<u64>) -> Result<(), String> {
+    let mut packages_lock = state
+        .packages
+        .write()
+        .map_err(|_| "Failed to acquire package lock".to_string())?;
+
+    let mut package_map: std::collections::HashMap<u64, Package> = packages_lock
+        .drain(..)
+        .map(|pkg| (pkg.id(), pkg))
+        .collect();
+
+    let mut updated_packages = Vec::new();
+    for (index, id) in package_ids.into_iter().enumerate() {
+        if let Some(mut pkg) = package_map.remove(&id) {
+            pkg.set_ui_order(index as u32);
+            state.save_package(&pkg)?;
+            updated_packages.push(pkg);
+        }
+    }
+
+    for (_, mut pkg) in package_map {
+        pkg.set_ui_order(updated_packages.len() as u32);
+        state.save_package(&pkg)?;
+        updated_packages.push(pkg);
+    }
+
+    *packages_lock = updated_packages;
+    Ok(())
 }
 
 #[tauri::command]

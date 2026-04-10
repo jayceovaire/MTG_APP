@@ -47,6 +47,15 @@ export async function duplicateDeckCommand(deckId) {
   }
 }
 
+export async function reorderDecksCommand(deckIds) {
+  try {
+    await invoke("reorder_decks", { deckIds });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
 /** @returns {Promise<Deck[]>} */
 export async function getDecksCommand() {
   try {
@@ -169,6 +178,15 @@ export async function deletePackageCommand(packageId) {
 export async function duplicatePackageCommand(packageId) {
   try {
     return await invoke("duplicate_package", { packageId });
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+}
+
+export async function reorderPackagesCommand(packageIds) {
+  try {
+    await invoke("reorder_packages", { packageIds });
   } catch (e) {
     console.error(e);
     throw e;

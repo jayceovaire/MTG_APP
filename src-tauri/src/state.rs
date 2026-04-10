@@ -99,6 +99,7 @@ impl AppState {
                 .map_err(|e| format!("Failed to deserialize package: {e}"))?;
             loaded_packages.push(package);
         }
+        loaded_packages.sort_by_key(|p| p.ui_order());
 
         let mut loaded_decks = Vec::new();
         let mut deck_stmt = connection
@@ -114,6 +115,7 @@ impl AppState {
             deck.recount_game_changers();
             loaded_decks.push(deck);
         }
+        loaded_decks.sort_by_key(|d| d.ui_order());
 
         let max_card_id = loaded_cards.iter().map(Card::id).max().unwrap_or(0);
         let max_deck_id = loaded_decks.iter().map(Deck::id).max().unwrap_or(0);

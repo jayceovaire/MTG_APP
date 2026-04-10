@@ -1,6 +1,5 @@
 <script setup>
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
 import { mdiContentCopy, mdiDotsHorizontal, mdiPencil, mdiTrashCan } from "@mdi/js";
 import {
   deletePackageCommand,
@@ -10,7 +9,6 @@ import {
 } from "../api/deckCommands.js";
 import ManaText from "./ManaText.vue";
 
-const router = useRouter();
 const props = defineProps({
   packageEntry: {
     type: Object,
@@ -68,10 +66,6 @@ const colorProfileSymbols = computed(() => {
 
   return [...colorProfile.value].map((color) => `{${color}}`).join("");
 });
-
-function goToPackageEditor() {
-  router.push(`/package-editor/${props.packageEntry.id}`);
-}
 
 function openRenameDialog() {
   actionsMenuOpen.value = false;
@@ -149,7 +143,6 @@ async function submitDelete() {
     class="package-tile deck-tile pa-4 h-100 deck-card-hover"
     variant="flat"
     border
-    @click="goToPackageEditor"
   >
     <div class="d-flex align-center mb-3">
       <div class="overflow-hidden">
@@ -214,42 +207,42 @@ async function submitDelete() {
         <span class="stat-value">{{ averageManaValue }}</span>
       </div>
     </div>
+
+    <v-dialog v-model="renameDialogOpen" max-width="420">
+      <v-card @click.stop>
+        <v-card-title>Rename Package</v-card-title>
+        <v-card-text>
+          <v-text-field v-model="pendingName" autofocus hide-details label="Package Name" />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="renameDialogOpen = false">Cancel</v-btn>
+          <v-btn :loading="isRenaming" @click="submitRename">Change Name</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="descriptionDialogOpen" max-width="520">
+      <v-card @click.stop>
+        <v-card-title>Edit Package Description</v-card-title>
+        <v-card-text>
+          <v-textarea
+            v-model="pendingDescription"
+            auto-grow
+            counter="220"
+            hide-details="auto"
+            label="Description"
+            rows="4"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="descriptionDialogOpen = false">Cancel</v-btn>
+          <v-btn :loading="isSavingDescription" @click="submitDescription">Save Description</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
-
-  <v-dialog v-model="renameDialogOpen" max-width="420">
-    <v-card @click.stop>
-      <v-card-title>Rename Package</v-card-title>
-      <v-card-text>
-        <v-text-field v-model="pendingName" autofocus hide-details label="Package Name" />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="renameDialogOpen = false">Cancel</v-btn>
-        <v-btn :loading="isRenaming" @click="submitRename">Change Name</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <v-dialog v-model="descriptionDialogOpen" max-width="520">
-    <v-card @click.stop>
-      <v-card-title>Edit Package Description</v-card-title>
-      <v-card-text>
-        <v-textarea
-          v-model="pendingDescription"
-          auto-grow
-          counter="220"
-          hide-details="auto"
-          label="Description"
-          rows="4"
-        />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="descriptionDialogOpen = false">Cancel</v-btn>
-        <v-btn :loading="isSavingDescription" @click="submitDescription">Save Description</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 </template>
 
 <style scoped>
