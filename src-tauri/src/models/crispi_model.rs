@@ -3,6 +3,7 @@ use crate::models::cedh_staples::CEDH_STAPLES;
 use crate::models::combos::{THREE_CARD_COMBOS, TWO_CARD_COMBOS};
 use crate::models::crispi_archetypes::detect_archetype;
 use crate::models::crispi_classify::{has_non_tapping_activation, is_instant_speed};
+use crate::models::crispi_integration::{extract_tags, Tag};
 use crate::models::crispi_patterns::{
     ANY_TUTOR_REGEX, FREE_SPELL_REGEX, MULTI_MANA_PRODUCER_REGEX,
 };
@@ -22,6 +23,8 @@ struct ComboAnalysis {
     combo_piece_names: HashSet<String>,
     combo_multiplier: f32,
     combo_bracket_floor: u8,
+    storm_combo_count: u32,
+    non_storm_combo_count: u32,
 }
 
 struct ColorFixingAssessment {
@@ -116,6 +119,8 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
     let mut infect_signal_weighted = 0.0;
     let mut infect_support_count = 0;
     let mut proliferate_signal_weighted = 0.0;
+    let mut storm_signal_weighted = 0.0;
+    let mut has_storm_payoff = false;
 
     let mut process_card = |cached: &CachedCard<'_>| {
         let card = cached.card;
@@ -161,6 +166,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         let mut card_mana_points: f32 = 0.0;
         if roles.contains(&Role::RITUAL) {
             card_mana_points = card_mana_points.max(2.5);
+            storm_signal_weighted += 2.0;
         }
         if roles.contains(&Role::TREASURE_BURST) {
             let is_permanent = !card.is_instant() && !card.is_sorcery();
@@ -173,10 +179,12 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         }
         if roles.contains(&Role::FAST_MANA_ONE_SHOT) {
             card_mana_points = card_mana_points.max(1.5);
+            storm_signal_weighted += 1.5;
         }
         if roles.contains(&Role::COST_REDUCTION) {
             let cr_weight = if mv <= 1 { 1.5 } else { 0.3 };
             card_mana_points = card_mana_points.max(cr_weight);
+            storm_signal_weighted += 1.5;
         }
         if roles.contains(&Role::FAST_MANA) {
             // 0-MV artifact or multi-mana producer
@@ -213,6 +221,9 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         if roles.contains(&Role::BURST_DRAW) {
             let burst_weight = if is_spell { 1.5 } else { 0.3 };
             card_draw_points = card_draw_points.max(burst_weight);
+            if is_spell {
+                storm_signal_weighted += 1.0;
+            }
         }
         if roles.contains(&Role::LOOTING) {
             let loot_weight = if is_spell { 0.8 } else { 0.2 };
@@ -223,6 +234,25 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             card_draw_points = card_draw_points.max(impulse_weight);
         }
         explosive_draw_points += card_draw_points;
+
+        // Storm Tags and Magecraft-like effects
+        let tags = extract_tags(card);
+        if tags.contains(&Tag::STORM) {
+            storm_signal_weighted += 3.0;
+        }
+        if roles.contains(&Role::MAGECRAFT) || (tags.contains(&Tag::CAST) && roles.contains(&Role::ENGINE)) {
+            storm_signal_weighted += 2.5; // Increased from 1.0
+        }
+        if roles.contains(&Role::STORM_PAYOFF) || roles.contains(&Role::MAGECRAFT) {
+            has_storm_payoff = true;
+            if roles.contains(&Role::STORM_PAYOFF) {
+                storm_signal_weighted += 2.0;
+            }
+        }
+
+        if !card.is_land() && mv <= 1 && is_spell {
+            storm_signal_weighted += 0.5;
+        }
 
         // Interaction: Removal & Stax
         if roles.contains(&Role::REMOVAL) || roles.contains(&Role::MASS_REMOVAL) {
@@ -340,6 +370,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         stax_signal,
         commander_engine_signal,
         infect_signal,
+        storm_signal_weighted,
     ];
 
     let max_signal = signals.iter().cloned().fold(0.0, f32::max);
@@ -510,7 +541,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         voltron_signal,
         group_hug_signal,
         infect_signal,
+        storm_signal_weighted,
+        has_storm_payoff,
         turbo_speed_score,
+        combo_analysis.storm_combo_count,
+        combo_analysis.non_storm_combo_count,
     );
 
     // P — Pivotability (0-5)
@@ -612,6 +647,11 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
             consistency_score = consistency_score.max(4);
             pivotability_score = pivotability_score.max(3);
             applied_overrides.push("Infect Archetype (C>=4, P>=3)".to_string());
+        }
+        DeckArchetype::Storm => {
+            consistency_score = consistency_score.max(4);
+            pivotability_score = pivotability_score.max(3);
+            applied_overrides.push("Storm Archetype (C>=4, P>=3)".to_string());
         }
     }
 
@@ -912,6 +952,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         stax_signal,
         voltron_signal,
         infect_signal,
+        storm_signal: storm_signal_weighted,
         group_hug_signal,
         commander_engine_signal,
         amv_multiplier,
@@ -996,6 +1037,8 @@ fn analyze_combos(
     }
 
     let mut detected_combos = Vec::new();
+    let mut storm_combo_count = 0;
+    let mut non_storm_combo_count = 0;
     let mut combo_piece_names = HashSet::new();
     let mut total_bonus = 0.0;
     let mut any_combo_found = false;
@@ -1024,6 +1067,18 @@ fn analyze_combos(
 
             let total_mv = (card_a.mana_value() + card_b.mana_value()) as f32;
             total_bonus += combo_bonus(total_mv, [*card_a, *card_b].into_iter(), tutor_influence, 3.0);
+
+            let roles_a = infer_roles(card_a);
+            let roles_b = infer_roles(card_b);
+            if roles_a.contains(&Role::STORM_PAYOFF)
+                || roles_a.contains(&Role::MAGECRAFT)
+                || roles_b.contains(&Role::STORM_PAYOFF)
+                || roles_b.contains(&Role::MAGECRAFT)
+            {
+                storm_combo_count += 1;
+            } else {
+                non_storm_combo_count += 1;
+            }
         }
     }
 
@@ -1061,6 +1116,21 @@ fn analyze_combos(
                 tutor_influence,
                 4.0,
             );
+
+            let roles_a = infer_roles(card_a);
+            let roles_b = infer_roles(card_b);
+            let roles_c = infer_roles(card_c);
+            if roles_a.contains(&Role::STORM_PAYOFF)
+                || roles_a.contains(&Role::MAGECRAFT)
+                || roles_b.contains(&Role::STORM_PAYOFF)
+                || roles_b.contains(&Role::MAGECRAFT)
+                || roles_c.contains(&Role::STORM_PAYOFF)
+                || roles_c.contains(&Role::MAGECRAFT)
+            {
+                storm_combo_count += 1;
+            } else {
+                non_storm_combo_count += 1;
+            }
         }
     }
 
@@ -1075,6 +1145,8 @@ fn analyze_combos(
         combo_piece_names,
         combo_multiplier,
         combo_bracket_floor,
+        storm_combo_count,
+        non_storm_combo_count,
     }
 }
 

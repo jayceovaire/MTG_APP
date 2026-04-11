@@ -139,6 +139,8 @@ static WINCON_PATTERNS: &[&str] = &[
     r"you win the game",
     r"target player loses the game",
     r"infinite",
+    r"storm",
+    r"gravestorm",
 ];
 
 static FAST_MANA_PATTERNS: &[&str] = &[
@@ -224,6 +226,8 @@ static MASS_DRAW_PATTERNS: &[&str] = &[
     r"draw seven cards",
     r"draw four cards",
     r"draw five cards",
+    r"draw cards equal to half",
+    r"reveal the top card .* put .* into your hand",
 ];
 
 static LOOTING_PATTERNS: &[&str] = &[r"draw .* then discard", r"discard .* then draw", r"loot"];
@@ -260,6 +264,28 @@ static MULTI_MANA_PRODUCER_PATTERNS: &[&str] = &[
 
 static INFECT_PATTERNS: &[&str] = &[r"\binfect\b", r"\btoxic\b", r"poison counter"];
 static PROLIFERATE_PATTERNS: &[&str] = &[r"\bproliferate\b"];
+
+static STORM_PAYOFF_PATTERNS: &[&str] = &[
+    r"\bstorm\b.*deals? .* damage",
+    r"deals? .* damage.*\bstorm\b",
+    r"\bstorm\b.*(each|target) opponent loses",
+    r"(each|target) opponent loses.*\bstorm\b",
+    r"\bstorm\b.*create .* tokens?",
+    r"create .* tokens?.*\bstorm\b",
+    r"\bgravestorm\b",
+    r"whenever you cast .* copy",
+    r"whenever you cast .* deals? .* damage",
+    r"whenever you cast .* create a .* token",
+    r"whenever you cast .* (each|target) opponent loses",
+    r"Aetherflux Reservoir",
+    r"Bolas's Citadel",
+    r"Mind's Desire",
+];
+
+static MAGECRAFT_PATTERNS: &[&str] = &[
+    r"\bmagecraft\b",
+    r"whenever you cast or copy an instant or sorcery spell",
+];
 
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
     RAMP_PATTERNS
@@ -425,6 +451,18 @@ static INFECT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
 });
 static PROLIFERATE_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
     PROLIFERATE_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static STORM_PAYOFF_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    STORM_PAYOFF_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static MAGECRAFT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MAGECRAFT_PATTERNS
         .iter()
         .map(|p| Regex::new(p).unwrap())
         .collect()
@@ -665,6 +703,12 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         }
         if PROLIFERATE_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::PROLIFERATE);
+        }
+        if STORM_PAYOFF_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::STORM_PAYOFF);
+        }
+        if MAGECRAFT_REGEX.iter().any(|re| re.is_match(&normalized)) {
+            roles.insert(Role::MAGECRAFT);
         }
 
         if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized))

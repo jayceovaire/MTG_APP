@@ -444,10 +444,10 @@ fn test_mana_vault_is_fast_mana_not_engine() {
 
 #[test]
 fn test_turbo_requires_natural_speed_five() {
-    let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 4);
+    let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 0.0, false, 4, 0, 0);
     assert_eq!(archetype, DeckArchetype::Midrange);
 
-    let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 5);
+    let archetype = detect_archetype(0.0, 0.0, 19.0, 8.0, 0.0, 0.0, 0.0, 0.0, false, 5, 0, 0);
     assert_eq!(archetype, DeckArchetype::Turbo);
 }
 
@@ -1179,6 +1179,207 @@ fn test_infect_archetype() {
 }
 
 #[test]
+fn test_storm_archetype() {
+    let commanders = vec![make_card(
+        "Kess, Dissident Mage",
+        4,
+        vec![CardType::Creature],
+        "During each of your turns, you may cast an instant or sorcery spell from your graveyard."
+    )];
+
+    let mut mainboard = vec![];
+    // Rituals
+    mainboard.push(make_card("Dark Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}."));
+    mainboard.push(make_card("Cabal Ritual", 2, vec![CardType::Instant], "Add {B}{B}{B}. Threshold - Add {B}{B}{B}{B}{B} instead."));
+    mainboard.push(make_card("Pyretic Ritual", 2, vec![CardType::Instant], "Add {R}{R}{R}."));
+    mainboard.push(make_card("Desperate Ritual", 2, vec![CardType::Instant], "Add {R}{R}{R}. Splice onto Arcane."));
+
+    // Cantrips / Draw
+    mainboard.push(make_card("Brainstorm", 1, vec![CardType::Instant], "Draw three cards, then put two cards from your hand on top of your library."));
+    mainboard.push(make_card("Ponder", 1, vec![CardType::Sorcery], "Look at the top three cards of your library, then put them back in any order. You may shuffle. Draw a card."));
+    mainboard.push(make_card("Preordain", 1, vec![CardType::Sorcery], "Scry 2, then draw a card."));
+    mainboard.push(make_card("Gitaxian Probe", 1, vec![CardType::Sorcery], "Look at target player's hand. Draw a card."));
+
+    // Cost Reduction / Engines
+    mainboard.push(make_card("Baral, Chief of Compliance", 2, vec![CardType::Creature], "Instant and sorcery spells you cast cost {1} less to cast. Whenever a spell or ability you control counters a spell, you may draw a card. If you do, discard a card."));
+    mainboard.push(make_card("Birgi, God of Storytelling", 3, vec![CardType::Creature], "Whenever you cast a spell, add {R}."));
+    mainboard.push(make_card("Storm-Kiln Artist", 4, vec![CardType::Creature], "Magecraft - Whenever you cast or copy an instant or sorcery spell, create a Treasure token."));
+
+    // Wincons
+    mainboard.push(make_card("Grapeshot", 2, vec![CardType::Sorcery], "Grapeshot deals 1 damage to any target. Storm."));
+    mainboard.push(make_card("Tendrils of Agony", 4, vec![CardType::Sorcery], "Target player loses 2 life and you gain 2 life. Storm."));
+    mainboard.push(make_card("Aetherflux Reservoir", 4, vec![CardType::Artifact], "Whenever you cast a spell, you gain 1 life for each spell you've cast this turn. Pay 50 life: Aetherflux Reservoir deals 50 damage to any target."));
+
+    // Add lands
+    for _ in 0..30 {
+        mainboard.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}."));
+    }
+
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+    println!("Storm Test - Signal: {}", evaluation.storm_signal);
+    println!("Storm Test - Archetype: {:?}", evaluation.archetype);
+
+    assert_eq!(evaluation.archetype, DeckArchetype::Storm);
+    assert!(evaluation.storm_signal >= 12.0);
+}
+
+#[test]
+fn test_high_quality_non_storm_deck_is_not_storm() {
+    let commanders = vec![make_card("Thrasios", 2, vec![CardType::Creature], "Partner. {4}: Scry 1, then reveal the top card of your library. If it's a land card, put it onto the battlefield tapped. Otherwise, draw a card.")];
+    
+    let mut mainboard = vec![];
+    // Rituals/Fast Mana (but no payoffs)
+    mainboard.push(make_card("Dark Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}."));
+    mainboard.push(make_card("Cabal Ritual", 2, vec![CardType::Instant], "Add {B}{B}{B}. Threshold - Add {B}{B}{B}{B}{B} instead."));
+    mainboard.push(make_card("Pyretic Ritual", 2, vec![CardType::Instant], "Add {R}{R}{R}."));
+    mainboard.push(make_card("Desperate Ritual", 2, vec![CardType::Instant], "Add {R}{R}{R}. Splice onto Arcane."));
+    mainboard.push(make_card("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana of any color."));
+    mainboard.push(make_card("Mana Vault", 1, vec![CardType::Artifact], "{T}: Add {C}{C}{C}."));
+    
+    // Cantrips
+    mainboard.push(make_card("Brainstorm", 1, vec![CardType::Instant], "Draw three cards..."));
+    mainboard.push(make_card("Ponder", 1, vec![CardType::Sorcery], "Look at the top three..."));
+    
+    // Some engines (but not specifically storm ones)
+    mainboard.push(make_card("Rhystic Study", 3, vec![CardType::Enchantment], "Whenever an opponent casts a spell..."));
+    mainboard.push(make_card("Mystic Remora", 1, vec![CardType::Enchantment], "Whenever an opponent casts a noncreature spell..."));
+
+    // Signal check: 
+    // Dark(2) + Cabal(2) + Pyretic(2) + Desperate(2) + Lotus Petal(1.5) + Mana Vault(0.0 - Roles::FAST_MANA, but not SAC_MANA etc in storm)
+    // Actually, FAST_MANA doesn't add to storm signal unless it's FAST_MANA_ONE_SHOT.
+    // Lotus Petal is FAST_MANA_ONE_SHOT (+1.5).
+    // Brainstorm is BURST_DRAW (+1.0).
+    // MV<=1 cantrips (Dark, Brain, Ponder, Lotus) = 4 * 0.5 = 2.0.
+    // Total = 2*4 + 1.5 + 1.0 + 2.0 = 8.0 + 4.5 = 12.5.
+    // It should cross 12.0 signal, but without payoff it shouldn't be Storm.
+
+    // Add lands
+    for _ in 0..30 {
+        mainboard.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}."));
+    }
+
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+    println!("High Quality Test - Signal: {}", evaluation.storm_signal);
+    println!("High Quality Test - Archetype: {:?}", evaluation.archetype);
+
+    assert_ne!(evaluation.archetype, DeckArchetype::Storm, "Should not be Storm without a payoff.");
+}
+
+#[test]
+fn test_gravestorm_payoff() {
+    let commanders = vec![make_card("The Gitrog Monster", 5, vec![CardType::Creature], "")];
+    let mut mainboard = vec![];
+    
+    // Gravestorm payoff
+    mainboard.push(make_card("Bitter Ordeal", 3, vec![CardType::Sorcery], "Gravestorm. Search target player's library for a card and exile it."));
+    
+    // Rituals/Cantrips to get to 12.0 signal
+    mainboard.push(make_card("Dark Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}."));
+    mainboard.push(make_card("Cabal Ritual", 2, vec![CardType::Instant], "Add {B}{B}{B}."));
+    mainboard.push(make_card("Ponder", 1, vec![CardType::Sorcery], "Look at the top three cards..."));
+    mainboard.push(make_card("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana of any color."));
+    mainboard.push(make_card("Lion's Eye Diamond", 0, vec![CardType::Artifact], "Sacrifice LED: Add {B}{B}{B}."));
+    mainboard.push(make_card("Rite of Flame", 1, vec![CardType::Sorcery], "Add {R}{R}."));
+
+    // Signal:
+    // Bitter Ordeal (Storm Tag + Payoff) = 3.0 + 2.0 = 5.0.
+    // Rituals (Dark, Cabal, Rite) = 3 * 2.0 = 6.0.
+    // Lotus Petal (Fast Mana One Shot) = 1.5.
+    // Lion's Eye Diamond (Fast Mana One Shot) = 1.5.
+    // Cantrips/Low MV (Bitter, Dark, Ponder, Lotus, LED, Rite) = 6 * 0.5 = 3.0.
+    // Total = 5.0 + 6.0 + 1.5 + 1.5 + 3.0 = 17.0.
+    
+    for _ in 0..30 {
+        mainboard.push(make_card("Swamp", 0, vec![CardType::Land], "{T}: Add {B}."));
+    }
+
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+    println!("Gravestorm Test - Signal: {}", evaluation.storm_signal);
+    println!("Gravestorm Test - Archetype: {:?}", evaluation.archetype);
+
+    assert_eq!(evaluation.archetype, DeckArchetype::Storm, "Gravestorm should count as Storm.");
+    assert!(evaluation.storm_signal >= 12.0);
+}
+
+#[test]
+fn test_specific_storm_payoffs_requested_by_user() {
+    // Veyran (vivi ornitier)
+    let veyran = make_card("Veyran, Voice of Duality", 3, vec![CardType::Creature], "Whenever you cast or copy an instant or sorcery spell, Veyran, Voice of Duality gets +1/+1 until end of turn. If a triggered ability of a permanent you control triggers as a result of you casting or copying an instant or sorcery spell, that ability triggers an additional time.");
+    let mut deck_v = vec![veyran];
+    for _ in 0..10 { deck_v.push(make_card("Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}.")); }
+    for _ in 0..30 { deck_v.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}.")); }
+    let eval_v = calculate_crispi(&deck_v, &vec![], 0);
+    assert_eq!(eval_v.archetype, DeckArchetype::Storm, "Veyran (Vivi) should satisfy payoff requirement.");
+
+    // Ral Monsoon Mage
+    let ral = make_card("Ral, Monsoon Mage", 2, vec![CardType::Creature], "Whenever you cast an instant or sorcery spell, Ral, Monsoon Mage deals 1 damage to you. Then flip a coin... (flip logic)");
+    let mut deck_r = vec![ral];
+    for _ in 0..10 { deck_r.push(make_card("Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}.")); }
+    for _ in 0..30 { deck_r.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}.")); }
+    let eval_r = calculate_crispi(&deck_r, &vec![], 0);
+    assert_eq!(eval_r.archetype, DeckArchetype::Storm, "Ral Monsoon Mage should satisfy payoff requirement.");
+}
+
+#[test]
+fn test_blue_farm_is_not_storm() {
+    let commanders = vec![
+        make_card("Tymna the Weaver", 3, vec![CardType::Creature], "Lifelink. At the beginning of your second main phase..."),
+        make_card("Kraum, Ludevic's Opus", 5, vec![CardType::Creature], "Flying, haste. Whenever an opponent casts their second spell each turn, draw a card."),
+    ];
+
+    let mut mainboard = vec![];
+    // Key Fast Mana / "Stormy" cards
+    mainboard.push(make_card("Dark Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}."));
+    mainboard.push(make_card("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana of any color."));
+    mainboard.push(make_card("Lion's Eye Diamond", 0, vec![CardType::Artifact], "Discard your hand, Sacrifice LED: Add {B}{B}{B}."));
+    mainboard.push(make_card("Mana Vault", 1, vec![CardType::Artifact], "{T}: Add {C}{C}{C}."));
+    mainboard.push(make_card("Chrome Mox", 0, vec![CardType::Artifact], "Imprint ... {T}: Add one mana of any of the exiled card's colors."));
+    mainboard.push(make_card("Mox Diamond", 0, vec![CardType::Artifact], "Discard a land ... {T}: Add one mana of any color."));
+    mainboard.push(make_card("Sol Ring", 1, vec![CardType::Artifact], "{T}: Add {C}{C}."));
+    mainboard.push(make_card("Mana Crypt", 0, vec![CardType::Artifact], "{T}: Add {C}{C}."));
+
+    // Cantrips & Selection
+    mainboard.push(make_card("Brainstorm", 1, vec![CardType::Instant], "Draw three cards..."));
+    mainboard.push(make_card("Ponder", 1, vec![CardType::Sorcery], "Look at the top three..."));
+    mainboard.push(make_card("Preordain", 1, vec![CardType::Sorcery], "Scry 2, then draw a card."));
+    mainboard.push(make_card("Gitaxian Probe", 1, vec![CardType::Sorcery], "Look at target player's hand, draw a card."));
+    mainboard.push(make_card("Mystical Tutor", 1, vec![CardType::Instant], "Search your library for an instant or sorcery..."));
+
+    // Tutors
+    mainboard.push(make_card("Demonic Tutor", 2, vec![CardType::Sorcery], "Search your library for a card..."));
+    mainboard.push(make_card("Vampiric Tutor", 1, vec![CardType::Instant], "Search your library for a card..."));
+
+    // Protection / Interaction (Lots of cheap ones)
+    mainboard.push(make_card("Mental Misstep", 1, vec![CardType::Instant], "Counter target spell with mana value 1."));
+    mainboard.push(make_card("Silence", 1, vec![CardType::Instant], "Your opponents can't cast spells this turn."));
+    mainboard.push(make_card("Chain of Vapor", 1, vec![CardType::Instant], "Return target nonland permanent to its owner's hand."));
+    mainboard.push(make_card("Swan Song", 1, vec![CardType::Instant], "Counter target enchantment, instant, or sorcery spell."));
+    mainboard.push(make_card("Flusterstorm", 1, vec![CardType::Instant], "Storm. Counter target instant or sorcery spell."));
+
+    // Wincons
+    mainboard.push(make_card("Ad Nauseam", 5, vec![CardType::Instant], "Reveal the top card..."));
+    mainboard.push(make_card("Underworld Breach", 2, vec![CardType::Enchantment], "Each nonland card in your graveyard has escape."));
+    mainboard.push(make_card("Brain Freeze", 2, vec![CardType::Instant], "Storm. Target player puts the top three cards..."));
+
+    // Fill with some lands
+    for _ in 0..28 {
+        mainboard.push(make_card("City of Brass", 0, vec![CardType::Land], "{T}: Add one mana of any color."));
+    }
+
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+    println!("Blue Farm Test - Storm Signal: {}", evaluation.storm_signal);
+    println!("Blue Farm Test - Turbo Signal: {}", evaluation.turbo_signal);
+    println!("Blue Farm Test - Midrange Signal: {}", evaluation.midrange_signal);
+    println!("Blue Farm Test - Archetype: {:?}", evaluation.archetype);
+
+    assert_ne!(evaluation.archetype, DeckArchetype::Storm, "Blue Farm should be Turbo or Midrange, not Storm.");
+}
+
+#[test]
 fn test_proliferate_without_poison_support_does_not_count_as_infect() {
     let atraxa = make_card(
         "Atraxa, Praetors' Voice",
@@ -1505,4 +1706,76 @@ fn test_cormela_deck_score_investigation() {
     assert_eq!(evaluation.bracket, 4);
     assert_eq!(evaluation.interpretation, "Focused / Synergistic");
     assert!(evaluation.consistency.score <= 2);
+}
+
+#[test]
+fn test_gitrog_is_not_storm() {
+    let mut mainboard = Vec::new();
+    let mut commanders = Vec::new();
+
+    let push = |name: &str, mv: u8, types: Vec<CardType>, text: &str, mb: &mut Vec<Card>| {
+        mb.push(make_card(name, mv, types, text));
+    };
+
+    // Gitrog Combo Pieces (Non-Storm)
+    push("The Gitrog Monster", 5, vec![CardType::Creature], "Whenever a land card is put into your graveyard from anywhere, draw a card.", &mut commanders);
+    push("Dakmor Salvage", 0, vec![CardType::Land], "Dredge 2.", &mut mainboard);
+    push("Putrid Imp", 1, vec![CardType::Creature], "Discard a card: Putrid Imp gains flying until end of turn.", &mut mainboard);
+    push("Noose Constrictor", 2, vec![CardType::Creature], "Discard a card: Noose Constrictor gets +1/+1 until end of turn.", &mut mainboard);
+    push("Wild Mongrel", 2, vec![CardType::Creature], "Discard a card: Wild Mongrel gets +1/+1 and becomes the color of your choice until end of turn.", &mut mainboard);
+
+    // Storm-like combo pieces (Witherbloom + Smog)
+    push("Witherbloom Apprentice", 2, vec![CardType::Creature], "Magecraft - Whenever you cast or copy an instant or sorcery spell, each opponent loses 1 life and you gain 1 life.", &mut mainboard);
+    push("Chain of Smog", 2, vec![CardType::Sorcery], "Target player discards two cards. Then that player may copy this spell and may choose a new target for that copy.", &mut mainboard);
+
+    // High density of quality cards to boost storm signal (Rituals + Tutors)
+    push("Dark Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}.", &mut mainboard);
+    push("Cabal Ritual", 2, vec![CardType::Instant], "Add {B}{B}{B}.", &mut mainboard);
+    push("Lotus Petal", 0, vec![CardType::Artifact], "Sacrifice Lotus Petal: Add one mana of any color.", &mut mainboard);
+    push("Entomb", 1, vec![CardType::Instant], "Search your library for a card and put it into your graveyard.", &mut mainboard);
+    push("Vampiric Tutor", 1, vec![CardType::Instant], "Search your library for a card, then shuffle and put that card on top.", &mut mainboard);
+    push("Demonic Tutor", 2, vec![CardType::Sorcery], "Search your library for a card, put it into your hand.", &mut mainboard);
+
+    // Fill with basics
+    for i in 0..20 {
+        push(&format!("Swamp {}", i), 0, vec![CardType::Land], "{T}: Add {B}.", &mut mainboard);
+    }
+    for i in 0..20 {
+        push(&format!("Forest {}", i), 0, vec![CardType::Land], "{T}: Add {G}.", &mut mainboard);
+    }
+
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+
+    println!("Gitrog Archetype: {:?}", evaluation.archetype);
+    println!("Storm Signal: {}", evaluation.storm_signal);
+    println!("Detected Combos: {:?}", evaluation.detected_combos);
+
+    // It should have 3 non-storm combos and 1 storm-related combo.
+    // 3 > 1, so it should not be Storm.
+    assert_ne!(evaluation.archetype, DeckArchetype::Storm, "Gitrog deck with many non-storm combos should not be classified as Storm");
+}
+
+#[test]
+fn test_high_storm_signal_above_50_is_storm() {
+    // Test the new feature: if storm_signal >= 50, it should be Storm
+    // even without has_storm_payoff or other conditions
+    let archetype = detect_archetype(0.0, 0.0, 10.0, 5.0, 0.0, 0.0, 0.0, 50.0, false, 2, 0, 0);
+    assert_eq!(
+        archetype, DeckArchetype::Storm,
+        "Deck with storm_signal >= 50 should be classified as Storm"
+    );
+
+    // Test edge case: storm_signal just barely above 50
+    let archetype = detect_archetype(0.0, 0.0, 10.0, 5.0, 0.0, 0.0, 0.0, 50.1, false, 2, 0, 0);
+    assert_eq!(
+        archetype, DeckArchetype::Storm,
+        "Deck with storm_signal > 50 should be classified as Storm"
+    );
+
+    // Test edge case: storm_signal just below 50 (should not automatically be Storm)
+    let archetype = detect_archetype(0.0, 0.0, 10.0, 5.0, 0.0, 0.0, 0.0, 49.9, false, 2, 0, 0);
+    assert_ne!(
+        archetype, DeckArchetype::Storm,
+        "Deck with storm_signal < 50 should not automatically be Storm without payoff"
+    );
 }

@@ -8,9 +8,28 @@ pub fn detect_archetype(
     voltron_signal: f32,
     group_hug_signal: f32,
     infect_signal: f32,
+    storm_signal: f32,
+    has_storm_payoff: bool,
     speed_score: u8,
+    storm_combo_count: u32,
+    non_storm_combo_count: u32,
 ) -> DeckArchetype {
-    if infect_signal >= 8.0 && infect_signal > turbo_signal && infect_signal > midrange_signal {
+    let is_storm_primary = if storm_combo_count + non_storm_combo_count > 0 {
+        storm_combo_count >= non_storm_combo_count
+    } else {
+        true
+    };
+
+    if storm_signal >= 50.0 {
+        DeckArchetype::Storm
+    } else if storm_signal >= 12.0
+        && has_storm_payoff
+        && storm_signal > turbo_signal
+        && storm_signal > midrange_signal
+        && is_storm_primary
+    {
+        DeckArchetype::Storm
+    } else if infect_signal >= 8.0 && infect_signal > turbo_signal && infect_signal > midrange_signal {
         DeckArchetype::Infect
     } else if stax_signal >= 15.0 && stax_signal > turbo_signal && stax_signal > midrange_signal {
         DeckArchetype::Stax

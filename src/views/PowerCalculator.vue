@@ -421,6 +421,9 @@ async function runMonteCarlo() {
                   <v-chip size="x-small" variant="tonal" color="light-green-darken-4" v-if="crispiResults.crispi.infect_signal >= 1.0">
                     Infect: {{ crispiResults.crispi.infect_signal.toFixed(1) }}
                   </v-chip>
+                  <v-chip size="x-small" variant="tonal" color="cyan" v-if="crispiResults.crispi.storm_signal >= 1.0">
+                    Storm: {{ crispiResults.crispi.storm_signal.toFixed(1) }}
+                  </v-chip>
                   <v-chip size="x-small" variant="tonal" color="purple" v-if="crispiResults.crispi.commander_engine_signal > 0">
                     CmdrEngine: {{ crispiResults.crispi.commander_engine_signal.toFixed(1) }}
                   </v-chip>

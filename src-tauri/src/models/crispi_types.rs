@@ -32,6 +32,8 @@ pub enum Role {
     ENGINE_WIN,
     INFECT,
     PROLIFERATE,
+    STORM_PAYOFF,
+    MAGECRAFT,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +45,7 @@ pub enum DeckArchetype {
     Voltron,
     GroupHug,
     Infect,
+    Storm,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -79,6 +82,7 @@ pub struct CrispiEvaluation {
     pub stax_signal: f32,
     pub voltron_signal: f32,
     pub infect_signal: f32,
+    pub storm_signal: f32,
     pub group_hug_signal: f32,
     pub commander_engine_signal: f32,
     pub amv_multiplier: f32,

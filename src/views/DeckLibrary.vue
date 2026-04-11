@@ -50,7 +50,7 @@ async function handleCreateDeck() {
   try {
     isCreatingDeck.value = true;
     const newDeck = await createDeckCommand("Untitled");
-    decks.value.push(newDeck);
+    decks.value.unshift(newDeck);
     showSuccess(`Created deck "${newDeck.name}"`);
   } catch (e) {
     showError(`Failed to create deck: ${String(e)}`);
@@ -66,7 +66,7 @@ function handleDeckDeleted(deletedId){
 }
 
 function handleDeckDuplicated(duplicatedDeck) {
-  decks.value.push(duplicatedDeck);
+  decks.value.unshift(duplicatedDeck);
   showSuccess(`Duplicated deck as "${duplicatedDeck.name}"`);
 }
 

@@ -14,6 +14,7 @@ import {
   mdiHandPointingUp,
   mdiLibraryOutline,
   mdiSeal,
+  mdiWeatherPouring,
 } from "@mdi/js";
 
 const glossary = [
@@ -30,6 +31,7 @@ const glossary = [
   { term: "Impulse Draw", icon: mdiLibraryOutline, color: "deep-purple", desc: "Exiling cards to play them temporarily. Red's primary form of card advantage." },
   { term: "Group Hug", icon: mdiSwapHorizontal, color: "pink", desc: "Symmetrical effects that benefit all players. Common in casual and political decks." },
   { term: "Infect", icon: mdiSeal, color: "light-green-darken-4", desc: "Cards that apply poison through infect, toxic, or direct poison-counter effects. Proliferate supports this plan only when the deck already has strong poison support." },
+  { term: "Storm Payoff", icon: mdiWeatherPouring, color: "cyan", desc: "Cards that reward casting multiple spells (like Storm mechanics, Magecraft, or 'whenever you cast a spell' effects). Essential for storm-focused decks." },
 ];
 
 const archetypes = [
@@ -124,6 +126,19 @@ const archetypes = [
     ],
     strategy: "Apply poison quickly and use proliferate or unblockable threats to finish the job.",
   },
+  {
+    title: "Storm",
+    icon: mdiWeatherPouring,
+    color: "cyan",
+    definition: "Combo strategy focusing on casting a large number of spells in a single turn.",
+    traits: [
+      "High density of low-cost spells and 'Cantrips'",
+      "Use of Rituals and Cost Reducers to sustain spell chains",
+      "Presence of Magecraft or 'Whenever you cast a spell' engines",
+      "Signal Floor: ≥ 12.0 Storm signal (with Storm Payoff) OR ≥ 50.0 Storm signal (automatic)",
+    ],
+    strategy: "Accumulate resources and a high storm count to win with a single decisive spell.",
+  },
 ];
 
 const dimensions = [
@@ -185,6 +200,7 @@ const floorLogic = [
       { condition: "Voltron Archetype", effect: "Resilience ≥ 4, Pivotability ≥ 2", color: "green" },
       { condition: "Group Hug Archetype", effect: "Consistency ≥ 3, Pivotability ≥ 3", color: "pink" },
       { condition: "Infect Archetype", effect: "Consistency ≥ 4, Pivotability ≥ 3", color: "light-green-darken-4" },
+      { condition: "Storm Archetype", effect: "Consistency ≥ 4, Pivotability ≥ 3", color: "cyan" },
       { condition: "Midrange Archetype", effect: "Consistency ≥ 3, Resilience ≥ 3, Interaction ≥ 3, Pivotability ≥ 2", color: "blue-grey" },
     ]
   }

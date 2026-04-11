@@ -30,7 +30,7 @@ static TAG_PATTERNS: Lazy<Vec<(Tag, Regex)>> = Lazy::new(|| {
         (Tag::EXILE, Regex::new(r"(?i)from exile|exile").unwrap()),
         (Tag::SACRIFICE, Regex::new(r"(?i)sacrifice").unwrap()),
         (Tag::TREASURE, Regex::new(r"(?i)treasure").unwrap()),
-        (Tag::STORM, Regex::new(r"(?i)storm|copy").unwrap()),
+        (Tag::STORM, Regex::new(r"(?i)storm|gravestorm|copy").unwrap()),
     ]
 });
 
