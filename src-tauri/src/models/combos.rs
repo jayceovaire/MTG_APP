@@ -618,6 +618,13 @@ pub static THREE_CARD_COMBOS: &[ThreeCardComboDef] = &[
         prereqs: 2,
     },
     ThreeCardComboDef {
+        card_a: "Underworld Breach",
+        card_b: "Lotus Petal",
+        card_c: "Brain Freeze",
+        effects: &["infinite mill"],
+        prereqs: 2,
+    },
+    ThreeCardComboDef {
         card_a: "Saw in Half",
         card_b: "Hoarding Broodlord",
         card_c: "Sacrifice",
@@ -644,6 +651,62 @@ pub static THREE_CARD_COMBOS: &[ThreeCardComboDef] = &[
         card_c: "Dargo, the Shipwrecker",
         effects: &["Infinite damage / sacrifice / ETB"],
         prereqs: 1,
-    }
-
+    },
+    ThreeCardComboDef {
+        card_a: "Tayam, Luminous Enigma",
+        card_b: "Devoted Druid",
+        card_c: "Centaur Garden",
+        effects: &["Infinite Self Mill / Infinite Mana"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "Tayam, Luminous Enigma",
+        card_b: "Ashnod's Altar",
+        card_c: "Promise of Bunrei",
+        effects: &["Infinite Self Mill / Infinite Mana"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "Tayam, Luminous Enigma",
+        card_b: "Ashnod's Altar",
+        card_c: "Hallowed Spiritkeeper",
+        effects: &["Infinite Self Mill / Infinite Mana"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "The Gitrog Monster",
+        card_b: "Dakmor Salvage",
+        card_c: "Putrid Imp",
+        effects: &["Infinite Self Mill / Infinite Dredge / Infinite Draw triggers"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "The Gitrog Monster",
+        card_b: "Dakmor Salvage",
+        card_c: "Wild Mongrel",
+        effects: &["Infinite Self Mill / Infinite Dredge / Infinite Draw triggers"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "The Gitrog Monster",
+        card_b: "Dakmor Salvage",
+        card_c: "Noose Constrictor",
+        effects: &["Infinite Self Mill / Infinite Dredge / Infinite Draw triggers"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "The Gitrog Monster",
+        card_b: "Dakmor Salvage",
+        card_c: "Olivia's Dragoon",
+        effects: &["Infinite Self Mill / Infinite Dredge / Infinite Draw triggers"],
+        prereqs: 1,
+    },
+    ThreeCardComboDef {
+        card_a: "The Gitrog Monster",
+        card_b: "Dakmor Salvage",
+        card_c: "Oblivion Crown",
+        effects: &["Infinite Self Mill / Infinite Dredge / Infinite Draw triggers"],
+        prereqs: 1,
+    },
+    
 ];

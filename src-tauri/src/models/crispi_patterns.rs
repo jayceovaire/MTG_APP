@@ -539,7 +539,13 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         let repeatable_treasure_engine = is_repeatable_treasure_engine(card, &normalized);
 
         if repeatable_treasure_engine
-            || (!card.is_land() && RAMP_REGEX.iter().any(|re| re.is_match(&normalized)))
+            || (!card.is_land()
+                && RAMP_REGEX.iter().any(|re| re.is_match(&normalized))
+                && !((card.is_instant() || card.is_sorcery())
+                    && (RITUAL_REGEX.iter().any(|re| re.is_match(&normalized))
+                        || TREASURE_BURST_REGEX.iter().any(|re| re.is_match(&normalized))
+                        || SAC_MANA_REGEX.iter().any(|re| re.is_match(&normalized))
+                        || FAST_MANA_ONE_SHOT_REGEX.iter().any(|re| re.is_match(&normalized)))))
         {
             roles.insert(Role::RAMP);
         }
@@ -597,7 +603,9 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
             roles.insert(Role::RECURSION);
         }
 
-        if RITUAL_REGEX.iter().any(|re| re.is_match(&normalized)) {
+        if (card.is_instant() || card.is_sorcery())
+            && RITUAL_REGEX.iter().any(|re| re.is_match(&normalized))
+        {
             roles.insert(Role::RITUAL);
         }
         if TREASURE_BURST_REGEX

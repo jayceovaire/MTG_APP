@@ -13,6 +13,7 @@ pub struct CardRoles {
     pub tier: crispi_model::QualityTier,
     pub card_types: Vec<CardType>,
     pub is_commander: bool,
+    pub integration: f32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +63,8 @@ pub fn evaluate_deck_roles(
     let mut card_evaluations = Vec::new();
     let mut role_counts = HashMap::new();
 
+    let integration_results = crate::models::crispi_integration::compute_integration(&all_cards);
+
     for (i, card) in all_cards.iter().enumerate() {
         let is_commander = i < commanders.len();
         let roles_set = crispi_model::infer_roles_with_combo_context(card, &combo_piece_names);
@@ -75,6 +78,8 @@ pub fn evaluate_deck_roles(
             *role_counts.entry(role.clone()).or_insert(0.0) += weight;
         }
 
+        let integration = integration_results[i].integration;
+
         card_evaluations.push(CardRoles {
             card_id: card.id(),
             card_name: card.get_name().to_string(),
@@ -82,6 +87,7 @@ pub fn evaluate_deck_roles(
             tier,
             card_types: card.card_type().to_vec(),
             is_commander,
+            integration,
         });
     }
 

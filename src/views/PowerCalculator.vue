@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from "vue";
 import { getDecksCommand, getDeckCommand } from "../api/deckCommands.js";
 import { evaluateDeckRolesCommand } from "../api/crispiCommands.js";
 import DeckTile from "../components/DeckTile.vue";
-import { mdiCalculator, mdiDice6, mdiChartBar, mdiChevronLeft } from "@mdi/js";
+import { mdiCalculator, mdiDice6, mdiChartBar, mdiChevronLeft, mdiVectorPolyline } from "@mdi/js";
 
 const decks = ref([]);
 const selectedDeck = ref(null);
@@ -196,6 +196,13 @@ function getTierColor(tier) {
   }
 }
 
+function getIntegrationColor(score) {
+  if (score >= 0.7) return "deep-purple-accent-4";
+  if (score >= 0.4) return "primary";
+  if (score >= 0.15) return "amber-darken-2";
+  return "red-darken-2";
+}
+
 function getMcColor(prob) {
   if (prob === undefined || prob === null) return '';
   const p = parseFloat(prob);
@@ -323,6 +330,10 @@ async function runMonteCarlo() {
         <v-tab value="hypergeometric">
           <v-icon :icon="mdiCalculator" class="mr-2"></v-icon>
           Hypergeometric
+        </v-tab>
+        <v-tab value="integration">
+          <v-icon :icon="mdiVectorPolyline" class="mr-2"></v-icon>
+          Integration
         </v-tab>
       </v-tabs>
 
@@ -509,7 +520,8 @@ async function runMonteCarlo() {
                           :title="eval_.card_name"
                         >
                           <template v-slot:append>
-                            <v-chip size="x-small" :color="getTierColor(eval_.tier)" label>{{ eval_.tier }}</v-chip>
+                            <v-chip size="x-small" :color="getTierColor(eval_.tier)" label class="mr-1">{{ eval_.tier }}</v-chip>
+                            <v-chip size="x-small" :color="getIntegrationColor(eval_.integration)" label class="text-white">{{ (eval_.integration * 100).toFixed(0) }}%</v-chip>
                           </template>
                         </v-list-item>
                       </v-list>
@@ -636,6 +648,71 @@ async function runMonteCarlo() {
               </v-card>
             </v-col>
           </v-row>
+        </v-window-item>
+
+        <!-- Integration Tool -->
+        <v-window-item value="integration">
+          <v-card variant="flat" border class="pa-4">
+            <div class="mb-6">
+              <h3 class="text-h6">Card Integration Network</h3>
+              <p class="text-body-2 text-medium-emphasis">
+                Integration measures how many deck relationships (tutors, wincon groups, engine tags, type dependencies) point to a card.
+                Higher integration indicates core pieces, while lowest values may reveal "dead cards."
+              </p>
+            </div>
+
+            <v-table density="compact" v-if="crispiResults">
+              <thead>
+                <tr>
+                  <th class="text-left">Card Name</th>
+                  <th class="text-center">Roles</th>
+                  <th class="text-center" style="width: 200px">Integration Graph</th>
+                  <th class="text-right" style="width: 100px">Weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="eval_ in [...crispiResults.card_evaluations].sort((a, b) => b.integration - a.integration)" :key="eval_.card_id">
+                  <td class="font-weight-bold">{{ eval_.card_name }}</td>
+                  <td class="text-center">
+                    <div class="d-flex flex-wrap gap-1 justify-center">
+                      <v-chip 
+                        v-for="role in eval_.roles" 
+                        :key="role" 
+                        size="x-small" 
+                        variant="tonal" 
+                        class="text-caption"
+                      >
+                        {{ formatRole(role) }}
+                      </v-chip>
+                    </div>
+                  </td>
+                  <td>
+                    <v-progress-linear
+                      :model-value="eval_.integration * 100"
+                      :color="getIntegrationColor(eval_.integration)"
+                      height="12"
+                      rounded
+                    >
+                      <template v-slot:default="{ value }">
+                        <span class="text-caption text-white font-weight-bold" style="font-size: 8px !important;">{{ value.toFixed(0) }}%</span>
+                      </template>
+                    </v-progress-linear>
+                  </td>
+                  <td class="text-right">
+                    <v-chip 
+                      size="x-small" 
+                      :color="getIntegrationColor(eval_.integration)" 
+                      label 
+                      variant="flat"
+                      class="text-white"
+                    >
+                      {{ (eval_.integration * 100).toFixed(1) }}
+                    </v-chip>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-card>
         </v-window-item>
       </v-window>
     </div>

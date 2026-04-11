@@ -1,6 +1,9 @@
-use super::*;
 use crate::models::card_model::{Card, CardType};
 use crate::models::crispi_archetypes::detect_archetype;
+use crate::models::crispi_patterns::infer_roles;
+use crate::models::crispi_types::{Role, DeckArchetype};
+use crate::models::crispi_probability::derive_bracket;
+use crate::models::crispi_model::{calculate_crispi, combo_piece_names_for_deck, infer_roles_with_combo_context};
 
 fn make_card(name: &str, mv: u8, types: Vec<CardType>, text: &str) -> Card {
     let mut sub_types = vec![];
@@ -117,6 +120,101 @@ fn test_pure_proliferate_is_not_infect_role() {
     assert!(
         !roles.contains(&Role::INFECT),
         "Pure proliferate should not be tagged as Infect. Roles found: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_ritual_is_not_ramp() {
+    let dark_ritual = make_card(
+        "Dark Ritual",
+        1,
+        vec![CardType::Instant],
+        "Add {B}{B}{B}."
+    );
+
+    let roles = infer_roles(&dark_ritual);
+    assert!(
+        roles.contains(&Role::RITUAL),
+        "Dark Ritual should be a Ritual. Roles: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::RAMP),
+        "Ritual should NOT be RAMP. Roles: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_treasure_burst_is_not_ramp() {
+    let brasss_bounty = make_card(
+        "Brass's Bounty",
+        7,
+        vec![CardType::Sorcery],
+        "For each land you control, create a Treasure token."
+    );
+
+    let roles = infer_roles(&brasss_bounty);
+    assert!(
+        roles.contains(&Role::TREASURE_BURST),
+        "Brass's Bounty should be a Treasure Burst. Roles: {:?}",
+        roles
+    );
+    assert!(
+        !roles.contains(&Role::RAMP),
+        "Treasure Burst should NOT be RAMP. Roles: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_gaeas_cradle_is_not_ritual() {
+    let cradle = make_card(
+        "Gaea's Cradle",
+        0,
+        vec![CardType::Land],
+        "{T}: Add {G} for each creature you control."
+    );
+
+    let roles = infer_roles(&cradle);
+    assert!(
+        !roles.contains(&Role::RITUAL),
+        "Gaea's Cradle should NOT be a Ritual. Roles: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_takenuma_is_not_ritual() {
+    let takenuma = make_card(
+        "Takenuma, Abandoned Mire",
+        0,
+        vec![CardType::Land],
+        "{T}: Add {B}. Channel - {3}{B}, Discard Takenuma, Abandoned Mire: Mill three cards, then return a creature or planeswalker card from your graveyard to your hand. This ability costs {1} less to activate for each legendary creature you control."
+    );
+
+    let roles = infer_roles(&takenuma);
+    assert!(
+        !roles.contains(&Role::RITUAL),
+        "Takenuma should NOT be a Ritual. Roles: {:?}",
+        roles
+    );
+}
+
+#[test]
+fn test_mana_vault_is_not_ritual() {
+    let mana_vault = make_card(
+        "Mana Vault",
+        1,
+        vec![CardType::Artifact],
+        "Mana Vault doesn't untap during your untap step. {T}: Add {C}{C}{C}. At the beginning of your upkeep, you may pay {4}. If you do, untap Mana Vault. At the beginning of your draw step, if Mana Vault is tapped, it deals 1 damage to you."
+    );
+
+    let roles = infer_roles(&mana_vault);
+    assert!(
+        !roles.contains(&Role::RITUAL),
+        "Mana Vault should NOT be a Ritual. Roles: {:?}",
         roles
     );
 }
