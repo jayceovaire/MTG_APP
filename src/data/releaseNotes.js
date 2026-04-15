@@ -1,14 +1,15 @@
 export const releaseNotes = [
   {
-    version: "0.1.3",
-    publishedOn: "2026-04-08",
-    headline: "Deck analysis and updater stability improvements.",
+    version: "0.1.4",
+    publishedOn: "2026-04-15",
+    headline: "Storm support, stronger deck metrics, and editor workflow improvements.",
     bullets: [
-      "Improved deck scoring with stronger handling for color fixing, tutors, mana curve pressure, turbo lines, and consistency signals.",
-      "Fixed several regex-driven card classification issues affecting ramp, treasure, removal, draw, infect, and proliferation detection.",
-      "Adjusted bracket scoring for edge cases, including three-card combo decks, false-positive cEDH flags, and game changer amplification limits.",
-      "Split core logic and tests into more maintainable modules to make the scoring system easier to extend safely.",
-      "Added the updater flow and follow-up bug fixes so in-app updates are more reliable."
+      "Added Storm archetype support, including Storm role scoring and the related info-page updates.",
+      "Expanded deck analysis with integration metrics and explicit three-card combo support.",
+      "Refined ramp and ritual role scoring to produce more accurate deck evaluations.",
+      "Added drag-and-drop reordering for decks and packages, plus a rename action in the deck editor.",
+      "Introduced official dark-mode and light-mode color schemes.",
+      "New decks now appear at the front of the deck library."
     ],
   }
 ];

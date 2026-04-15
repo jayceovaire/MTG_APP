@@ -13,7 +13,7 @@ const randomCard = ref(null);
 const isFetchingRandom = ref(false);
 const randomCardError = ref("");
 const activeTab = ref("random-card");
-const appVersion = ref("0.1.3");
+const appVersion = ref("0.1.4");
 
 const currentRelease = computed(() => {
   return releaseNotes.find((entry) => entry.version === appVersion.value) ?? releaseNotes[0] ?? null;
@@ -39,7 +39,7 @@ async function handleGetRandomCard() {
   } finally {
     isFetchingRandom.value = false;
   }
-}
+} 
 
 async function handleAddToCollection() {
   if (!randomCard.value) return;
