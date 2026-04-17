@@ -79,7 +79,7 @@ fn test_integration_normalization() {
     let card2 = make_card("Card 2", 1, vec![CardType::Creature], "Text");
     
     let cards = vec![dt.clone(), card1.clone(), card2.clone()];
-    let heats = compute_integration(&cards);
+    let heats = compute_integration(&cards, &[]);
     
     let dt_heat = heats.iter().find(|h| h.name == "Demonic Tutor").unwrap();
     // DT finds card1 (+1) and card2 (+1) = 2.0 points

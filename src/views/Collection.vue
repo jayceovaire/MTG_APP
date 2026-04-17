@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   mdiAlertCircleOutline,
   mdiCardsOutline,
@@ -10,6 +11,7 @@ import {
   mdiRefresh,
   mdiCancel,
   mdiGaugeFull,
+  mdiMagnify,
 } from "@mdi/js";
 import {
   createCollectionCardCommand,
@@ -52,6 +54,41 @@ const typeFilterOptions = [
   "Tribal",
 ];
 const favoritesFilterKey = "Favorites";
+
+function handleHoverCard(card) {
+  emit("hover-card", card);
+}
+
+async function openCardViewer() {
+  try {
+    const allWindows = await WebviewWindow.getAll();
+    const existing = allWindows.find((w) => w.label === "card-viewer");
+
+    if (existing) {
+      await existing.show();
+      await existing.unminimize();
+      await existing.setFocus();
+    } else {
+      const viewer = new WebviewWindow("card-viewer", {
+        url: window.location.origin + "/#/card-viewer",
+        title: "Card Viewer",
+        width: 1000,
+        height: 600,
+        center: true,
+      });
+
+      viewer.once("tauri://created", () => {
+        console.log("Card Viewer window created");
+      });
+
+      viewer.once("tauri://error", (e) => {
+        console.error("Card Viewer window error:", e);
+      });
+    }
+  } catch (error) {
+    console.error("Failed to open card viewer:", error);
+  }
+}
 
 async function loadCollection() {
   isLoading.value = true;
@@ -314,10 +351,92 @@ watch(newCardName, (value) => {
 </script>
 
 <template>
-  <v-container class="collection-page">
-    <div class="d-flex align-center justify-space-between mb-6">
+  <v-container class="collection-page" fluid>
+    <div class="d-flex align-center justify-space-between mb-6 flex-wrap gap-4">
       <h1 class="text-h4 font-weight-bold text-primary">Collection</h1>
-      <div class="d-flex align-center gap-3">
+      
+      <div class="d-flex align-center gap-3 flex-grow-1 justify-end search-actions-row">
+        <div class="card-name-input">
+          <v-text-field
+            v-model="newCardName"
+            class="collection-search"
+            placeholder="Search and add a card"
+            density="compact"
+            variant="outlined"
+            hide-details
+            rounded="lg"
+            :loading="isSearchingCards"
+            @focus="handleSearchFocus"
+            @blur="handleSearchBlur"
+            @keydown.enter.prevent="handleSearchEnter"
+            @keydown.down.prevent="moveSuggestion(1)"
+            @keydown.up.prevent="moveSuggestion(-1)"
+            @keydown.esc="hideSuggestions"
+          >
+            <template #prepend-inner>
+              <v-icon :icon="mdiMagnify" color="primary" class="mr-2"></v-icon>
+            </template>
+          </v-text-field>
+
+          <div v-if="showCardSuggestions" class="deck-search-suggestions">
+            <button
+              v-for="(suggestion, index) in cardSuggestions"
+              :key="`${suggestion.name}-${index}`"
+              type="button"
+              class="deck-search-suggestion"
+              :class="{
+                'deck-search-suggestion--active': index === activeSuggestionIndex,
+                'deck-search-suggestion--illegal':
+                  suggestion.commander_legality && suggestion.commander_legality !== 'legal',
+                'deck-search-suggestion--game-changer':
+                  suggestion.game_changer &&
+                  !(suggestion.commander_legality && suggestion.commander_legality !== 'legal'),
+              }"
+              @mousedown.prevent="selectSuggestion(suggestion)"
+            >
+              <div class="deck-search-suggestion__top">
+                <div class="d-flex align-center flex-grow-1">
+                  <span>{{ suggestion.name }}</span>
+                  <span
+                    v-if="suggestion.game_changer"
+                    class="suggestion-pill suggestion-pill--game-changer ml-1"
+                  >
+                    GAME CHANGER
+                  </span>
+                  <span
+                    v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
+                    class="suggestion-pill suggestion-pill--illegal ml-1"
+                  >
+                    {{ suggestion.commander_legality.toUpperCase().replace("_", " ") }}
+                  </span>
+                  <v-icon
+                    v-if="suggestion.game_changer"
+                    :icon="mdiGaugeFull"
+                    size="14"
+                    color="amber-darken-2"
+                    title="Game Changer"
+                    class="ml-1"
+                  ></v-icon>
+                  <v-icon
+                    v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
+                    :icon="mdiCancel"
+                    size="14"
+                    color="error"
+                    title="Banned"
+                    class="ml-1"
+                  ></v-icon>
+                </div>
+                <ManaText
+                  v-if="suggestion.mana_cost"
+                  :text="suggestion.mana_cost"
+                  :cost="true"
+                />
+              </div>
+              <span class="deck-search-suggestion__type">{{ suggestion.type_line }}</span>
+            </button>
+          </div>
+        </div>
+
         <v-menu location="bottom end">
           <template #activator="{ props: menuProps }">
             <v-btn
@@ -326,6 +445,7 @@ watch(newCardName, (value) => {
               :prepend-icon="mdiFilterVariant"
               class="text-none"
               rounded="lg"
+              height="40"
             >
               Filter<span v-if="activeFilterCount > 0" class="ml-1">({{ activeFilterCount }})</span>
             </v-btn>
@@ -359,6 +479,7 @@ watch(newCardName, (value) => {
           @click="handleCreateCard"
           class="text-none font-weight-bold"
           rounded="lg"
+          height="40"
         >
           <template #prepend>
             <div class="d-flex align-center mr-1">
@@ -373,130 +494,62 @@ watch(newCardName, (value) => {
 
     <v-divider class="mb-6"></v-divider>
 
-    <v-row class="mb-6">
-      <v-col cols="12" md="6" lg="5">
-        <div class="card-name-input">
-          <v-text-field
-            v-model="newCardName"
-            class="collection-search"
-            label="Search and add a card"
-            density="comfortable"
-            variant="outlined"
-            hide-details
-            :loading="isSearchingCards"
-            @focus="handleSearchFocus"
-            @blur="handleSearchBlur"
-            @keydown.enter.prevent="handleSearchEnter"
-            @keydown.down.prevent="moveSuggestion(1)"
-            @keydown.up.prevent="moveSuggestion(-1)"
-            @keydown.esc="hideSuggestions"
-          >
-            <template #prepend-inner>
-              <v-icon :icon="mdiCardsOutline" color="primary" class="mr-2"></v-icon>
-            </template>
-          </v-text-field>
-
-          <div v-if="showCardSuggestions" class="deck-search-suggestions">
-              <button
-                v-for="(suggestion, index) in cardSuggestions"
-                :key="`${suggestion.name}-${index}`"
-                type="button"
-                class="deck-search-suggestion"
-                :class="{
-                  'deck-search-suggestion--active': index === activeSuggestionIndex,
-                  'deck-search-suggestion--illegal':
-                    suggestion.commander_legality && suggestion.commander_legality !== 'legal',
-                  'deck-search-suggestion--game-changer':
-                    suggestion.game_changer &&
-                    !(suggestion.commander_legality && suggestion.commander_legality !== 'legal'),
-                }"
-                @mousedown.prevent="selectSuggestion(suggestion)"
-              >
-                <div class="deck-search-suggestion__top">
-                  <div class="d-flex align-center flex-grow-1">
-                    <span>{{ suggestion.name }}</span>
-                    <span
-                      v-if="suggestion.game_changer"
-                      class="suggestion-pill suggestion-pill--game-changer ml-1"
-                    >
-                      GAME CHANGER
-                    </span>
-                    <span
-                      v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
-                      class="suggestion-pill suggestion-pill--illegal ml-1"
-                    >
-                      {{ suggestion.commander_legality.toUpperCase().replace("_", " ") }}
-                    </span>
-                    <v-icon
-                      v-if="suggestion.game_changer"
-                      :icon="mdiGaugeFull"
-                      size="14"
-                      color="amber-darken-2"
-                      title="Game Changer"
-                      class="ml-1"
-                    ></v-icon>
-                    <v-icon
-                      v-if="suggestion.commander_legality && suggestion.commander_legality !== 'legal'"
-                      :icon="mdiCancel"
-                      size="14"
-                      color="error"
-                      title="Banned"
-                      class="ml-1"
-                    ></v-icon>
-                  </div>
-                  <ManaText
-                    v-if="suggestion.mana_cost"
-                    :text="suggestion.mana_cost"
-                    :cost="true"
-                  />
-                </div>
-                <span class="deck-search-suggestion__type">{{ suggestion.type_line }}</span>
-              </button>
-            </div>
-          </div>
-        </v-col>
-      </v-row>
-
     <div v-if="loadError" class="feedback feedback--error mb-6">
       <v-icon :icon="mdiAlertCircleOutline" size="18"></v-icon>
       <span>{{ loadError }}</span>
     </div>
 
-    <v-card variant="flat" border class="pa-6">
-      <div class="d-flex align-center justify-space-between mb-6">
-        <div class="d-flex align-center">
-          <v-icon :icon="mdiCardsOutline" color="primary" class="mr-3" size="28"></v-icon>
-          <h2 class="text-h5 font-weight-bold">All Cards</h2>
-        </div>
-        <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold">
-          {{ collectionCount }} cards
-        </v-chip>
-      </div>
+    <v-row>
+      <v-col cols="12">
+        <v-card variant="flat" border class="pa-6">
+          <div class="d-flex align-center justify-space-between mb-6">
+            <div class="d-flex align-center">
+              <v-icon :icon="mdiCardsOutline" color="primary" class="mr-3" size="28"></v-icon>
+              <h2 class="text-h5 font-weight-bold">All Cards</h2>
+              <v-btn
+                variant="text"
+                size="small"
+                class="ml-4"
+                @click="openCardViewer"
+              >
+                <template #prepend>
+                  <v-icon :icon="mdiMagnify" size="18"></v-icon>
+                </template>
+                Card Viewer
+              </v-btn>
+            </div>
+            <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold">
+              {{ collectionCount }} cards
+            </v-chip>
+          </div>
 
-      <v-divider class="mb-4"></v-divider>
+          <v-divider class="mb-4"></v-divider>
 
-      <div v-if="groupedCollection.length > 0" class="deck-list">
-        <DeckCardRow
-          v-for="entry in groupedCollection"
-          :key="`collection-${entry.card.id}`"
-          :card="entry.card"
-          :quantity="entry.quantity"
-          :editable="true"
-          :favorited="entry.favorited"
-          :show-favorite-indicator="true"
-          :show-favorite-action="true"
-          @add-copy="handleCardAdded(entry.card)"
-          @remove-copy="handleCardRemoved(entry.cards[0].id)"
-          @favorite-card="handleCardFavorited(entry.card)"
-        />
-      </div>
+          <div v-if="groupedCollection.length > 0" class="deck-list">
+            <DeckCardRow
+              v-for="entry in groupedCollection"
+              :key="`collection-${entry.card.id}`"
+              :card="entry.card"
+              :quantity="entry.quantity"
+              :editable="true"
+              :favorited="entry.favorited"
+              :show-favorite-indicator="true"
+              :show-favorite-action="true"
+              @add-copy="handleCardAdded(entry.card)"
+              @remove-copy="handleCardRemoved(entry.cards[0].id)"
+              @favorite-card="handleCardFavorited(entry.card)"
+              @hover-card="handleHoverCard"
+            />
+          </div>
 
-      <div v-else class="text-center pa-12">
-        <v-icon :icon="mdiCardsOutline" size="64" class="mb-4 opacity-20"></v-icon>
-        <h3 class="text-h6 text-medium-emphasis">Your collection is empty</h3>
-        <p class="text-body-2 text-medium-emphasis">Search for a card above and add it to start building out your library.</p>
-      </div>
-    </v-card>
+          <div v-else class="text-center pa-12">
+            <v-icon :icon="mdiCardsOutline" size="64" class="mb-4 opacity-20"></v-icon>
+            <h3 class="text-h6 text-medium-emphasis">Your collection is empty</h3>
+            <p class="text-body-2 text-medium-emphasis">Search for a card above and add it to start building out your library.</p>
+          </div>
+        </v-card>
+      </v-col>
+    </v-row>
 
     <v-snackbar
         v-model="snackbarVisible"
@@ -517,15 +570,28 @@ watch(newCardName, (value) => {
   gap: 12px;
 }
 
+.gap-4 {
+  gap: 16px;
+}
+
+.search-actions-row {
+  max-width: 800px;
+}
+
 .search-card {
   border-radius: 12px !important;
 }
 
 .card-name-input {
   position: relative;
-  min-width: 320px;
-  max-width: 520px;
-  width: 100%;
+  min-width: 280px;
+  flex: 1 1 auto;
+  max-width: 480px;
+}
+
+.sticky-viewer {
+  position: sticky;
+  top: 24px;
 }
 
 .deck-search-suggestions {

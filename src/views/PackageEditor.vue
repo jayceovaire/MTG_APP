@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useRouter } from "vue-router";
 import {
   mdiAlertCircleOutline,
@@ -13,6 +14,7 @@ import {
   mdiExport,
   mdiContentPaste,
   mdiCheck,
+  mdiMagnify,
 } from "@mdi/js";
 import {
   addCardToPackageCommand,
@@ -66,6 +68,41 @@ const typeDisplayOrder = [
   "Land",
   "Other",
 ];
+
+function handleHoverCard(card) {
+  emit("hover-card", card);
+}
+
+async function openCardViewer() {
+  try {
+    const allWindows = await WebviewWindow.getAll();
+    const existing = allWindows.find((w) => w.label === "card-viewer");
+
+    if (existing) {
+      await existing.show();
+      await existing.unminimize();
+      await existing.setFocus();
+    } else {
+      const viewer = new WebviewWindow("card-viewer", {
+        url: window.location.origin + "/#/card-viewer",
+        title: "Card Viewer",
+        width: 1000,
+        height: 600,
+        center: true,
+      });
+
+      viewer.once("tauri://created", () => {
+        console.log("Card Viewer window created");
+      });
+
+      viewer.once("tauri://error", (e) => {
+        console.error("Card Viewer window error:", e);
+      });
+    }
+  } catch (error) {
+    console.error("Failed to open card viewer:", error);
+  }
+}
 
 function normalizePackageId(value) {
   const parsed = Number(value);
@@ -609,8 +646,21 @@ onUnmounted(() => {
         <main class="deck-main">
           <section class="deck-panel">
             <div class="panel-heading">
-              <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
-              <h2>Package Cards</h2>
+              <div class="d-flex align-center flex-grow-1">
+                <v-icon :icon="mdiCardsOutline" size="18"></v-icon>
+                <h2 class="ml-2">Package Cards</h2>
+                <v-btn
+                  variant="text"
+                  size="small"
+                  class="ml-4"
+                  @click="openCardViewer"
+                >
+                  <template #prepend>
+                    <v-icon :icon="mdiMagnify" size="18"></v-icon>
+                  </template>
+                  Card Viewer
+                </v-btn>
+              </div>
             </div>
 
             <div v-if="packageSections.length > 0" class="deck-sections">
@@ -627,6 +677,7 @@ onUnmounted(() => {
                     :quantity="entry.quantity"
                     @add-copy="handleAddCopy(entry.card.name)"
                     @remove-copy="handleRemoveCopy(entry.cardIds[entry.cardIds.length - 1], entry.card.name)"
+                    @hover-card="handleHoverCard"
                   />
                 </div>
               </section>

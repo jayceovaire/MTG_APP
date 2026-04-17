@@ -3,7 +3,9 @@ use crate::models::crispi_archetypes::detect_archetype;
 use crate::models::crispi_patterns::infer_roles;
 use crate::models::crispi_types::{Role, DeckArchetype};
 use crate::models::crispi_probability::derive_bracket;
-use crate::models::crispi_model::{calculate_crispi, combo_piece_names_for_deck, infer_roles_with_combo_context};
+use crate::models::crispi_model::{
+    calculate_crispi, combo_piece_names_for_deck, infer_roles_with_combo_context,
+};
 
 fn make_card(name: &str, mv: u8, types: Vec<CardType>, text: &str) -> Card {
     let mut sub_types = vec![];
@@ -665,7 +667,7 @@ fn test_rog_si_archetype() {
         ));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 15);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 15, &[]);
 
     println!("RogSi Test - Total Score: {}", evaluation.total_score);
     println!("RogSi Test - Raw Score: {}", evaluation.raw_score);
@@ -749,7 +751,7 @@ fn test_midrange_archetype() {
         "Destroy target permanent...",
     ));
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
     assert_eq!(evaluation.archetype, DeckArchetype::Midrange);
 }
 
@@ -942,7 +944,7 @@ fn test_kosei_deck() {
         ));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Kosei Test - Total Score: {}", evaluation.total_score);
     println!("Kosei Test - Raw Score: {}", evaluation.raw_score);
@@ -985,39 +987,39 @@ fn test_commander_mv_penalty() {
     // Rog/Silas (0 + 3 = 3) -> Bonus
     // Penalty = (0 - 3.5)*0.15 + (3 - 3.5)*0.15 = -0.525 - 0.075 = -0.6
     let mainboard = vec![];
-    let eval_rog_si = calculate_crispi(&mainboard, &vec![rog, silas.clone()], 0);
+    let eval_rog_si = calculate_crispi(&mainboard, &vec![rog, silas.clone()], 0, &[]);
     assert!(eval_rog_si.commander_mv_penalty < 0.0);
     assert_eq!(eval_rog_si.commander_mv_penalty, -0.6);
 
     // Thrasios/Tymna (2 + 3 = 5)
     // Penalty = (2 - 3.5)*0.15 + (3 - 3.5)*0.15 = -0.225 - 0.075 = -0.3
     let tymna = make_card("Tymna", 3, vec![CardType::Creature], "Partner.");
-    let eval_thras_tymna = calculate_crispi(&mainboard, &vec![thrasios, tymna], 0);
+    let eval_thras_tymna = calculate_crispi(&mainboard, &vec![thrasios, tymna], 0, &[]);
     assert_eq!(eval_thras_tymna.commander_mv_penalty, -0.3);
 
     // Kosei (4)
     // Penalty = (4 - 3.0)*0.25 = 0.25
-    let eval_kosei = calculate_crispi(&mainboard, &vec![kosei], 0);
+    let eval_kosei = calculate_crispi(&mainboard, &vec![kosei], 0, &[]);
     assert_eq!(eval_kosei.commander_mv_penalty, 0.25);
 
     // Gitrog (5)
     // Penalty = (5 - 3.0)*0.25 = 0.50
     let gitrog = make_card("The Gitrog Monster", 5, vec![CardType::Creature], "");
-    let eval_gitrog = calculate_crispi(&mainboard, &vec![gitrog], 0);
+    let eval_gitrog = calculate_crispi(&mainboard, &vec![gitrog], 0, &[]);
     assert_eq!(eval_gitrog.commander_mv_penalty, 0.50);
 
     // Kraum/Silas (5 + 3 = 8)
     // Penalty = (5 - 3.0)*0.25 + (3 - 3.5)*0.15 = 0.5 - 0.075 = 0.425
-    let eval_kraum_silas = calculate_crispi(&mainboard, &vec![kraum.clone(), silas.clone()], 0);
+    let eval_kraum_silas = calculate_crispi(&mainboard, &vec![kraum.clone(), silas.clone()], 0, &[]);
     assert_eq!(eval_kraum_silas.commander_mv_penalty, 0.425);
 
     // Etali (7)
     // Penalty = (7 - 3.0)*0.25 = 1.0
-    let eval_etali = calculate_crispi(&mainboard, &vec![etali], 0);
+    let eval_etali = calculate_crispi(&mainboard, &vec![etali], 0, &[]);
     assert_eq!(eval_etali.commander_mv_penalty, 1.0);
 
     // No commander: 0.0
-    let eval_none = calculate_crispi(&mainboard, &vec![], 0);
+    let eval_none = calculate_crispi(&mainboard, &vec![], 0, &[]);
     assert_eq!(eval_none.commander_mv_penalty, 0.0);
 }
 
@@ -1073,7 +1075,7 @@ fn test_group_hug_archetype() {
         ));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Group Hug Test - Total Score: {}", evaluation.total_score);
     println!("Group Hug Test - Signal: {}", evaluation.group_hug_signal);
@@ -1157,7 +1159,7 @@ fn test_infect_archetype() {
         ));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Infect Test - Total Score: {}", evaluation.total_score);
     println!("Infect Test - Signal: {}", evaluation.infect_signal);
@@ -1215,7 +1217,7 @@ fn test_storm_archetype() {
         mainboard.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}."));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Storm Test - Signal: {}", evaluation.storm_signal);
     println!("Storm Test - Archetype: {:?}", evaluation.archetype);
@@ -1259,7 +1261,7 @@ fn test_high_quality_non_storm_deck_is_not_storm() {
         mainboard.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}."));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("High Quality Test - Signal: {}", evaluation.storm_signal);
     println!("High Quality Test - Archetype: {:?}", evaluation.archetype);
@@ -1295,7 +1297,7 @@ fn test_gravestorm_payoff() {
         mainboard.push(make_card("Swamp", 0, vec![CardType::Land], "{T}: Add {B}."));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Gravestorm Test - Signal: {}", evaluation.storm_signal);
     println!("Gravestorm Test - Archetype: {:?}", evaluation.archetype);
@@ -1311,7 +1313,7 @@ fn test_specific_storm_payoffs_requested_by_user() {
     let mut deck_v = vec![veyran];
     for _ in 0..10 { deck_v.push(make_card("Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}.")); }
     for _ in 0..30 { deck_v.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}.")); }
-    let eval_v = calculate_crispi(&deck_v, &vec![], 0);
+    let eval_v = calculate_crispi(&deck_v, &vec![], 0, &[]);
     assert_eq!(eval_v.archetype, DeckArchetype::Storm, "Veyran (Vivi) should satisfy payoff requirement.");
 
     // Ral Monsoon Mage
@@ -1319,7 +1321,7 @@ fn test_specific_storm_payoffs_requested_by_user() {
     let mut deck_r = vec![ral];
     for _ in 0..10 { deck_r.push(make_card("Ritual", 1, vec![CardType::Instant], "Add {B}{B}{B}.")); }
     for _ in 0..30 { deck_r.push(make_card("Island", 0, vec![CardType::Land], "{T}: Add {U}.")); }
-    let eval_r = calculate_crispi(&deck_r, &vec![], 0);
+    let eval_r = calculate_crispi(&deck_r, &vec![], 0, &[]);
     assert_eq!(eval_r.archetype, DeckArchetype::Storm, "Ral Monsoon Mage should satisfy payoff requirement.");
 }
 
@@ -1369,7 +1371,7 @@ fn test_blue_farm_is_not_storm() {
         mainboard.push(make_card("City of Brass", 0, vec![CardType::Land], "{T}: Add one mana of any color."));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Blue Farm Test - Storm Signal: {}", evaluation.storm_signal);
     println!("Blue Farm Test - Turbo Signal: {}", evaluation.turbo_signal);
@@ -1416,7 +1418,7 @@ fn test_proliferate_without_poison_support_does_not_count_as_infect() {
         ));
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     assert_eq!(
         evaluation.infect_signal, 0.0,
@@ -1455,7 +1457,7 @@ fn test_three_card_combo() {
     }
 
     let commanders = vec![];
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!(
         "Three-Card Combo Test - Detected: {:?}",
@@ -1472,6 +1474,8 @@ fn test_three_card_combo() {
 
 #[test]
 fn test_combo_pieces_are_promoted_to_wincon_role() {
+    use crate::models::sidecar_models::Variant;
+
     let mainboard = vec![
         make_card(
             "Demonic Consultation",
@@ -1487,7 +1491,22 @@ fn test_combo_pieces_are_promoted_to_wincon_role() {
         ),
     ];
     let commanders = vec![];
-    let combo_piece_names = combo_piece_names_for_deck(&mainboard, &commanders);
+    let sidecar_combos = vec![Variant {
+        id: "thoracle-consult".to_string(),
+        name: Some("Thoracle Consult".to_string()),
+        deck_limit: None,
+        card_ids: vec![],
+        card_names: vec![
+            "Demonic Consultation".to_string(),
+            "Thassa's Oracle".to_string(),
+        ],
+        results: vec!["Win the game".to_string()],
+        prerequisites: vec![],
+        steps: vec![],
+    }];
+
+    let combo_piece_names =
+        combo_piece_names_for_deck(&mainboard, &commanders, &sidecar_combos);
 
     let oracle_roles = infer_roles_with_combo_context(&mainboard[1], &combo_piece_names);
     let consultation_roles = infer_roles_with_combo_context(&mainboard[0], &combo_piece_names);
@@ -1522,7 +1541,7 @@ fn test_hoarding_broodlord_combo() {
     }
 
     let commanders = vec![];
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!(
         "Hoarding Broodlord Test (Mainboard, 8 cards, Prereqs OK) - Detected: {:?}",
@@ -1550,7 +1569,7 @@ fn test_hoarding_broodlord_combo() {
     // Now with Hoarding Broodlord as Commander
     let hb = mainboard.remove(0);
     let commanders_hb = vec![hb];
-    let evaluation_cmdr = calculate_crispi(&mainboard, &commanders_hb, 0);
+    let evaluation_cmdr = calculate_crispi(&mainboard, &commanders_hb, 0, &[]);
     println!(
         "Hoarding Broodlord Test (Commander) - Detected: {:?}",
         evaluation_cmdr.detected_combos
@@ -1661,7 +1680,7 @@ fn test_cormela_deck_score_investigation() {
     push("Underground Sea", 0, vec![CardType::Land], "{T}: Add {U} or {B}.");
     push("Volcanic Island", 0, vec![CardType::Land], "{T}: Add {U} or {R}.");
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Cormela Investigation - Total Score: {}", evaluation.total_score);
     println!("Cormela Investigation - Raw Score: {}", evaluation.raw_score);
@@ -1744,7 +1763,7 @@ fn test_gitrog_is_not_storm() {
         push(&format!("Forest {}", i), 0, vec![CardType::Land], "{T}: Add {G}.", &mut mainboard);
     }
 
-    let evaluation = calculate_crispi(&mainboard, &commanders, 0);
+    let evaluation = calculate_crispi(&mainboard, &commanders, 0, &[]);
 
     println!("Gitrog Archetype: {:?}", evaluation.archetype);
     println!("Storm Signal: {}", evaluation.storm_signal);

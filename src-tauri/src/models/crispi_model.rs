@@ -1,6 +1,5 @@
 use crate::models::card_model::Card;
 use crate::models::cedh_staples::CEDH_STAPLES;
-use crate::models::combos::{THREE_CARD_COMBOS, TWO_CARD_COMBOS};
 use crate::models::crispi_archetypes::detect_archetype;
 use crate::models::crispi_classify::{has_non_tapping_activation, is_instant_speed};
 use crate::models::crispi_integration::{extract_tags, Tag};
@@ -10,6 +9,7 @@ use crate::models::crispi_patterns::{
 use crate::models::crispi_probability::{
     derive_bracket, hypergeometric_at_least, is_etb_tapped_land,
 };
+use crate::models::sidecar_models::Variant;
 use std::collections::{HashMap, HashSet};
 
 pub use crate::models::crispi_classify::classify_card;
@@ -20,6 +20,7 @@ pub use crate::models::crispi_types::{
 
 struct ComboAnalysis {
     detected_combos: Vec<String>,
+    detected_variants: Vec<Variant>,
     combo_piece_names: HashSet<String>,
     combo_multiplier: f32,
     combo_bracket_floor: u8,
@@ -60,12 +61,27 @@ pub fn infer_roles_with_combo_context(
     roles
 }
 
-pub fn combo_piece_names_for_deck(mainboard: &[Card], commanders: &[Card]) -> HashSet<String> {
-    analyze_combos(mainboard, commanders, deck_non_land_count(mainboard, commanders), 0)
-        .combo_piece_names
+pub fn combo_piece_names_for_deck(
+    mainboard: &[Card],
+    commanders: &[Card],
+    sidecar_combos: &[Variant],
+) -> HashSet<String> {
+    analyze_combos(
+        mainboard,
+        commanders,
+        deck_non_land_count(mainboard, commanders),
+        0,
+        sidecar_combos,
+    )
+    .combo_piece_names
 }
 
-pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> CrispiEvaluation {
+pub fn calculate_crispi(
+    mainboard: &[Card],
+    commanders: &[Card],
+    n_gc: u32,
+    sidecar_combos: &[Variant],
+) -> CrispiEvaluation {
     let cached_mainboard: Vec<CachedCard<'_>> = mainboard
         .iter()
         .map(|card| {
@@ -333,7 +349,13 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         process_card(cached);
     }
 
-    let combo_analysis = analyze_combos(mainboard, commanders, non_land_count, tutor_count);
+    let combo_analysis = analyze_combos(
+        mainboard,
+        commanders,
+        non_land_count,
+        tutor_count,
+        sidecar_combos,
+    );
     let combo_count = combo_analysis.detected_combos.len() as u8;
     let effective_wincon_count = wincon_count_efficient + combo_count as u32;
     let land_count = mainboard.iter().filter(|c| c.is_land()).count();
@@ -698,6 +720,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         card_map.insert(normalize_card_name(card.get_name()), *card);
     }
     let detected_combos = combo_analysis.detected_combos.clone();
+    let detected_variants = combo_analysis.detected_variants.clone();
     let combo_multiplier = combo_analysis.combo_multiplier;
     let combo_bracket_floor = combo_analysis.combo_bracket_floor;
 
@@ -965,6 +988,7 @@ pub fn calculate_crispi(mainboard: &[Card], commanders: &[Card], n_gc: u32) -> C
         bracket,
         archetype,
         detected_combos,
+        detected_variants,
         consistency,
         resilience,
         interaction,
@@ -1027,8 +1051,9 @@ fn can_cast_commander_by_turn_three(
 fn analyze_combos(
     mainboard: &[Card],
     commanders: &[Card],
-    non_land_count: usize,
+    _non_land_count: usize,
     tutor_count: u32,
+    sidecar_combos: &[Variant],
 ) -> ComboAnalysis {
     let all_deck_cards: Vec<&Card> = mainboard.iter().chain(commanders.iter()).collect();
     let mut card_map: HashMap<String, &Card> = HashMap::new();
@@ -1037,6 +1062,7 @@ fn analyze_combos(
     }
 
     let mut detected_combos = Vec::new();
+    let mut detected_variants = Vec::new();
     let mut storm_combo_count = 0;
     let mut non_storm_combo_count = 0;
     let mut combo_piece_names = HashSet::new();
@@ -1045,92 +1071,58 @@ fn analyze_combos(
     let mut combo_bracket_floor = 0;
     let tutor_influence = (tutor_count as f32 * 0.01).min(0.15);
 
-    for combo in TWO_CARD_COMBOS {
-        let norm_a = normalize_card_name(combo.card_a);
-        let norm_b = normalize_card_name(combo.card_b);
+    for combo in sidecar_combos {
+        any_combo_found = true;
+        detected_variants.push(combo.clone());
 
-        if let (Some(card_a), Some(card_b)) = (card_map.get(&norm_a), card_map.get(&norm_b)) {
-            if !combo_prereqs_met(combo.prereqs, non_land_count) {
-                continue;
-            }
+        let num_cards = combo.card_names.len();
+        match num_cards {
+            2 => combo_bracket_floor = combo_bracket_floor.max(4),
+            3 => combo_bracket_floor = combo_bracket_floor.max(3),
+            4 => combo_bracket_floor = combo_bracket_floor.max(2),
+            _ => {}
+        }
 
-            any_combo_found = true;
-            combo_bracket_floor = combo_bracket_floor.max(4);
-            combo_piece_names.insert(norm_a);
-            combo_piece_names.insert(norm_b);
-            detected_combos.push(format!(
-                "{} + {}{}",
-                combo.card_a,
-                combo.card_b,
-                format_combo_effects(combo.effects)
-            ));
-
-            let total_mv = (card_a.mana_value() + card_b.mana_value()) as f32;
-            total_bonus += combo_bonus(total_mv, [*card_a, *card_b].into_iter(), tutor_influence, 3.0);
-
-            let roles_a = infer_roles(card_a);
-            let roles_b = infer_roles(card_b);
-            if roles_a.contains(&Role::STORM_PAYOFF)
-                || roles_a.contains(&Role::MAGECRAFT)
-                || roles_b.contains(&Role::STORM_PAYOFF)
-                || roles_b.contains(&Role::MAGECRAFT)
-            {
-                storm_combo_count += 1;
-            } else {
-                non_storm_combo_count += 1;
+        let mut combo_cards = Vec::new();
+        for name in &combo.card_names {
+            let norm_name = normalize_card_name(name);
+            combo_piece_names.insert(norm_name.clone());
+            if let Some(card) = card_map.get(&norm_name) {
+                combo_cards.push(*card);
             }
         }
-    }
 
-    for combo in THREE_CARD_COMBOS {
-        let norm_a = normalize_card_name(combo.card_a);
-        let norm_b = normalize_card_name(combo.card_b);
-        let norm_c = normalize_card_name(combo.card_c);
+        let combo_desc = format!(
+            "{} ({})",
+            combo.card_names.join(" + "),
+            combo.results.join(", ")
+        );
+        detected_combos.push(combo_desc);
 
-        if let (Some(card_a), Some(card_b), Some(card_c)) = (
-            card_map.get(&norm_a),
-            card_map.get(&norm_b),
-            card_map.get(&norm_c),
-        ) {
-            if !combo_prereqs_met(combo.prereqs, non_land_count) {
-                continue;
-            }
+        let total_mv: f32 = combo_cards.iter().map(|c| c.mana_value() as f32).sum();
+        let mv_floor = match num_cards {
+            2 => 3.0,
+            3 => 4.0,
+            4 => 5.0,
+            _ => 6.0,
+        };
 
-            any_combo_found = true;
-            combo_bracket_floor = combo_bracket_floor.max(3);
-            combo_piece_names.insert(norm_a);
-            combo_piece_names.insert(norm_b);
-            combo_piece_names.insert(norm_c);
-            detected_combos.push(format!(
-                "{} + {} + {}{}",
-                combo.card_a,
-                combo.card_b,
-                combo.card_c,
-                format_combo_effects(combo.effects)
-            ));
+        total_bonus += combo_bonus(
+            total_mv,
+            combo_cards.iter().copied(),
+            tutor_influence,
+            mv_floor,
+        );
 
-            let total_mv = (card_a.mana_value() + card_b.mana_value() + card_c.mana_value()) as f32;
-            total_bonus += combo_bonus(
-                total_mv,
-                [*card_a, *card_b, *card_c].into_iter(),
-                tutor_influence,
-                4.0,
-            );
+        let is_storm = combo_cards.iter().any(|card| {
+            let roles = infer_roles(card);
+            roles.contains(&Role::STORM_PAYOFF) || roles.contains(&Role::MAGECRAFT)
+        });
 
-            let roles_a = infer_roles(card_a);
-            let roles_b = infer_roles(card_b);
-            let roles_c = infer_roles(card_c);
-            if roles_a.contains(&Role::STORM_PAYOFF)
-                || roles_a.contains(&Role::MAGECRAFT)
-                || roles_b.contains(&Role::STORM_PAYOFF)
-                || roles_b.contains(&Role::MAGECRAFT)
-                || roles_c.contains(&Role::STORM_PAYOFF)
-                || roles_c.contains(&Role::MAGECRAFT)
-            {
-                storm_combo_count += 1;
-            } else {
-                non_storm_combo_count += 1;
-            }
+        if is_storm {
+            storm_combo_count += 1;
+        } else {
+            non_storm_combo_count += 1;
         }
     }
 
@@ -1142,6 +1134,7 @@ fn analyze_combos(
 
     ComboAnalysis {
         detected_combos,
+        detected_variants,
         combo_piece_names,
         combo_multiplier,
         combo_bracket_floor,
@@ -1150,17 +1143,6 @@ fn analyze_combos(
     }
 }
 
-fn combo_prereqs_met(prereqs: u8, non_land_count: usize) -> bool {
-    prereqs == 0 || non_land_count >= (5 + prereqs as usize)
-}
-
-fn format_combo_effects(effects: &[&str]) -> String {
-    if effects.is_empty() {
-        String::new()
-    } else {
-        format!(" ({})", effects.join(", "))
-    }
-}
 
 fn combo_bonus<'a>(
     total_mv: f32,

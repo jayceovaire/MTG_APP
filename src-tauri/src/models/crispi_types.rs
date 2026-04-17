@@ -95,6 +95,7 @@ pub struct CrispiEvaluation {
     pub bracket: u8,
     pub archetype: DeckArchetype,
     pub detected_combos: Vec<String>,
+    pub detected_variants: Vec<crate::models::sidecar_models::Variant>,
     pub consistency: CrispiDimension,
     pub resilience: CrispiDimension,
     pub interaction: CrispiDimension,

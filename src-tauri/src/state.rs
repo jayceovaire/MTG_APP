@@ -15,6 +15,7 @@ pub struct AppState {
     pub collection: RwLock<Vec<Card>>,
     pub favorites: RwLock<Vec<u64>>,
     pub packages: RwLock<Vec<Package>>,
+    pub sidecar_child: RwLock<Option<tauri_plugin_shell::process::CommandChild>>,
     next_deck_id: AtomicU64,
     next_card_id: AtomicU64,
     next_package_id: AtomicU64,

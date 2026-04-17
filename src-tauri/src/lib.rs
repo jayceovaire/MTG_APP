@@ -1,5 +1,6 @@
 use crate::state::AppState;
 use tauri::Manager;
+use tauri_plugin_shell::ShellExt;
 
 pub mod commands;
 pub mod models;
@@ -12,9 +13,87 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .on_window_event(|window, event| {
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+                    let state = window.state::<AppState>();
+                    // Only kill the sidecar if this is the last window being closed
+                    let app_handle = window.app_handle();
+                    let windows = app_handle.webview_windows();
+                    if windows.len() <= 1 {
+                        let mut sidecar_child = state.sidecar_child.write().unwrap();
+                        if let Some(child) = sidecar_child.take() {
+                            let _ = child.kill();
+                            println!("Sidecar process killed on last window event.");
+                        }
+                    }
+                }
+                _ => {}
+            }
+        })
         .setup(|app| {
+            // Kill any existing sidecar instances to ensure we start fresh with correct data and avoid duplicates
+            #[cfg(windows)]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/IM", "mtg-sidecar-x86_64-pc-windows-msvc.exe", "/T"])
+                    .output();
+            }
+
+            let resource_dir = app.path().resource_dir().expect("failed to get resource dir");
+            let db_dir = resource_dir.join("src/db");
+            let scryfall_path = db_dir.join("scryfall.db");
+
+            let sidecar_command = app.shell().sidecar("mtg-sidecar").unwrap()
+                .args(["--runtime-dir", resource_dir.join("src/db").to_str().unwrap()])
+                .args(["--db-path", scryfall_path.to_str().unwrap()]);
+            
+            let (mut rx, child) = sidecar_command
+                .spawn()
+                .expect("Failed to spawn sidecar");
+
+            let state = app.state::<AppState>();
+            if let Ok(mut sidecar_child) = state.sidecar_child.write() {
+                *sidecar_child = Some(child);
+            }
+
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        tauri_plugin_shell::process::CommandEvent::Stdout(line_bytes) => {
+                            let line = String::from_utf8_lossy(&line_bytes);
+                            println!("Sidecar: {}", line);
+                        }
+                        tauri_plugin_shell::process::CommandEvent::Stderr(line_bytes) => {
+                            let line = String::from_utf8_lossy(&line_bytes);
+                            if line.contains("[INFO]") || line.contains("Serving on") {
+                                println!("Sidecar: {}", line);
+                            } else {
+                                eprintln!("Sidecar Error: {}", line);
+                            }
+                        }
+                        tauri_plugin_shell::process::CommandEvent::Terminated(payload) => {
+                            let status_str = match payload.code {
+                                Some(code) => format!("code {}", code),
+                                None => "signal or unknown".to_string(),
+                            };
+                            println!("Sidecar terminated with status {}", status_str);
+                            let state = app_handle.state::<AppState>();
+                            if let Ok(mut sidecar_child) = state.sidecar_child.write() {
+                                *sidecar_child = None;
+                            };
+                            // If the sidecar terminated unexpectedly, we might want to exit the app or log it
+                            println!("Sidecar process lost. Application might need restart for full functionality.");
+                        }
+                        _ => {}
+                    }
+                }
+            });
+
             let state = app.state::<AppState>();
             state
                 .initialize_persistence(app.handle())
@@ -69,8 +148,26 @@ pub fn run() {
             commands::crispi_commands::evaluate_deck_roles,
             commands::settings_commands::check_for_updates,
             commands::settings_commands::install_update,
+            commands::sidecar_commands::is_sidecar_running,
+            commands::sidecar_commands::get_sidecar_index,
+            commands::sidecar_commands::get_sidecar_variants,
+            commands::sidecar_commands::submit_combo_to_sidecar,
+            commands::sidecar_commands::kill_sidecar,
         ])
         .manage(app_state)
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            match event {
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. } => {
+                    let state = app_handle.state::<AppState>();
+                    let mut sidecar_child = state.sidecar_child.write().unwrap();
+                    if let Some(child) = sidecar_child.take() {
+                        let _ = child.kill();
+                        println!("Sidecar process killed during exit.");
+                    }
+                }
+                _ => {}
+            }
+        });
 }

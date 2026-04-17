@@ -23,6 +23,15 @@
     "core:window:allow-unminimize",
     "core:window:allow-center",
     "core:window:allow-get-all-windows",
-    "core:webview:allow-get-all-webviews"
+    "core:webview:allow-get-all-webviews",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/mtg-sidecar",
+          "sidecar": true
+        }
+      ]
+    }
   ]
 }

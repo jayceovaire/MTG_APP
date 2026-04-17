@@ -35,6 +35,14 @@ export {
 } from "./imageCommands.js";
 
 export {
+  isSidecarRunningCommand,
+  getSidecarIndexCommand,
+  getSidecarVariantsCommand,
+  submitComboToSidecarCommand,
+  killSidecarCommand,
+} from "./sidecarCommands.js";
+
+export {
   checkForUpdatesCommand,
   installUpdateCommand,
 } from "./settingsCommands.js";

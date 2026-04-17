@@ -1,7 +1,7 @@
 use crate::models::card_model::{Card, CardType};
-use crate::models::combos::{THREE_CARD_COMBOS, TWO_CARD_COMBOS};
 use crate::models::crispi_patterns::{infer_roles, normalize_card_name, normalize_text};
 use crate::models::crispi_types::Role;
+use crate::models::sidecar_models::Variant;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -65,7 +65,7 @@ pub fn extract_tags(card: &Card) -> HashSet<Tag> {
     tags
 }
 
-pub fn compute_integration(cards: &[Card]) -> Vec<CardHeat> {
+pub fn compute_integration(cards: &[Card], sidecar_combos: &[Variant]) -> Vec<CardHeat> {
     let mut nodes: Vec<CardNode> = cards
         .iter()
         .map(|c| CardNode {
@@ -96,7 +96,7 @@ pub fn compute_integration(cards: &[Card]) -> Vec<CardHeat> {
             }
 
             // Rule 2 — Wincon Group Edge
-            if same_wincon_group(a, b) {
+            if same_wincon_group(a, b, sidecar_combos) {
                 points += 2.0;
             }
 
@@ -179,24 +179,16 @@ pub fn tutor_can_find(b: &Card, b_roles: &HashSet<Role>, a: &Card) -> bool {
     false
 }
 
-fn same_wincon_group(a: &Card, b: &Card) -> bool {
+fn same_wincon_group(a: &Card, b: &Card, sidecar_combos: &[Variant]) -> bool {
     let a_name = normalize_card_name(a.get_name());
     let b_name = normalize_card_name(b.get_name());
 
-    for combo in TWO_CARD_COMBOS {
-        let combo_a = normalize_card_name(combo.card_a);
-        let combo_b = normalize_card_name(combo.card_b);
-        if (a_name == combo_a && b_name == combo_b) || (a_name == combo_b && b_name == combo_a) {
-            return true;
-        }
-    }
-
-    for combo in THREE_CARD_COMBOS {
-        let names = [
-            normalize_card_name(combo.card_a),
-            normalize_card_name(combo.card_b),
-            normalize_card_name(combo.card_c),
-        ];
+    for combo in sidecar_combos {
+        let names: Vec<String> = combo
+            .card_names
+            .iter()
+            .map(|n| normalize_card_name(n))
+            .collect();
         if names.contains(&a_name) && names.contains(&b_name) {
             return true;
         }

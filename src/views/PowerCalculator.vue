@@ -13,6 +13,7 @@ const activeTool = ref("crispi"); // Default tool
 
 const crispiResults = ref(null);
 const isLoadingCrispi = ref(false);
+const crispiError = ref(null);
 
 const sortedRoles = computed(() => {
   if (!crispiResults.value) return [];
@@ -38,6 +39,7 @@ async function selectDeck(deckId) {
   const deckMeta = decks.value.find(deck => deck.id === deckId);
   pendingDeckName.value = deckMeta?.name || "";
   crispiResults.value = null;
+  crispiError.value = null;
   isLoadingCrispi.value = true;
   try {
     selectedDeck.value = await getDeckCommand(deckId);
@@ -46,25 +48,28 @@ async function selectDeck(deckId) {
     console.error("Failed to select deck", e);
     selectedDeck.value = null;
     crispiResults.value = null;
+    crispiError.value = "Failed to load deck data: " + e.message;
   } finally {
     pendingDeckName.value = "";
+    isLoadingCrispi.value = false;
   }
 }
 
 function deselectDeck() {
   selectedDeck.value = null;
   crispiResults.value = null;
+  crispiError.value = null;
   pendingDeckName.value = "";
 }
 
 async function runCrispi() {
   if (!selectedDeck.value) return;
+  crispiError.value = null;
   try {
     crispiResults.value = await evaluateDeckRolesCommand(selectedDeck.value.id);
   } catch (e) {
     console.error("CRISPI evaluation failed", e);
-  } finally {
-    isLoadingCrispi.value = false;
+    crispiError.value = "CRISPI Evaluation failed: " + e;
   }
 }
 
@@ -340,7 +345,22 @@ async function runMonteCarlo() {
       <v-window v-model="activeTool">
         <!-- CRISPI Tool -->
         <v-window-item value="crispi">
-          <v-row v-if="isLoadingCrispi && !crispiResults">
+          <v-row v-if="crispiError">
+            <v-col cols="12">
+              <v-alert
+                type="error"
+                variant="tonal"
+                title="Evaluation Failed"
+                :text="crispiError"
+                class="mb-4"
+              >
+                <template v-slot:append>
+                  <v-btn variant="text" color="error" @click="runCrispi">Retry</v-btn>
+                </template>
+              </v-alert>
+            </v-col>
+          </v-row>
+          <v-row v-if="isLoadingCrispi && !crispiResults && !crispiError">
             <v-col cols="12">
               <v-card variant="flat" border class="pa-6 mb-4">
                 <div class="d-flex align-center justify-space-between mb-4">
@@ -429,25 +449,49 @@ async function runMonteCarlo() {
                   </v-chip>
                 </div>
                 
-                <v-alert
-                  v-if="crispiResults.crispi.detected_combos.length > 0"
-                  density="compact"
-                  variant="tonal"
-                  color="error"
-                  class="mt-4 text-left"
-                >
-                  <div class="text-subtitle-2 font-weight-bold mb-1">Detected Infinite Combos:</div>
-                  <ul class="pl-4">
-                    <li v-for="combo in crispiResults.crispi.detected_combos" :key="combo" class="text-caption">
-                      {{ combo }}
-                    </li>
-                  </ul>
-                </v-alert>
+                <div v-if="crispiResults.crispi.detected_variants && crispiResults.crispi.detected_variants.length > 0" class="mt-4 text-left">
+                  <v-expansion-panels variant="accordion">
+                    <v-expansion-panel class="border-error">
+                      <v-expansion-panel-title class="py-2 text-error font-weight-bold">
+                        Detected Infinite Combos ({{ crispiResults.crispi.detected_variants.length }})
+                      </v-expansion-panel-title>
+                      <v-expansion-panel-text class="pa-0">
+                        <v-expansion-panels variant="accordion" class="mt-2">
+                          <v-expansion-panel
+                            v-for="combo in crispiResults.crispi.detected_variants"
+                            :key="combo.id"
+                            class="mb-1"
+                          >
+                            <v-expansion-panel-title class="py-2">
+                              <div class="text-caption font-weight-bold text-error">
+                                {{ combo.card_names.join(' + ') }}
+                              </div>
+                            </v-expansion-panel-title>
+                            <v-expansion-panel-text>
+                              <div class="mb-2">
+                                <div class="text-subtitle-2 font-weight-bold mb-1">Cards:</div>
+                                <ul class="ml-4">
+                                  <li v-for="card in combo.card_names" :key="card" class="text-caption">{{ card }}</li>
+                                </ul>
+                              </div>
+                              <div v-if="combo.results && combo.results.length">
+                                <div class="text-subtitle-2 font-weight-bold mb-1">Results:</div>
+                                <ul class="ml-4">
+                                  <li v-for="result in combo.results" :key="result" class="text-caption">{{ result }}</li>
+                                </ul>
+                              </div>
+                            </v-expansion-panel-text>
+                          </v-expansion-panel>
+                        </v-expansion-panels>
+                      </v-expansion-panel-text>
+                    </v-expansion-panel>
+                  </v-expansion-panels>
+                </div>
                 <v-chip
                   :color="getInterpretationColor(crispiResults.crispi.interpretation)"
                   size="large"
                   label
-                  class="text-uppercase font-weight-bold"
+                  class="text-uppercase font-weight-bold mt-4"
                 >
                   {{ crispiResults.crispi.interpretation }}
                 </v-chip>
@@ -745,6 +789,10 @@ async function runMonteCarlo() {
 
 .gap-4 {
   gap: 16px;
+}
+
+.border-error {
+  border: 1px solid rgb(var(--v-theme-error)) !important;
 }
 
 .w-100 {

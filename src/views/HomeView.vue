@@ -1,55 +1,22 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { getVersion } from "@tauri-apps/api/app";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { 
-  getRandomCardCommand,
-  createCollectionCardCommand
+  submitComboToSidecarCommand
 } from "../api/commands.js";
 import { releaseNotes } from "../data/releaseNotes.js";
+import CardViewer from "../components/CardViewer.vue";
 
 
-const randomCard = ref(null);
-const isFetchingRandom = ref(false);
-const randomCardError = ref("");
 const activeTab = ref("random-card");
-const appVersion = ref("0.1.4");
+const appVersion = ref("0.1.5");
+const combos = ref([]);
+const isFetchingCombos = ref(false);
+const selectedCombo = ref(null);
 
 const currentRelease = computed(() => {
   return releaseNotes.find((entry) => entry.version === appVersion.value) ?? releaseNotes[0] ?? null;
 });
-
-const randomCardImage = computed(() => {
-  if (!randomCard.value || !randomCard.value.image) return "";
-  const image = randomCard.value.image;
-  if (image.startsWith("http") || image.startsWith("data:")) {
-    return image;
-  }
-  return convertFileSrc(image);
-});
-
-async function handleGetRandomCard() {
-  isFetchingRandom.value = true;
-  randomCard.value = null;
-  randomCardError.value = "";
-  try {
-    randomCard.value = await getRandomCardCommand();
-  } catch (error) {
-    randomCardError.value = String(error);
-  } finally {
-    isFetchingRandom.value = false;
-  }
-} 
-
-async function handleAddToCollection() {
-  if (!randomCard.value) return;
-  try {
-    await createCollectionCardCommand(randomCard.value.name);
-    // You might want to show a success message here
-  } catch (error) {
-    console.error("Failed to add to collection:", error);
-  }
-}
 
 onMounted(async () => {
   try {
@@ -57,8 +24,6 @@ onMounted(async () => {
   } catch (error) {
     console.error("Failed to load app version:", error);
   }
-
-  await handleGetRandomCard();
 });
 </script>
 
@@ -86,44 +51,42 @@ onMounted(async () => {
       <v-window v-model="activeTab" class="home-window">
         <v-window-item value="random-card">
           <section class="panel-card random-card-section">
-            <div class="panel-copy">
-              <h2>Random Card Discovery</h2>
-              <p class="text-medium-emphasis mb-0">
-                Pull a random card into view and add it straight to your collection.
-              </p>
+            <div class="panel-copy text-center">
+              <div v-if="combos.length > 0" class="mt-6">
+                <v-select
+                  v-model="selectedCombo"
+                  :items="combos"
+                  item-title="name"
+                  item-value="id"
+                  label="Select a combo to view details"
+                  variant="outlined"
+                  return-object
+                ></v-select>
+
+                <v-expand-transition>
+                  <v-card v-if="selectedCombo" class="mt-2 combo-detail-card" variant="outlined">
+                    <v-card-text>
+                      <div class="mb-2">
+                        <strong>Cards:</strong>
+                        <ul class="ml-4">
+                          <li v-for="card in selectedCombo.card_names" :key="card">{{ card }}</li>
+                        </ul>
+                      </div>
+                      <div v-if="selectedCombo.results && selectedCombo.results.length">
+                        <strong>Results:</strong>
+                        <ul class="ml-4">
+                          <li v-for="result in selectedCombo.results" :key="result">{{ result }}</li>
+                        </ul>
+                      </div>
+                    </v-card-text>
+                  </v-card>
+                </v-expand-transition>
+              </div>
             </div>
 
-            <div class="random-card-layout">
-              <div class="random-card-container">
-                <div class="card-display">
-                  <div v-if="isFetchingRandom" class="d-flex align-center justify-center" style="height: 100%">
-                    <v-progress-circular indeterminate></v-progress-circular>
-                  </div>
-                  <template v-else-if="randomCard">
-                    <img v-if="randomCardImage" :src="randomCardImage" :alt="randomCard.name" class="random-card-img" />
-                    <div v-else class="card-art-placeholder">No Image Available</div>
-                  </template>
-                  <div v-else class="card-art-placeholder">No Card Found</div>
-                </div>
-              </div>
-                <div v-if="randomCardError" class="command-error">
-                  <strong>Error:</strong>
-                  <span>{{ randomCardError }}</span>
-                </div>
-                <v-btn
-                    class="mt-2"
-                    @click="handleAddToCollection"
-                    color="success"
-                    block
-                    :disabled="isFetchingRandom || !randomCard"
-                >
-                  Add to Collection
-                </v-btn>
-
-                <v-btn class="mt-2" @click="handleGetRandomCard" :disabled="isFetchingRandom" color="primary">
-                  Discover New Card
-                </v-btn>
-              </div>
+            <div class="mt-4">
+              <CardViewer />
+            </div>
           </section>
         </v-window-item>
 
@@ -231,65 +194,6 @@ onMounted(async () => {
   opacity: 0.9;
 }
 
-.command-error {
-  display: grid;
-  gap: 6px;
-  color: rgb(var(--v-theme-error));
-}
-
-.random-card-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.random-card-layout {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.random-card-details {
-  display: grid;
-  gap: 16px;
-}
-
-.card-meta {
-  display: grid;
-  gap: 8px;
-}
-
-.card-display {
-  width: 100%;
-  max-width: 280px;
-  aspect-ratio: 2.5 / 3.5;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-  background: #2a2a2a;
-}
-
-.random-card-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-.card-art-placeholder {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: #ccc;
-  font-weight: 600;
-}
-
-.oracle-text {
-  white-space: pre-line;
-  line-height: 1.6;
-}
 
 .release-meta {
   display: flex;
