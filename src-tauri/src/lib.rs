@@ -18,16 +18,27 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .on_window_event(|window, event| {
             match event {
-                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+                tauri::WindowEvent::CloseRequested { .. } => {
                     let state = window.state::<AppState>();
-                    // Only kill the sidecar if this is the last window being closed
                     let app_handle = window.app_handle();
                     let windows = app_handle.webview_windows();
-                    if windows.len() <= 1 {
-                        let mut sidecar_child = state.sidecar_child.write().unwrap();
-                        if let Some(child) = sidecar_child.take() {
-                            let _ = child.kill();
-                            println!("Sidecar process killed on last window event.");
+                    
+                    if window.label() == "main" {
+                         let mut sidecar_child = state.sidecar_child.write().unwrap();
+                         if let Some(child) = sidecar_child.take() {
+                             let _ = child.kill();
+                             println!("Sidecar process killed because main window is closing.");
+                         }
+                    } else {
+                        // For non-main windows, only kill if it's the last one
+                        // We count EXCEPT the one currently being closed
+                        let other_windows_count = windows.values().filter(|w| w.label() != window.label()).count();
+                        if other_windows_count == 0 {
+                            let mut sidecar_child = state.sidecar_child.write().unwrap();
+                            if let Some(child) = sidecar_child.take() {
+                                let _ = child.kill();
+                                println!("Sidecar process killed on last window closure ({}).", window.label());
+                            }
                         }
                     }
                 }
@@ -41,15 +52,22 @@ pub fn run() {
                 let _ = std::process::Command::new("taskkill")
                     .args(["/F", "/IM", "mtg-sidecar-x86_64-pc-windows-msvc.exe", "/T"])
                     .output();
+                // Brief sleep to allow port to be released
+                std::thread::sleep(std::time::Duration::from_millis(200));
             }
 
             let resource_dir = app.path().resource_dir().expect("failed to get resource dir");
+            let app_data_dir = app.path().local_data_dir().expect("failed to get app data dir").join("mtg_app");
+            let _ = std::fs::create_dir_all(&app_data_dir);
+            let index_db_path = app_data_dir.join("sidecar_index.db");
+            
             let db_dir = resource_dir.join("src/db");
             let scryfall_path = db_dir.join("scryfall.db");
 
             let sidecar_command = app.shell().sidecar("mtg-sidecar").unwrap()
                 .args(["--runtime-dir", resource_dir.join("src/db").to_str().unwrap()])
-                .args(["--db-path", scryfall_path.to_str().unwrap()]);
+                .args(["--db-path", scryfall_path.to_str().unwrap()])
+                .args(["--index-db-path", index_db_path.to_str().unwrap()]);
             
             let (mut rx, child) = sidecar_command
                 .spawn()

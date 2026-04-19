@@ -1,18 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { getVersion } from "@tauri-apps/api/app";
-import { 
-  submitComboToSidecarCommand
-} from "../api/commands.js";
 import { releaseNotes } from "../data/releaseNotes.js";
-import CardViewer from "../components/CardViewer.vue";
+import RandomCardViewer from "../components/RandomCardViewer.vue";
 
 
 const activeTab = ref("random-card");
 const appVersion = ref("0.1.5");
-const combos = ref([]);
-const isFetchingCombos = ref(false);
-const selectedCombo = ref(null);
 
 const currentRelease = computed(() => {
   return releaseNotes.find((entry) => entry.version === appVersion.value) ?? releaseNotes[0] ?? null;
@@ -51,41 +45,8 @@ onMounted(async () => {
       <v-window v-model="activeTab" class="home-window">
         <v-window-item value="random-card">
           <section class="panel-card random-card-section">
-            <div class="panel-copy text-center">
-              <div v-if="combos.length > 0" class="mt-6">
-                <v-select
-                  v-model="selectedCombo"
-                  :items="combos"
-                  item-title="name"
-                  item-value="id"
-                  label="Select a combo to view details"
-                  variant="outlined"
-                  return-object
-                ></v-select>
-
-                <v-expand-transition>
-                  <v-card v-if="selectedCombo" class="mt-2 combo-detail-card" variant="outlined">
-                    <v-card-text>
-                      <div class="mb-2">
-                        <strong>Cards:</strong>
-                        <ul class="ml-4">
-                          <li v-for="card in selectedCombo.card_names" :key="card">{{ card }}</li>
-                        </ul>
-                      </div>
-                      <div v-if="selectedCombo.results && selectedCombo.results.length">
-                        <strong>Results:</strong>
-                        <ul class="ml-4">
-                          <li v-for="result in selectedCombo.results" :key="result">{{ result }}</li>
-                        </ul>
-                      </div>
-                    </v-card-text>
-                  </v-card>
-                </v-expand-transition>
-              </div>
-            </div>
-
-            <div class="mt-4">
-              <CardViewer />
+            <div v-if="activeTab === 'random-card'" class="mt-4">
+              <RandomCardViewer />
             </div>
           </section>
         </v-window-item>
@@ -188,13 +149,6 @@ onMounted(async () => {
   gap: 8px;
 }
 
-.command-result {
-  display: grid;
-  gap: 6px;
-  opacity: 0.9;
-}
-
-
 .release-meta {
   display: flex;
   gap: 24px;
@@ -242,19 +196,5 @@ onMounted(async () => {
   border: 1px solid rgba(var(--v-border-color), 0.08);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.9rem;
-}
-
-@media (max-width: 860px) {
-  .random-card-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .random-card-container {
-    align-items: stretch;
-  }
-
-  .card-display {
-    margin: 0 auto;
-  }
 }
 </style>

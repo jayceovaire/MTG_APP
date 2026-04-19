@@ -1474,7 +1474,7 @@ fn test_three_card_combo() {
 
 #[test]
 fn test_combo_pieces_are_promoted_to_wincon_role() {
-    use crate::models::sidecar_models::Variant;
+    use crate::models::sidecar_models::{Variant, CardOrRef, FeatureOrRef};
 
     let mainboard = vec![
         make_card(
@@ -1492,17 +1492,17 @@ fn test_combo_pieces_are_promoted_to_wincon_role() {
     ];
     let commanders = vec![];
     let sidecar_combos = vec![Variant {
-        id: "thoracle-consult".to_string(),
+        id: serde_json::json!("thoracle-consult"),
         name: Some("Thoracle Consult".to_string()),
         deck_limit: None,
-        card_ids: vec![],
-        card_names: vec![
-            "Demonic Consultation".to_string(),
-            "Thassa's Oracle".to_string(),
-        ],
-        results: vec!["Win the game".to_string()],
-        prerequisites: vec![],
-        steps: vec![],
+        card_ids: None,
+        card_names: Some(vec![
+            CardOrRef::String("Demonic Consultation".to_string()),
+            CardOrRef::String("Thassa's Oracle".to_string()),
+        ]),
+        results: Some(vec![FeatureOrRef::String("Win the game".to_string())]),
+        prerequisites: None,
+        steps: None,
     }];
 
     let combo_piece_names =

@@ -449,26 +449,26 @@ async function runMonteCarlo() {
                   </v-chip>
                 </div>
                 
-                <div v-if="crispiResults.crispi.detected_variants && crispiResults.crispi.detected_variants.length > 0" class="mt-4 text-left">
+                <div v-if="crispiResults.combos && crispiResults.combos.length > 0" class="mt-4 text-left">
                   <v-expansion-panels variant="accordion">
                     <v-expansion-panel class="border-error">
                       <v-expansion-panel-title class="py-2 text-error font-weight-bold">
-                        Detected Infinite Combos ({{ crispiResults.crispi.detected_variants.length }})
+                        Detected Infinite Combos ({{ crispiResults.combos.length }})
                       </v-expansion-panel-title>
                       <v-expansion-panel-text class="pa-0">
                         <v-expansion-panels variant="accordion" class="mt-2">
                           <v-expansion-panel
-                            v-for="combo in crispiResults.crispi.detected_variants"
+                            v-for="combo in crispiResults.combos"
                             :key="combo.id"
                             class="mb-1"
                           >
                             <v-expansion-panel-title class="py-2">
                               <div class="text-caption font-weight-bold text-error">
-                                {{ combo.card_names.join(' + ') }}
+                                {{ (combo.card_names || []).join(' + ') }}
                               </div>
                             </v-expansion-panel-title>
                             <v-expansion-panel-text>
-                              <div class="mb-2">
+                              <div v-if="combo.card_names && combo.card_names.length" class="mb-2">
                                 <div class="text-subtitle-2 font-weight-bold mb-1">Cards:</div>
                                 <ul class="ml-4">
                                   <li v-for="card in combo.card_names" :key="card" class="text-caption">{{ card }}</li>
@@ -479,6 +479,18 @@ async function runMonteCarlo() {
                                 <ul class="ml-4">
                                   <li v-for="result in combo.results" :key="result" class="text-caption">{{ result }}</li>
                                 </ul>
+                              </div>
+                              <div v-if="combo.prerequisites && combo.prerequisites.length">
+                                <div class="text-subtitle-2 font-weight-bold mb-1">Prerequisites:</div>
+                                <ul class="ml-4">
+                                  <li v-for="pre in combo.prerequisites" :key="pre" class="text-caption">{{ pre }}</li>
+                                </ul>
+                              </div>
+                              <div v-if="combo.steps && combo.steps.length">
+                                <div class="text-subtitle-2 font-weight-bold mb-1">Steps:</div>
+                                <ol class="ml-4">
+                                  <li v-for="step in combo.steps" :key="step" class="text-caption">{{ step }}</li>
+                                </ol>
                               </div>
                             </v-expansion-panel-text>
                           </v-expansion-panel>

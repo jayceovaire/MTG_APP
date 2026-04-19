@@ -1063,19 +1063,86 @@ fn analyze_combos(
 
     let mut detected_combos = Vec::new();
     let mut detected_variants = Vec::new();
-    let mut storm_combo_count = 0;
-    let mut non_storm_combo_count = 0;
-    let mut combo_piece_names = HashSet::new();
-    let mut total_bonus = 0.0;
-    let mut any_combo_found = false;
-    let mut combo_bracket_floor = 0;
+
+    // --- INTERNAL COMBO DETECTION FALLBACK ---
+    // This allows basic combo detection even if the sidecar is offline or seeding.
+    let mut internal_combo_piece_names = HashSet::new();
+    let mut internal_storm_combo_count = 0;
+    let mut internal_non_storm_combo_count = 0;
+    let mut internal_any_combo_found = false;
+    let mut internal_combo_bracket_floor = 0;
+    let mut internal_total_bonus = 0.0;
+
+    // 1. Thoracle + Consult/Tainted Pact
+    let has_oracle = card_map.contains_key("thassa s oracle");
+    let has_consult = card_map.contains_key("demonic consultation");
+    let has_pact = card_map.contains_key("tainted pact");
+    if has_oracle && (has_consult || has_pact) {
+        let partner = if has_consult { "Demonic Consultation" } else { "Tainted Pact" };
+        detected_combos.push(format!("Thassa's Oracle + {} (Internal)", partner));
+        internal_combo_piece_names.insert("thassa s oracle".to_string());
+        internal_combo_piece_names.insert(normalize_card_name(partner));
+        internal_non_storm_combo_count += 1;
+        internal_combo_bracket_floor = internal_combo_bracket_floor.max(5);
+        internal_any_combo_found = true;
+        internal_total_bonus += 0.20; // Premium bonus
+    }
+
+    // 2. Underworld Breach + LED + Brain Freeze
+    let has_breach = card_map.contains_key("underworld breach");
+    let has_led = card_map.contains_key("lion s eye diamond");
+    let has_freeze = card_map.contains_key("brain freeze");
+    if has_breach && has_led && has_freeze {
+        detected_combos.push("Underworld Breach + Lion's Eye Diamond + Brain Freeze (Internal)".to_string());
+        internal_combo_piece_names.insert("underworld breach".to_string());
+        internal_combo_piece_names.insert("lion s eye diamond".to_string());
+        internal_combo_piece_names.insert("brain freeze".to_string());
+        internal_storm_combo_count += 1;
+        internal_combo_bracket_floor = internal_combo_bracket_floor.max(5);
+        internal_any_combo_found = true;
+        internal_total_bonus += 0.25;
+    }
+
+    // 3. Heliod + Ballista
+    let has_heliod = card_map.contains_key("heliod sun crowned");
+    let has_ballista = card_map.contains_key("walking ballista");
+    if has_heliod && has_ballista {
+        detected_combos.push("Heliod, Sun-Crowned + Walking Ballista (Internal)".to_string());
+        internal_combo_piece_names.insert("heliod sun crowned".to_string());
+        internal_combo_piece_names.insert("walking ballista".to_string());
+        internal_non_storm_combo_count += 1;
+        internal_combo_bracket_floor = internal_combo_bracket_floor.max(4);
+        internal_any_combo_found = true;
+        internal_total_bonus += 0.15;
+    }
+
+    // 4. Exquisite Blood + Sanguine Bond
+    let has_exquisite = card_map.contains_key("exquisite blood");
+    let has_sanguine = card_map.contains_key("sanguine bond") || card_map.contains_key("vito thorn of the dusk rose");
+    if has_exquisite && has_sanguine {
+        let partner = if card_map.contains_key("sanguine bond") { "Sanguine Bond" } else { "Vito, Thorn of the Dusk Rose" };
+        detected_combos.push(format!("Exquisite Blood + {} (Internal)", partner));
+        internal_combo_piece_names.insert("exquisite blood".to_string());
+        internal_combo_piece_names.insert(normalize_card_name(partner));
+        internal_non_storm_combo_count += 1;
+        internal_combo_bracket_floor = internal_combo_bracket_floor.max(3);
+        internal_any_combo_found = true;
+        internal_total_bonus += 0.10;
+    }
+
+    let mut storm_combo_count = internal_storm_combo_count;
+    let mut non_storm_combo_count = internal_non_storm_combo_count;
+    let mut combo_piece_names = internal_combo_piece_names;
+    let mut total_bonus = internal_total_bonus;
+    let mut any_combo_found = internal_any_combo_found;
+    let mut combo_bracket_floor = internal_combo_bracket_floor;
     let tutor_influence = (tutor_count as f32 * 0.01).min(0.15);
 
     for combo in sidecar_combos {
         any_combo_found = true;
         detected_variants.push(combo.clone());
 
-        let num_cards = combo.card_names.len();
+        let num_cards = combo.card_names.as_ref().map(|v| v.len()).unwrap_or(0);
         match num_cards {
             2 => combo_bracket_floor = combo_bracket_floor.max(4),
             3 => combo_bracket_floor = combo_bracket_floor.max(3),
@@ -1084,18 +1151,28 @@ fn analyze_combos(
         }
 
         let mut combo_cards = Vec::new();
-        for name in &combo.card_names {
-            let norm_name = normalize_card_name(name);
-            combo_piece_names.insert(norm_name.clone());
-            if let Some(card) = card_map.get(&norm_name) {
-                combo_cards.push(*card);
+        if let Some(card_names) = &combo.card_names {
+            for name_or_ref in card_names {
+                let norm_name = normalize_card_name(&name_or_ref.name());
+                combo_piece_names.insert(norm_name.clone());
+                if let Some(card) = card_map.get(&norm_name) {
+                    combo_cards.push(*card);
+                }
             }
         }
 
         let combo_desc = format!(
             "{} ({})",
-            combo.card_names.join(" + "),
-            combo.results.join(", ")
+            combo
+                .card_names
+                .as_ref()
+                .map(|v| v.iter().map(|n| n.name()).collect::<Vec<_>>().join(" + "))
+                .unwrap_or_default(),
+            combo
+                .results
+                .as_ref()
+                .map(|v| v.iter().map(|f| f.name()).collect::<Vec<_>>().join(", "))
+                .unwrap_or_default()
         );
         detected_combos.push(combo_desc);
 

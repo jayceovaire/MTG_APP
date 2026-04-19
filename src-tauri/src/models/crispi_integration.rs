@@ -184,13 +184,14 @@ fn same_wincon_group(a: &Card, b: &Card, sidecar_combos: &[Variant]) -> bool {
     let b_name = normalize_card_name(b.get_name());
 
     for combo in sidecar_combos {
-        let names: Vec<String> = combo
-            .card_names
-            .iter()
-            .map(|n| normalize_card_name(n))
-            .collect();
-        if names.contains(&a_name) && names.contains(&b_name) {
-            return true;
+        if let Some(card_names) = &combo.card_names {
+            let names: Vec<String> = card_names
+                .iter()
+                .map(|n| normalize_card_name(&n.name()))
+                .collect();
+            if names.contains(&a_name) && names.contains(&b_name) {
+                return true;
+            }
         }
     }
 

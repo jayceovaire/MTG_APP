@@ -8,6 +8,7 @@ export {
   duplicateDeckCommand,
   getDecksCommand,
   getDeckCommand,
+  getCardCommand,
   addCardToDeckCommand,
   searchCardSuggestionsCommand,
   removeCardFromDeckCommand,
