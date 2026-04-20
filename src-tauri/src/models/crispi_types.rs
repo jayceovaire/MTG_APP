@@ -34,6 +34,8 @@ pub enum Role {
     PROLIFERATE,
     STORM_PAYOFF,
     MAGECRAFT,
+    LAND_DESTRUCTION,
+    MASS_LAND_DESTRUCTION,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

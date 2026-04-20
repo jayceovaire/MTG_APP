@@ -797,8 +797,17 @@ pub fn calculate_crispi(
     let provisional_total_score = (raw_score * final_multiplier - commander_mv_penalty)
         .min(25.0)
         .max(0.0);
-    let provisional_bracket =
+    let mut provisional_bracket =
         derive_bracket(n_gc, combo_bracket_floor, provisional_total_score, amv);
+
+    let has_mld = cached_mainboard
+        .iter()
+        .chain(cached_commanders.iter())
+        .any(|c| c.roles.contains(&Role::MASS_LAND_DESTRUCTION));
+
+    if has_mld {
+        provisional_bracket = provisional_bracket.max(4);
+    }
     let color_fixing = assess_color_fixing(&color_fixing_profile, provisional_bracket);
     let key_turn = if provisional_bracket >= 5 {
         3
@@ -905,7 +914,11 @@ pub fn calculate_crispi(
     .to_string();
 
     // Bracket Calculation
-    let bracket = derive_bracket(n_gc, combo_bracket_floor, total_score, amv);
+    let mut bracket = derive_bracket(n_gc, combo_bracket_floor, total_score, amv);
+
+    if has_mld {
+        bracket = bracket.max(4);
+    }
 
     let consistency = CrispiDimension {
         score: consistency_score,

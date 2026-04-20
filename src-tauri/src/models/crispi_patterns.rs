@@ -287,6 +287,20 @@ static MAGECRAFT_PATTERNS: &[&str] = &[
     r"whenever you cast or copy an instant or sorcery spell",
 ];
 
+static LAND_DESTRUCTION_PATTERNS: &[&str] = &[
+    r"destroy target land",
+    r"exile target land",
+    r"sacrifice target land",
+];
+
+static MASS_LAND_DESTRUCTION_PATTERNS: &[&str] = &[
+    r"destroy all lands",
+    r"exile all lands",
+    r"sacrifice all lands",
+    r"each player sacrifices all lands",
+    r"destroy each land",
+];
+
 static RAMP_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
     RAMP_PATTERNS
         .iter()
@@ -463,6 +477,18 @@ static STORM_PAYOFF_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
 });
 static MAGECRAFT_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
     MAGECRAFT_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static LAND_DESTRUCTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    LAND_DESTRUCTION_PATTERNS
+        .iter()
+        .map(|p| Regex::new(p).unwrap())
+        .collect()
+});
+static MASS_LAND_DESTRUCTION_REGEX: Lazy<Vec<Regex>> = Lazy::new(|| {
+    MASS_LAND_DESTRUCTION_PATTERNS
         .iter()
         .map(|p| Regex::new(p).unwrap())
         .collect()
@@ -709,6 +735,18 @@ pub fn infer_roles(card: &Card) -> HashSet<Role> {
         }
         if MAGECRAFT_REGEX.iter().any(|re| re.is_match(&normalized)) {
             roles.insert(Role::MAGECRAFT);
+        }
+
+        if MASS_LAND_DESTRUCTION_REGEX
+            .iter()
+            .any(|re| re.is_match(&normalized))
+        {
+            roles.insert(Role::MASS_LAND_DESTRUCTION);
+        } else if LAND_DESTRUCTION_REGEX
+            .iter()
+            .any(|re| re.is_match(&normalized))
+        {
+            roles.insert(Role::LAND_DESTRUCTION);
         }
 
         if FAST_MANA_REGEX.iter().any(|re| re.is_match(&normalized))
