@@ -1,5 +1,18 @@
 export const releaseNotes = [
   {
+    version: "0.1.6",
+    publishedOn: "2026-04-29",
+    headline: "Rebranding, combo integration, and advanced synergy metrics.",
+    bullets: [
+      "Rebranded application to 'Anura' and updated developer to 'Aesir Software'.",
+      "Integrated Commander Spellbook Sidecar for advanced infinite combo detection (2-card and 3-card).",
+      "Introduced Integration Metrics to measure card-level synergy and deck network density.",
+      "Added detection for Land Destruction and Mass Land Destruction roles.",
+      "Improved card viewer and UI layouts across collection and deck builders.",
+      "Standardized User-Agent strings and local data persistence paths."
+    ],
+  },
+  {
     version: "0.1.5",
     publishedOn: "2026-04-16",
     headline: "Sidecar integration fixes and combo detection improvements.",

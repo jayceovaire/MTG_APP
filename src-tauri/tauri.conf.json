@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "mtg_app",
-  "version": "0.1.5",
-  "identifier": "com.josh.mtg-app",
+  "productName": "Anura",
+  "version": "0.1.6",
+  "identifier": "com.aesir-software.anura",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "mtg_app",
+        "title": "Anura",
         "url": "index.html",
         "width": 800,
         "height": 600

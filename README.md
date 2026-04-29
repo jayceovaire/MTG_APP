@@ -1,12 +1,12 @@
-# MTG App
+# Anura
 
-MTG App is a desktop Magic: The Gathering companion built with Tauri, Vue 3, Vuetify, and Rust. It combines collection tracking, deck and package management, card image caching, commander-aware deck editing, and deck analysis tooling in a single local-first application.
+Anura is a desktop Magic: The Gathering companion built with Tauri, Vue 3, Vuetify, and Rust. It combines collection tracking, deck and package management, card image caching, commander-aware deck editing, and deck analysis tooling in a single local-first application.
 
 The app is designed around a simple idea: keep the responsive UI in Vue, keep stateful and file-backed operations in Rust, and persist user data locally so the app remains fast and usable without requiring an online account or hosted backend.
 
 ## What The App Does
 
-MTG App currently focuses on six core workflows:
+Anura currently focuses on six core workflows:
 
 - Build and maintain Commander decks with a desktop-first editing experience.
 - Organize reusable packages of cards that can be applied across multiple decks.
@@ -204,9 +204,9 @@ Current persisted tables include:
 
 The user database lives under the local app data directory in:
 
-- Windows: `%LOCALAPPDATA%\mtg_app\user_data.db`
-- macOS: `~/Library/Application Support/mtg_app/user_data.db`
-- Linux: `~/.local/share/mtg_app/user_data.db`
+- Windows: `%LOCALAPPDATA%\Anura\user_data.db`
+- macOS: `~/Library/Application Support/Anura/user_data.db`
+- Linux: `~/.local/share/Anura/user_data.db`
 
 Card images are cached separately under the same app data root in a `card_images` directory.
 

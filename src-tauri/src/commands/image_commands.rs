@@ -52,7 +52,7 @@ pub async fn fetch_card_images(
         .path()
         .local_data_dir()
         .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
-        .join("mtg_app")
+        .join("Anura")
         .join("card_images");
 
     let is_all = all.unwrap_or(false);
@@ -63,7 +63,7 @@ pub async fn fetch_card_images(
     }
 
     let client = reqwest::Client::builder()
-        .user_agent("MTG_App/0.1.0 (contact: support@mtg_app.local)")
+        .user_agent("Anura/0.1.6 (contact: support@aesir-software.com)")
         .build()
         .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
 
@@ -538,7 +538,7 @@ pub async fn get_most_recent_cached_image(app: AppHandle) -> Result<Option<Strin
         .path()
         .local_data_dir()
         .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
-        .join("mtg_app")
+        .join("Anura")
         .join("card_images");
 
     if !cache_dir.exists() {

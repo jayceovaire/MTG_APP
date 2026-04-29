@@ -57,7 +57,7 @@ pub fn run() {
             }
 
             let resource_dir = app.path().resource_dir().expect("failed to get resource dir");
-            let app_data_dir = app.path().local_data_dir().expect("failed to get app data dir").join("mtg_app");
+            let app_data_dir = app.path().local_data_dir().expect("failed to get app data dir").join("Anura");
             let _ = std::fs::create_dir_all(&app_data_dir);
             let index_db_path = app_data_dir.join("sidecar_index.db");
             

@@ -32,6 +32,8 @@ const glossary = [
   { term: "Group Hug", icon: mdiSwapHorizontal, color: "pink", desc: "Symmetrical effects that benefit all players. Common in casual and political decks." },
   { term: "Infect", icon: mdiSeal, color: "light-green-darken-4", desc: "Cards that apply poison through infect, toxic, or direct poison-counter effects. Proliferate supports this plan only when the deck already has strong poison support." },
   { term: "Storm Payoff", icon: mdiWeatherPouring, color: "cyan", desc: "Cards that reward casting multiple spells (like Storm mechanics, Magecraft, or 'whenever you cast a spell' effects). Essential for storm-focused decks." },
+  { term: "Land Destruction", icon: mdiGestureTap, color: "brown", desc: "Cards that destroy or exile individual lands. Can be used for targeted removal or tempo." },
+  { term: "Mass Land Destruction", icon: mdiWeatherPouring, color: "deep-orange", desc: "Effects that clear most or all lands from the battlefield. High-impact reset buttons." },
 ];
 
 const archetypes = [
@@ -436,7 +438,7 @@ const scoringBonuses = [
       <v-col cols="12">
         <v-card variant="outlined" class="pa-4">
           <p class="mb-4 text-body-1">
-            CRISPI automatically detects two and three-card infinite combos. Finding a valid combo significantly increases your deck's power score and ensures it is placed in <strong>Bracket 4</strong> or higher.
+            CRISPI automatically detects two and three-card infinite combos using the Commander Spellbook database. Finding a valid combo significantly increases your deck's power score and ensures it is placed in <strong>Bracket 4</strong> or higher.
           </p>
           <v-row>
             <v-col cols="12" md="6">
@@ -481,6 +483,47 @@ const scoringBonuses = [
       </v-col>
     </v-row>
 
+    <!-- Integration Metrics -->
+    <v-row class="mb-8 mt-4">
+      <v-col cols="12">
+        <h2 class="text-h4 mb-4 d-flex align-center">
+          <v-icon :icon="mdiChartBar" class="mr-2" color="primary"></v-icon>
+          Integration Metrics
+        </h2>
+        <v-divider class="mb-6"></v-divider>
+      </v-col>
+      <v-col cols="12">
+        <v-card variant="outlined" class="pa-4">
+          <p class="mb-4 text-body-1">
+            Integration represents the <strong>synergy network</strong> of your deck. It measures how many meaningful relationships a card has with the rest of the 99. A card with 100% integration is a core pillar of your strategy, while low integration suggests a card might be a "dead draw" or lacks support.
+          </p>
+          <h3 class="text-h6 mb-3">The 4 Rules of Integration</h3>
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-card variant="tonal" color="blue" class="pa-4 mb-4">
+                <div class="font-weight-bold mb-1">1. Tutor Edges</div>
+                <div class="text-body-2">Points are awarded when a Tutor in the deck can search for this specific card. The Tutor also gains integration for having valid targets.</div>
+              </v-card>
+              <v-card variant="tonal" color="green" class="pa-4 mb-4">
+                <div class="font-weight-bold mb-1">2. Wincon Group Edges</div>
+                <div class="text-body-2">Significant points are awarded if two cards appear together in a detected infinite combo. This highlights your primary victory paths.</div>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="6">
+              <v-card variant="tonal" color="purple" class="pa-4 mb-4">
+                <div class="font-weight-bold mb-1">3. Engine Tag Edges</div>
+                <div class="text-body-2">Cards gain integration if they share "Engine Tags" (e.g., both care about the Graveyard, Artifacts, or Storm/Casting).</div>
+              </v-card>
+              <v-card variant="tonal" color="amber" class="pa-4 mb-4">
+                <div class="font-weight-bold mb-1">4. Type Dependency Edges</div>
+                <div class="text-body-2">Points are given when a card explicitly mentions a type that another card possesses (e.g., a card that rewards you for having Artifacts).</div>
+              </v-card>
+            </v-col>
+          </v-row>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <!-- Why was my deck scored this way? -->
     <v-row class="mb-8 mt-4">
       <v-col cols="12">
@@ -497,6 +540,10 @@ const scoringBonuses = [
             text="CRISPI requires a specific 'Signal Floor' to qualify for specialized archetypes. If your deck has a few pieces of fast mana but lacks the critical mass of burst draw or rituals to sustain that velocity, it falls back to Midrange, the most flexible and common category."
           ></v-expansion-panel>
           <v-expansion-panel
+            title="What are 'Integration Metrics'?"
+            text="Integration measures how well cards in your deck synergize with each other. It tracks relationships like tutors finding specific targets, cards belonging to the same infinite combo, or shared engine tags (like graveyard or artifact focus). High integration suggests a highly cohesive and optimized list."
+          ></v-expansion-panel>
+          <v-expansion-panel
             title="How does the Average Mana Value (AMV) affect my score?"
             text="The AMV multiplier is a major efficiency factor. A deck with a low AMV (under 2.0) receives a significant bonus, while a deck with a high AMV (over 3.0) receives a penalty. This reflects the inherent power of being able to cast more spells per turn."
           ></v-expansion-panel>
@@ -507,6 +554,10 @@ const scoringBonuses = [
           <v-expansion-panel
             title="Why did my score jump after adding a combo?"
             text="Deterministic infinite combos are significant power multipliers. CRISPI detects these automatically. Having a compact win condition that requires minimal setup is the most direct way to move into higher power brackets."
+          ></v-expansion-panel>
+          <v-expansion-panel
+            title="What are 'Integration Metrics'?"
+            text="Integration measures how well cards in your deck synergize with each other. It tracks relationships like tutors finding specific targets, cards belonging to the same infinite combo, or shared engine tags (like graveyard or artifact focus). High integration suggests a highly cohesive and optimized list."
           ></v-expansion-panel>
         </v-expansion-panels>
       </v-col>

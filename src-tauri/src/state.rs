@@ -28,7 +28,7 @@ impl AppState {
             .path()
             .local_data_dir()
             .map_err(|e| format!("Failed to resolve local app data directory: {e}"))?
-            .join("mtg_app");
+            .join("Anura");
         fs::create_dir_all(&app_data_dir)
             .map_err(|e| format!("Failed to create app data directory: {e}"))?;
 
