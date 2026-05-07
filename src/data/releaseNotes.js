@@ -1,5 +1,17 @@
 export const releaseNotes = [
   {
+    version: "0.1.7",
+    publishedOn: "2026-05-06",
+    headline: "Enhanced combo data and improved metadata mapping.",
+    bullets: [
+      "Fixed missing combo steps and instructions in the Power Calculator and Card Viewer.",
+      "Implemented a robust fallback mechanism for sidecar data to ensure full instructions are always shown.",
+      "Integrated ManaText component for correct rendering of mana symbols and action icons in combo steps.",
+      "Improved combo deduplication logic and increased sidecar connection resilience.",
+      "Bumped application version to 0.1.7 and updated signing configuration."
+    ],
+  },
+  {
     version: "0.1.6",
     publishedOn: "2026-04-29",
     headline: "Rebranding, combo integration, and advanced synergy metrics.",
