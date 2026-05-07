@@ -154,12 +154,23 @@ pub async fn evaluate_deck_roles(
 
     // Merge internal detected variants into the combos list
     for v in &crispi.detected_variants {
-        // Avoid duplicates if sidecar already found it (optional, but good for UX)
+        // Avoid duplicates if sidecar already found it
         let card_names: Vec<String> = v.card_names.as_ref()
             .map(|list| list.iter().map(|c| c.name()).collect())
             .unwrap_or_default();
             
-        if !sidecar_combos.iter().any(|c| c.card_names == card_names) {
+        // Check if this combo is already present in sidecar_combos (ignoring case and order)
+        let mut v_sorted = card_names.clone();
+        v_sorted.sort();
+        let v_joined = v_sorted.join("|").to_lowercase();
+
+        let exists = sidecar_combos.iter().any(|c| {
+            let mut c_sorted = c.card_names.clone();
+            c_sorted.sort();
+            c_sorted.join("|").to_lowercase() == v_joined
+        });
+
+        if !exists {
             sidecar_combos.push(SimpleVariant {
                 id: v.id.clone(),
                 name: v.name.clone(),
@@ -240,9 +251,9 @@ async fn fetch_sidecar_combos(
     let url = "http://127.0.0.1:8000/find-my-combos";
     let mut last_error = String::new();
 
-    // Retry up to 30 times (increased from 15) with a delay if connection fails (e.g. sidecar still seeding)
-    // Seeding can take up to 60-90 seconds on first run with large databases.
-    for i in 0..30 {
+    // Retry up to 45 times (increased from 30) with a delay if connection fails (e.g. sidecar still seeding)
+    // Seeding can take up to 90-120 seconds on first run with large databases.
+    for i in 0..45 {
         match client.post(url).json(&body).send().await {
             Ok(response) => {
                 if response.status().is_success() {
@@ -267,5 +278,5 @@ async fn fetch_sidecar_combos(
         }
     }
 
-    Err(format!("Sidecar combo fetch failed after 30 attempts. Last error: {}", last_error))
+    Err(format!("Sidecar combo fetch failed after 45 attempts. Last error: {}", last_error))
 }

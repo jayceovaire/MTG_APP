@@ -1092,13 +1092,33 @@ fn analyze_combos(
     let has_pact = card_map.contains_key("tainted pact");
     if has_oracle && (has_consult || has_pact) {
         let partner = if has_consult { "Demonic Consultation" } else { "Tainted Pact" };
+        let partner_norm = normalize_card_name(partner);
         detected_combos.push(format!("Thassa's Oracle + {} (Internal)", partner));
         internal_combo_piece_names.insert("thassa s oracle".to_string());
-        internal_combo_piece_names.insert(normalize_card_name(partner));
+        internal_combo_piece_names.insert(partner_norm.clone());
         internal_non_storm_combo_count += 1;
         internal_combo_bracket_floor = internal_combo_bracket_floor.max(5);
         internal_any_combo_found = true;
         internal_total_bonus += 0.20; // Premium bonus
+        
+        detected_variants.push(Variant {
+            id: serde_json::json!("internal-thoracle"),
+            name: Some("Thassa's Oracle + Consultation".to_string()),
+            card_ids: None,
+            card_names: Some(vec![
+                crate::models::sidecar_models::CardOrRef::String("Thassa's Oracle".to_string()),
+                crate::models::sidecar_models::CardOrRef::String(partner.to_string()),
+            ]),
+            results: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Win the game".to_string())]),
+            prerequisites: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("All cards in hand. Mana to cast both.".to_string())]),
+            steps: Some(vec![
+                crate::models::sidecar_models::FeatureOrRef::String("Cast Thassa's Oracle.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("In response to the ETB trigger, cast Demonic Consultation or Tainted Pact.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Exile your entire library.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Thassa's Oracle trigger resolves, you win the game.".to_string()),
+            ]),
+            deck_limit: None,
+        });
     }
 
     // 2. Underworld Breach + LED + Brain Freeze
@@ -1114,6 +1134,26 @@ fn analyze_combos(
         internal_combo_bracket_floor = internal_combo_bracket_floor.max(5);
         internal_any_combo_found = true;
         internal_total_bonus += 0.25;
+        
+        detected_variants.push(Variant {
+            id: serde_json::json!("internal-breach"),
+            name: Some("Underworld Breach + LED + Brain Freeze".to_string()),
+            card_ids: None,
+            card_names: Some(vec![
+                crate::models::sidecar_models::CardOrRef::String("Underworld Breach".to_string()),
+                crate::models::sidecar_models::CardOrRef::String("Lion's Eye Diamond".to_string()),
+                crate::models::sidecar_models::CardOrRef::String("Brain Freeze".to_string()),
+            ]),
+            results: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Infinite storm".to_string()), crate::models::sidecar_models::FeatureOrRef::String("Infinite self-mill".to_string())]),
+            prerequisites: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Underworld Breach on battlefield. LED and Brain Freeze in hand or graveyard.".to_string())]),
+            steps: Some(vec![
+                crate::models::sidecar_models::FeatureOrRef::String("Cast Lion's Eye Diamond.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Sacrifice LED for 3 blue mana.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Escape Brain Freeze, targeting yourself.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Repeat to mill your library and build storm.".to_string()),
+            ]),
+            deck_limit: None,
+        });
     }
 
     // 3. Heliod + Ballista
@@ -1127,6 +1167,25 @@ fn analyze_combos(
         internal_combo_bracket_floor = internal_combo_bracket_floor.max(4);
         internal_any_combo_found = true;
         internal_total_bonus += 0.15;
+        
+        detected_variants.push(Variant {
+            id: serde_json::json!("internal-heliod"),
+            name: Some("Heliod + Walking Ballista".to_string()),
+            card_ids: None,
+            card_names: Some(vec![
+                crate::models::sidecar_models::CardOrRef::String("Heliod, Sun-Crowned".to_string()),
+                crate::models::sidecar_models::CardOrRef::String("Walking Ballista".to_string()),
+            ]),
+            results: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Infinite damage".to_string()), crate::models::sidecar_models::FeatureOrRef::String("Infinite lifegain".to_string())]),
+            prerequisites: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Heliod on battlefield. Ballista in hand or on battlefield with at least 2 counters.".to_string())]),
+            steps: Some(vec![
+                crate::models::sidecar_models::FeatureOrRef::String("Give Walking Ballista lifelink using Heliod's ability.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Remove a counter from Ballista to deal 1 damage to an opponent.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Heliod triggers from the lifegain, putting a counter back on Ballista.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("Repeat for infinite damage.".to_string()),
+            ]),
+            deck_limit: None,
+        });
     }
 
     // 4. Exquisite Blood + Sanguine Bond
@@ -1141,6 +1200,23 @@ fn analyze_combos(
         internal_combo_bracket_floor = internal_combo_bracket_floor.max(3);
         internal_any_combo_found = true;
         internal_total_bonus += 0.10;
+        
+        detected_variants.push(Variant {
+            id: serde_json::json!("internal-exquisite"),
+            name: Some(format!("Exquisite Blood + {}", partner)),
+            card_ids: None,
+            card_names: Some(vec![
+                crate::models::sidecar_models::CardOrRef::String("Exquisite Blood".to_string()),
+                crate::models::sidecar_models::CardOrRef::String(partner.to_string()),
+            ]),
+            results: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Infinite life loss for opponents".to_string()), crate::models::sidecar_models::FeatureOrRef::String("Infinite lifegain".to_string())]),
+            prerequisites: Some(vec![crate::models::sidecar_models::FeatureOrRef::String("Both cards on the battlefield. A way to cause life loss or gain life.".to_string())]),
+            steps: Some(vec![
+                crate::models::sidecar_models::FeatureOrRef::String("Gain life or cause an opponent to lose life.".to_string()),
+                crate::models::sidecar_models::FeatureOrRef::String("This triggers one of the pieces, which then triggers the other in a loop.".to_string()),
+            ]),
+            deck_limit: None,
+        });
     }
 
     let mut storm_combo_count = internal_storm_combo_count;

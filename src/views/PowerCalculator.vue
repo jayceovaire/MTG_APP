@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
+import ManaText from "../components/ManaText.vue";
 import { getDecksCommand, getDeckCommand } from "../api/deckCommands.js";
 import { evaluateDeckRolesCommand } from "../api/crispiCommands.js";
 import DeckTile from "../components/DeckTile.vue";
@@ -474,22 +475,28 @@ async function runMonteCarlo() {
                                   <li v-for="card in combo.card_names" :key="card" class="text-caption">{{ card }}</li>
                                 </ul>
                               </div>
-                              <div v-if="combo.results && combo.results.length">
+                              <div v-if="combo.results && combo.results.length" class="mb-2">
                                 <div class="text-subtitle-2 font-weight-bold mb-1">Results:</div>
-                                <ul class="ml-4">
-                                  <li v-for="result in combo.results" :key="result" class="text-caption">{{ result }}</li>
+                                <ul class="ml-4 text-success">
+                                  <li v-for="result in combo.results" :key="result" class="text-caption font-weight-bold">
+                                    <ManaText :text="result" />
+                                  </li>
                                 </ul>
                               </div>
-                              <div v-if="combo.prerequisites && combo.prerequisites.length">
+                              <div v-if="combo.prerequisites && combo.prerequisites.length" class="mb-2">
                                 <div class="text-subtitle-2 font-weight-bold mb-1">Prerequisites:</div>
                                 <ul class="ml-4">
-                                  <li v-for="pre in combo.prerequisites" :key="pre" class="text-caption">{{ pre }}</li>
+                                  <li v-for="pre in combo.prerequisites" :key="pre" class="text-caption">
+                                    <ManaText :text="pre" />
+                                  </li>
                                 </ul>
                               </div>
                               <div v-if="combo.steps && combo.steps.length">
                                 <div class="text-subtitle-2 font-weight-bold mb-1">Steps:</div>
                                 <ol class="ml-4">
-                                  <li v-for="step in combo.steps" :key="step" class="text-caption">{{ step }}</li>
+                                  <li v-for="step in combo.steps" :key="step" class="text-caption">
+                                    <ManaText :text="step" />
+                                  </li>
                                 </ol>
                               </div>
                             </v-expansion-panel-text>
