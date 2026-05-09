@@ -63,7 +63,7 @@ pub async fn fetch_card_images(
     }
 
     let client = reqwest::Client::builder()
-        .user_agent("Anura/0.1.6 (contact: support@aesir-software.com)")
+        .user_agent("Anura/0.1.7 (contact: support@aesir-software.com)")
         .build()
         .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
 

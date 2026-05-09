@@ -536,7 +536,7 @@ pub async fn get_card(app: AppHandle, name: String) -> Result<Option<Card>, Stri
         }
 
         let client = reqwest::Client::builder()
-            .user_agent("Anura/0.1.6 (contact: support@aesir-software.com)")
+            .user_agent("Anura/0.1.7 (contact: support@aesir-software.com)")
             .build()
             .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
 
@@ -705,7 +705,7 @@ pub async fn get_random_card(app: AppHandle) -> Result<Option<Card>, String> {
         }
 
         let client = reqwest::Client::builder()
-            .user_agent("Anura/0.1.6 (contact: support@aesir-software.com)")
+            .user_agent("Anura/0.1.7 (contact: support@aesir-software.com)")
             .build()
             .map_err(|e| format!("Failed to create reqwest client: {e}"))?;
 
